@@ -91,9 +91,18 @@ class TransitWidget : AppWidgetProvider() {
                 views.removeAllViews(R.id.llArrivals)
                 for (arrival in arrivals) {
                     val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
-                    val minutesAway = ((arrival.arrivalTimestamp - now) / 60000).toInt()
-                    val minutesText = if (minutesAway < 1) "Now" else "${minutesAway} min"
-                    rowViews.setTextViewText(R.id.tvHeadsign, arrival.headsign)
+                    val millisAway = arrival.arrivalTimestamp - now
+                    val minutesAway = (millisAway / 60000).toInt()
+                    val secondsAway = ((millisAway % 60000) / 1000).toInt()
+                    val minutesText = when {
+                        millisAway < 0 -> "Departed"
+                        minutesAway == 0 -> "${secondsAway}sec"
+                        else -> "${minutesAway}min ${secondsAway}sec"
+                    }
+                    rowViews.setTextViewText(
+                        R.id.tvHeadsign,
+                        "${arrival.routeName} to ${arrival.headsign}"
+                    )
                     rowViews.setTextViewText(R.id.tvMinutes, minutesText)
                     views.addView(R.id.llArrivals, rowViews)
                 }
