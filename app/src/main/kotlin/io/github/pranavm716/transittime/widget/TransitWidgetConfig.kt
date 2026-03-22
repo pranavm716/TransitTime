@@ -63,18 +63,43 @@ class TransitWidgetConfig : AppCompatActivity() {
         resultsAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
         lvResults.adapter = resultsAdapter
 
-        // Load stops in background
-        CoroutineScope(Dispatchers.IO).launch {
-            BartParser.loadStaticGtfs(applicationContext)
-            val stops = BartParser.getStopNames()
-                .entries
-                .map { Pair(it.key, it.value) }
-                .sortedBy { it.second }
+        // Load stops when agency changes
+        spinner.onItemSelectedListener =
+            object : android.widget.AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: android.widget.AdapterView<*>,
+                    view: android.view.View?,
+                    position: Int,
+                    id: Long
+                ) {
+                    val agency = Agency.entries[position]
+                    selectedStopId = null
+                    selectedStopName = null
+                    findViewById<TextView>(R.id.tvSelectedStop).visibility = View.GONE
+                    findViewById<EditText>(R.id.etStopSearch).setText("")
+                    resultsAdapter.clear()
+                    allStops = emptyList()
 
-            withContext(Dispatchers.Main) {
-                allStops = stops
+                    CoroutineScope(Dispatchers.IO).launch {
+                        when (agency) {
+                            Agency.BART -> {
+                                BartParser.loadStaticGtfs(applicationContext)
+                                val stops = BartParser.getStopNames()
+                                    .entries
+                                    .map { Pair(it.key, it.value) }
+                                    .sortedBy { it.second }
+                                withContext(Dispatchers.Main) { allStops = stops }
+                            }
+
+                            Agency.MUNI_METRO, Agency.MUNI_BUS -> {
+                                // TODO: load MUNI stops
+                            }
+                        }
+                    }
+                }
+
+                override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
             }
-        }
 
         // Filter results as user types
         findViewById<EditText>(R.id.etStopSearch).addTextChangedListener(
