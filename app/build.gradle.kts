@@ -47,4 +47,5 @@ dependencies {
     implementation(libs.logging.interceptor)
     implementation(libs.gtfs.realtime.bindings)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.protobuf.java)
 }
