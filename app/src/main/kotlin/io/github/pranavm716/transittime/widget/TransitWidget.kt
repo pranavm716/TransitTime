@@ -62,7 +62,7 @@ class TransitWidget : AppWidgetProvider() {
                 refreshIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            views.setOnClickPendingIntent(R.id.tvRefresh, refreshPendingIntent)
+            views.setOnClickPendingIntent(R.id.widgetRoot, refreshPendingIntent)
 
             // Read arrivals from DB and populate the view
             CoroutineScope(Dispatchers.IO).launch {
