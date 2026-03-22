@@ -41,30 +41,36 @@ object BartParser {
 
     private fun parseStaticZip(input: InputStream) {
         val zip = ZipInputStream(input)
+        val files = mutableMapOf<String, String>()
+
         var entry = zip.nextEntry
         while (entry != null) {
-            when (entry.name) {
-                "stops.txt" -> parseStops(zip.readBytes().decodeToString())
-                "trips.txt" -> parseTrips(zip.readBytes().decodeToString())
+            if (entry.name in listOf("stops.txt", "trips.txt")) {
+                files[entry.name] = zip.readBytes().decodeToString()
             }
+            zip.closeEntry()
             entry = zip.nextEntry
         }
+
+        files["stops.txt"]?.let { parseStops(it) }
+        files["trips.txt"]?.let { parseTrips(it) }
     }
 
     private fun parseStops(csv: String) {
         val lines = csv.lines()
         val headers = lines.first().trimStart('\uFEFF').split(",")
+            .map { it.trim().removeSurrounding("\"") }  // strip quotes
         val idIdx = headers.indexOf("stop_id")
         val nameIdx = headers.indexOf("stop_name")
-        if (idIdx == -1 || nameIdx == -1) return  // guard against bad data
+        if (idIdx == -1 || nameIdx == -1) return
         for (line in lines.drop(1)) {
             if (line.isBlank()) continue
             val cols = line.split(",")
-            if (cols.size <= maxOf(idIdx, nameIdx)) continue  // guard short rows
-            val stopId = cols[idIdx]
+            if (cols.size < maxOf(idIdx, nameIdx)) continue
+            val stopId = cols[idIdx].removeSurrounding("\"")
             if ("-" in stopId && "_" !in stopId) {
                 val baseId = stopId.substringBeforeLast("-")
-                stopNames[baseId] = cols[nameIdx]
+                stopNames[baseId] = cols[nameIdx].removeSurrounding("\"")
             }
         }
     }
@@ -72,14 +78,16 @@ object BartParser {
     private fun parseTrips(csv: String) {
         val lines = csv.lines()
         val headers = lines.first().trimStart('\uFEFF').split(",")
+            .map { it.trim().removeSurrounding("\"") }  // strip quotes
         val tripIdx = headers.indexOf("trip_id")
         val headsignIdx = headers.indexOf("trip_headsign")
         if (tripIdx == -1 || headsignIdx == -1) return
         for (line in lines.drop(1)) {
             if (line.isBlank()) continue
             val cols = line.split(",")
-            if (cols.size <= maxOf(tripIdx, headsignIdx)) continue
-            tripHeadsigns[cols[tripIdx]] = cols[headsignIdx]
+            if (cols.size < maxOf(tripIdx, headsignIdx)) continue
+            tripHeadsigns[cols[tripIdx].removeSurrounding("\"")] =
+                cols[headsignIdx].removeSurrounding("\"")
         }
     }
 

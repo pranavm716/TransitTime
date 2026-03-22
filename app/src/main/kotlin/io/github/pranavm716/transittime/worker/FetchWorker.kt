@@ -1,5 +1,7 @@
 package io.github.pranavm716.transittime.worker
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -7,6 +9,7 @@ import io.github.pranavm716.transittime.data.api.bart.BartApiClient
 import io.github.pranavm716.transittime.data.api.bart.BartParser
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
+import io.github.pranavm716.transittime.widget.TransitWidget
 
 class FetchWorker(
     private val context: Context,
@@ -18,7 +21,7 @@ class FetchWorker(
         val arrivalDao = db.arrivalDao()
         val configDao = db.widgetConfigDao()
 
-        // 1. Get all configured widget stops — if none exist, nothing to fetch
+        // 1. Get all configured widget stops
         val configs = configDao.getAllConfigs()
         if (configs.isEmpty()) return Result.success()
 
@@ -39,20 +42,21 @@ class FetchWorker(
                 BartParser.loadStaticGtfs(context)
                 val bytes = BartApiClient.api.getTripUpdates().bytes()
                 val arrivals = BartParser.parseRtFeed(bytes, fetchedAt)
-                    .filter { it.stopId in bartStopIds }
-                arrivalDao.upsertArrivals(arrivals)
+                val filtered = arrivals.filter { it.stopId in bartStopIds }
+                arrivalDao.upsertArrivals(filtered)
             } catch (e: Exception) {
-                // Don't fail the whole job if one agency fails
                 e.printStackTrace()
             }
         }
 
-        // 5. Notify widgets to redraw
-//        val manager = AppWidgetManager.getInstance(context)
-//        val widgetIds = manager.getAppWidgetIds(
-//            ComponentName(context, TransitWidget::class.java)
-//        )
-//        manager.notifyAppWidgetViewDataChanged(widgetIds, android.R.id.list)
+        // 5. Redraw all widgets with fresh data
+        val manager = AppWidgetManager.getInstance(context)
+        val ids = manager.getAppWidgetIds(
+            ComponentName(context, TransitWidget::class.java)
+        )
+        for (id in ids) {
+            TransitWidget.updateWidget(context, manager, id)
+        }
 
         return Result.success()
     }
