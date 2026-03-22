@@ -1,3 +1,11 @@
+import java.util.Properties
+
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(localPropertiesFile.inputStream())
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.ksp)
@@ -7,12 +15,18 @@ android {
     namespace = "io.github.pranavm716.transittime"
     compileSdk = 36
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "io.github.pranavm716.transittime"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "BART_API_KEY", "\"${localProperties["bart.api.key"]}\"")
+        buildConfigField("String", "MUNI_API_KEY", "\"${localProperties["muni.api.key"]}\"")
     }
 
     buildTypes {

@@ -3,7 +3,7 @@
     <string name="configure_widget">Configure Widget</string>
     <string name="agency">Agency</string>
     <string name="search_for_a_stop">Search for a stop</string>
-    <string name="stop_search_hint">e.g. Embarcadero</string>
+    <string name="stop_search_hint">e.g. "Embarcadero" or "7th St &amp; Harrison St"</string>
     <string name="max_arrivals">Max arrivals per line (1–3)</string>
     <string name="add_widget">Add Widget</string>
     <string name="default_max_arrivals">2</string>
