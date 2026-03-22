@@ -97,7 +97,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                             withContext(Dispatchers.Main) { allStops = stops }
                         }
 
-                        Agency.MUNI_METRO, Agency.MUNI_BUS -> {}
+                        Agency.MUNI -> {}
                     }
                 }
             }
@@ -155,7 +155,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                 val agency = Agency.entries[spinner.selectedItemPosition]
                 val routes = when (agency) {
                     Agency.BART -> BartParser.getRoutesForStop(selected.first)
-                    Agency.MUNI_METRO, Agency.MUNI_BUS -> emptyMap()
+                    Agency.MUNI -> emptyMap()
                 }
 
                 withContext(Dispatchers.Main) {
