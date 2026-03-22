@@ -140,9 +140,9 @@ object BartParser {
                 stopId.substringBeforeLast("-") else stopId
 
             val rawHeadsign = tripHeadsigns[tripId] ?: continue
-            val headsign = normalizeHeadsign(rawHeadsign) ?: continue
             val routeId = tripRouteIds[tripId] ?: continue
             val colorName = routeColors[routeId] ?: continue
+            val headsign = normalizeHeadsign(rawHeadsign, colorName) ?: continue
             val routeName = "$colorName Line"
 
             stopRoutes.getOrPut(baseId) { mutableSetOf() }
@@ -159,13 +159,17 @@ object BartParser {
         else -> "Unknown"
     }
 
-    private fun normalizeHeadsign(raw: String): String? = when {
+    private fun normalizeHeadsign(raw: String, routeColor: String? = null): String? = when {
         raw.contains("Richmond", ignoreCase = true) -> "Richmond"
-        raw.contains("Millbrae", ignoreCase = true) -> "Millbrae"
         raw.contains("Dublin", ignoreCase = true) -> "Dublin/Pleasanton"
         raw.contains("Daly City", ignoreCase = true) -> "Daly City"
         raw.contains("Antioch", ignoreCase = true) -> "Antioch"
         raw.contains("Berryessa", ignoreCase = true) -> "Berryessa"
+        raw.contains("Millbrae", ignoreCase = true) -> {
+            // Yellow line through-routes to Millbrae via SFO — show as SF Airport instead
+            if (routeColor == "Yellow") "SF Airport" else "Millbrae"
+        }
+
         raw.contains("San Francisco International", ignoreCase = true) ||
                 raw.contains("SFO", ignoreCase = true) -> "SF Airport"
 
@@ -181,9 +185,9 @@ object BartParser {
             val tu = entity.tripUpdate
             val tripId = tu.trip.tripId
             val rawHeadsign = tripHeadsigns[tripId] ?: continue
-            val headsign = normalizeHeadsign(rawHeadsign) ?: continue
             val routeId = tripRouteIds[tripId] ?: ""
-            val colorName = routeColors[routeId] ?: "Unknown"
+            val colorName = routeColors[routeId] ?: continue
+            val headsign = normalizeHeadsign(rawHeadsign, colorName) ?: continue
             val routeName = "$colorName Line"
 
             for (stu in tu.stopTimeUpdateList) {
@@ -214,7 +218,7 @@ object BartParser {
     }
 
     fun getStopNames(): Map<String, String> = stopNames.toMap()
-    
+
     fun getRoutesForStop(stopId: String): Map<String, List<String>> {
         return stopRoutes[stopId]
             ?.groupBy { it.first }
