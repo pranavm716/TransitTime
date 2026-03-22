@@ -96,8 +96,8 @@ class TransitWidget : AppWidgetProvider() {
                     val secondsAway = ((millisAway % 60000) / 1000).toInt()
                     val minutesText = when {
                         millisAway < 0 -> "Departed"
-                        minutesAway == 0 -> "${secondsAway}sec"
-                        else -> "${minutesAway}min ${secondsAway}sec"
+                        minutesAway == 0 -> "$secondsAway sec"
+                        else -> "$minutesAway min $secondsAway sec"
                     }
                     rowViews.setTextViewText(
                         R.id.tvHeadsign,
