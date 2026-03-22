@@ -3,9 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:paddingHorizontal="24dp"
-    android:paddingBottom="24dp"
-    android:paddingTop="50dp">
+    android:padding="24dp">
 
     <TextView
         android:layout_width="match_parent"
@@ -15,7 +13,6 @@
         android:textStyle="bold"
         android:paddingBottom="16dp" />
 
-    <!-- Agency picker -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -26,7 +23,6 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
 
-    <!-- Stop search -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -40,7 +36,6 @@
         android:hint="@string/stop_search_hint"
         android:inputType="text" />
 
-    <!-- Search results -->
     <ListView
         android:id="@+id/lvStopResults"
         android:layout_width="match_parent"
@@ -49,7 +44,6 @@
         android:paddingTop="4dp"
         android:visibility="gone" />
 
-    <!-- Selected stop confirmation -->
     <TextView
         android:id="@+id/tvSelectedStop"
         android:layout_width="match_parent"
@@ -58,7 +52,23 @@
         android:paddingTop="8dp"
         android:visibility="gone" />
 
-    <!-- Max arrivals -->
+    <!-- Route/headsign filter -->
+    <TextView
+        android:id="@+id/tvRoutesLabel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/filter_routes_all_shown_by_default"
+        android:paddingTop="16dp"
+        android:visibility="gone" />
+
+    <ExpandableListView
+        android:id="@+id/elvRoutes"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="2"
+        android:paddingTop="4dp"
+        android:visibility="gone" />
+
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

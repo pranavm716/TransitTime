@@ -12,4 +12,5 @@
     <string name="refresh">↻ Refresh</string>
     <string name="destination">Destination</string>
     <string name="minutes">5 min</string>
+    <string name="filter_routes_all_shown_by_default">Filter routes (all shown by default)</string>
 </resources>

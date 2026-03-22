@@ -16,6 +16,8 @@ object BartParser {
     private val tripHeadsigns = mutableMapOf<String, String>() // "1849326" -> "Millbrae..."
     private val routeColors = mutableMapOf<String, String>() // routeId → "Red", "Blue" etc
     private val tripRouteIds = mutableMapOf<String, String>() // tripId → routeId
+    private val stopRoutes =
+        mutableMapOf<String, MutableSet<Pair<String, String>>>() // baseStopId → Set of (routeName, normalizedHeadsign)
 
     private var staticLoaded = false
 
@@ -50,7 +52,7 @@ object BartParser {
 
         var entry = zip.nextEntry
         while (entry != null) {
-            if (entry.name in listOf("stops.txt", "trips.txt", "routes.txt")) {
+            if (entry.name in listOf("stops.txt", "trips.txt", "routes.txt", "stop_times.txt")) {
                 files[entry.name] = zip.readBytes().decodeToString()
             }
             zip.closeEntry()
@@ -60,6 +62,7 @@ object BartParser {
         files["stops.txt"]?.let { parseStops(it) }
         files["trips.txt"]?.let { parseTrips(it) }
         files["routes.txt"]?.let { parseRoutes(it) }
+        files["stop_times.txt"]?.let { parseStopTimes(it) }
     }
 
     private fun parseStops(csv: String) {
@@ -115,6 +118,35 @@ object BartParser {
             val routeId = cols[idIdx].removeSurrounding("\"").lowercase()
             val color = cols[colorIdx].removeSurrounding("\"").lowercase()
             routeColors[routeId] = hexToColorName(color)
+        }
+    }
+
+    private fun parseStopTimes(csv: String) {
+        val lines = csv.lines()
+        val headers = lines.first().trimStart('\uFEFF').split(",")
+            .map { it.trim().removeSurrounding("\"") }
+        val tripIdx = headers.indexOf("trip_id")
+        val stopIdx = headers.indexOf("stop_id")
+        if (tripIdx == -1 || stopIdx == -1) return
+
+        for (line in lines.drop(1)) {
+            if (line.isBlank()) continue
+            val cols = line.split(",")
+            if (cols.size < maxOf(tripIdx, stopIdx) + 1) continue
+
+            val tripId = cols[tripIdx].removeSurrounding("\"")
+            val stopId = cols[stopIdx].removeSurrounding("\"")
+            val baseId = if ("-" in stopId && "_" !in stopId)
+                stopId.substringBeforeLast("-") else stopId
+
+            val rawHeadsign = tripHeadsigns[tripId] ?: continue
+            val headsign = normalizeHeadsign(rawHeadsign) ?: continue
+            val routeId = tripRouteIds[tripId] ?: continue
+            val colorName = routeColors[routeId] ?: continue
+            val routeName = "$colorName Line"
+
+            stopRoutes.getOrPut(baseId) { mutableSetOf() }
+                .add(Pair(routeName, headsign))
         }
     }
 
@@ -182,4 +214,12 @@ object BartParser {
     }
 
     fun getStopNames(): Map<String, String> = stopNames.toMap()
+    
+    fun getRoutesForStop(stopId: String): Map<String, List<String>> {
+        return stopRoutes[stopId]
+            ?.groupBy { it.first }
+            ?.mapValues { (_, pairs) -> pairs.map { it.second }.distinct().sorted() }
+            ?: emptyMap()
+    }
+
 }
