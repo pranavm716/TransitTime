@@ -99,7 +99,7 @@ class TransitWidget : AppWidgetProvider() {
                 }
 
                 // Update last refreshed timestamp
-                val formatter = SimpleDateFormat("h:mm a", Locale.getDefault())
+                val formatter = SimpleDateFormat("h:mm:ss a", Locale.getDefault())
                 views.setTextViewText(
                     R.id.tvLastUpdated,
                     "Updated ${formatter.format(Date(now))}"

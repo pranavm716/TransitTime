@@ -11,16 +11,16 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:textColor="@android:color/white"
-        android:textSize="12sp"
-        android:text="Destination" />
+        android:textSize="15sp"
+        android:text="@string/destination" />
 
     <TextView
         android:id="@+id/tvMinutes"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textColor="#FFD700"
-        android:textSize="12sp"
+        android:textSize="15sp"
         android:textStyle="bold"
-        android:text="5 min" />
+        android:text="@string/minutes" />
 
 </LinearLayout>

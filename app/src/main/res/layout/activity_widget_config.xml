@@ -3,12 +3,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:paddingHorizontal="24dp"
+    android:paddingBottom="24dp"
+    android:paddingTop="50dp">
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Configure Widget"
+        android:text="@string/configure_widget"
         android:textSize="20sp"
         android:textStyle="bold"
         android:paddingBottom="16dp" />
@@ -17,31 +19,50 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Agency" />
+        android:text="@string/agency" />
 
     <Spinner
         android:id="@+id/spinnerAgency"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
 
-    <!-- Stop name input -->
+    <!-- Stop search -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Stop ID"
+        android:text="@string/search_for_a_stop"
         android:paddingTop="16dp" />
 
     <EditText
-        android:id="@+id/etStopId"
+        android:id="@+id/etStopSearch"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="e.g. M16 for Embarcadero" />
+        android:hint="@string/stop_search_hint"
+        android:inputType="text" />
+
+    <!-- Search results -->
+    <ListView
+        android:id="@+id/lvStopResults"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:paddingTop="4dp"
+        android:visibility="gone" />
+
+    <!-- Selected stop confirmation -->
+    <TextView
+        android:id="@+id/tvSelectedStop"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textStyle="bold"
+        android:paddingTop="8dp"
+        android:visibility="gone" />
 
     <!-- Max arrivals -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Max arrivals (1–5)"
+        android:text="@string/max_arrivals"
         android:paddingTop="16dp" />
 
     <EditText
@@ -49,14 +70,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:inputType="number"
-        android:text="3" />
+        android:text="@string/default_max_arrivals" />
 
-    <!-- Save button -->
     <Button
         android:id="@+id/btnSave"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Add Widget"
-        android:layout_marginTop="24dp" />
+        android:text="@string/add_widget"
+        android:layout_marginTop="16dp" />
 
 </LinearLayout>

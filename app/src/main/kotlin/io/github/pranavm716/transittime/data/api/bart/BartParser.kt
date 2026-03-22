@@ -28,7 +28,10 @@ object BartParser {
 
     private fun getCachedGtfs(context: Context): InputStream {
         val cacheFile = java.io.File(context.cacheDir, "bart_gtfs.zip")
-        if (!cacheFile.exists()) {
+        val ageMs = System.currentTimeMillis() - cacheFile.lastModified()
+        val thirtyDaysMs = 30L * 24 * 60 * 60 * 1000
+
+        if (!cacheFile.exists() || ageMs > thirtyDaysMs) {
             val client = OkHttpClient()
             val request = Request.Builder()
                 .url("https://www.bart.gov/dev/schedules/google_transit.zip")
@@ -124,4 +127,6 @@ object BartParser {
         }
         return arrivals
     }
+
+    fun getStopNames(): Map<String, String> = stopNames.toMap()
 }

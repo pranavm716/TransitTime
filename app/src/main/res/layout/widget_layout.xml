@@ -11,9 +11,9 @@
         android:id="@+id/tvStopName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Station"
+        android:text="@string/station"
         android:textColor="@android:color/white"
-        android:textSize="14sp"
+        android:textSize="18sp"
         android:textStyle="bold" />
 
     <!-- Last updated timestamp -->
@@ -21,9 +21,9 @@
         android:id="@+id/tvLastUpdated"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Updated just now"
+        android:text="@string/updated_just_now"
         android:textColor="#AAAAAA"
-        android:textSize="10sp" />
+        android:textSize="13sp" />
 
     <!-- Arrival rows container -->
     <LinearLayout
@@ -39,9 +39,9 @@
         android:id="@+id/tvRefresh"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="↻ Refresh"
+        android:text="@string/refresh"
         android:textColor="#AAAAAA"
-        android:textSize="10sp"
+        android:textSize="11sp"
         android:paddingTop="4dp" />
 
 </LinearLayout>
