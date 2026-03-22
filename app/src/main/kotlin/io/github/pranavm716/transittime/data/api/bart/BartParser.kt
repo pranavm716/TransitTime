@@ -132,11 +132,11 @@ object BartParser {
         raw.contains("Millbrae", ignoreCase = true) -> "Millbrae"
         raw.contains("Dublin", ignoreCase = true) -> "Dublin/Pleasanton"
         raw.contains("Daly City", ignoreCase = true) -> "Daly City"
-        raw.contains("San Francisco International", ignoreCase = true) ||
-                raw.contains("SFO", ignoreCase = true) -> "SFO International Airport"
-
         raw.contains("Antioch", ignoreCase = true) -> "Antioch"
         raw.contains("Berryessa", ignoreCase = true) -> "Berryessa"
+        raw.contains("San Francisco International", ignoreCase = true) ||
+                raw.contains("SFO", ignoreCase = true) -> "SF Airport"
+
         else -> null
     }
 
@@ -162,7 +162,7 @@ object BartParser {
 
                 arrivals.add(
                     Arrival(
-                        id = "${baseId}_${headsign}_${arrivalTimestamp}",
+                        id = "${baseId}_${arrivalTimestamp}",
                         stopId = baseId,
                         routeName = routeName,
                         headsign = headsign,

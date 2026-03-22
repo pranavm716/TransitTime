@@ -87,23 +87,43 @@ class TransitWidget : AppWidgetProvider() {
                     }
                     .take(config.maxArrivals)
 
-                // Build arrival rows
-                views.removeAllViews(R.id.llArrivals)
-                for (arrival in arrivals) {
-                    val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
-                    val millisAway = arrival.arrivalTimestamp - now
-                    val minutesAway = (millisAway / 60000).toInt()
-                    val secondsAway = ((millisAway % 60000) / 1000).toInt()
-                    val minutesText = when {
-                        millisAway < 0 -> "Departed"
-                        minutesAway == 0 -> "$secondsAway sec"
-                        else -> "$minutesAway min $secondsAway sec"
+                // Group by route+headsign, take N per group, sort by soonest arrival
+                val grouped = db.arrivalDao()
+                    .getArrivalsForStop(config.stopId)
+                    .filter { arrival ->
+                        arrival.arrivalTimestamp > now &&
+                                (config.filteredHeadsigns.isEmpty() ||
+                                        arrival.headsign in config.filteredHeadsigns)
                     }
+                    .groupBy { "${it.routeName}|${it.headsign}" }
+                    .mapValues { (_, arrivals) ->
+                        arrivals.sortedBy { it.arrivalTimestamp }.take(config.maxArrivals)
+                    }
+                    .entries
+                    .sortedBy { (_, arrivals) -> arrivals.first().arrivalTimestamp }
+
+                views.removeAllViews(R.id.llArrivals)
+                for ((_, arrivals) in grouped) {
+                    val first = arrivals.first()
+                    val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
+
+                    val timesText = arrivals.joinToString(", ") { arrival ->
+                        val millisAway = arrival.arrivalTimestamp - now
+                        val minutesAway = (millisAway / 60000).toInt()
+                        val secondsAway = ((millisAway % 60000) / 1000).toInt()
+                        when {
+                            millisAway < 0 -> "Departed"
+                            minutesAway == 0 -> "$secondsAway sec"
+                            minutesAway <= 10 -> "$minutesAway min $secondsAway sec"
+                            else -> "$minutesAway min"
+                        }
+                    }
+
                     rowViews.setTextViewText(
                         R.id.tvHeadsign,
-                        "${arrival.routeName} to ${arrival.headsign}"
+                        "${first.routeName} to ${first.headsign}"
                     )
-                    rowViews.setTextViewText(R.id.tvMinutes, minutesText)
+                    rowViews.setTextViewText(R.id.tvMinutes, timesText)
                     views.addView(R.id.llArrivals, rowViews)
                 }
 
