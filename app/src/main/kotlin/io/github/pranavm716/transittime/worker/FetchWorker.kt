@@ -33,23 +33,25 @@ class FetchWorker(
 
         val fetchedAt = System.currentTimeMillis()
 
-        // 3. Delete arrivals older than 5 minutes
-        arrivalDao.deleteStaleArrivals(fetchedAt - 5 * 60 * 1000)
-
-        // 4. Fetch and parse BART
+        // 3. Fetch and parse BART
         if (bartStopIds.isNotEmpty()) {
             try {
                 BartParser.loadStaticGtfs(context)
                 val bytes = BartApiClient.api.getTripUpdates().bytes()
                 val arrivals = BartParser.parseRtFeed(bytes, fetchedAt)
-                val filtered = arrivals.filter { it.stopId in bartStopIds }
-                arrivalDao.upsertArrivals(filtered)
+                    .filter { it.stopId in bartStopIds }
+
+                // Delete existing arrivals for these stops before inserting fresh data
+                for (stopId in bartStopIds) {
+                    arrivalDao.deleteArrivalsForStop(stopId)
+                }
+                arrivalDao.upsertArrivals(arrivals)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
 
-        // 5. Redraw all widgets with fresh data
+        // 4. Redraw all widgets with fresh data
         val manager = AppWidgetManager.getInstance(context)
         val ids = manager.getAppWidgetIds(
             ComponentName(context, TransitWidget::class.java)
