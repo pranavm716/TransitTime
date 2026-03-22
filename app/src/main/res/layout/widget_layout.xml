@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="@android:color/black">
+
+    <!-- Station name -->
+    <TextView
+        android:id="@+id/tvStopName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Station"
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <!-- Last updated timestamp -->
+    <TextView
+        android:id="@+id/tvLastUpdated"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Updated just now"
+        android:textColor="#AAAAAA"
+        android:textSize="10sp" />
+
+    <!-- Arrival rows container -->
+    <LinearLayout
+        android:id="@+id/llArrivals"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingTop="6dp" />
+
+    <!-- Refresh button -->
+    <TextView
+        android:id="@+id/tvRefresh"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="↻ Refresh"
+        android:textColor="#AAAAAA"
+        android:textSize="10sp"
+        android:paddingTop="4dp" />
+
+</LinearLayout>
