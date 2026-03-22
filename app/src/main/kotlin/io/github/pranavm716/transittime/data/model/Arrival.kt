@@ -17,6 +17,5 @@ data class Arrival(
 
 enum class Agency {
     BART,
-    MUNI_METRO,
-    MUNI_BUS
+    MUNI
 }

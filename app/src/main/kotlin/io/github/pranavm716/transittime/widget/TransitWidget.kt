@@ -114,7 +114,7 @@ class TransitWidget : AppWidgetProvider() {
                         when {
                             millisAway < 0 -> "Departed"
                             minutesAway == 0 -> "$secondsAway sec"
-                            minutesAway <= 10 -> "$minutesAway min $secondsAway sec"
+                            minutesAway < 10 && secondsAway > 0 -> "$minutesAway min $secondsAway sec"
                             else -> "$minutesAway min"
                         }
                     }

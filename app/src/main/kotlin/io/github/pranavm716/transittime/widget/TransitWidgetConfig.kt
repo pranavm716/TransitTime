@@ -18,6 +18,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.data.api.bart.BartParser
+import io.github.pranavm716.transittime.data.api.muni.MuniParser
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.WidgetConfig
@@ -97,7 +98,14 @@ class TransitWidgetConfig : AppCompatActivity() {
                             withContext(Dispatchers.Main) { allStops = stops }
                         }
 
-                        Agency.MUNI_METRO, Agency.MUNI_BUS -> {}
+                        Agency.MUNI -> {
+                            MuniParser.loadStaticGtfs(applicationContext)
+                            val stops = MuniParser.getStopNames()
+                                .entries
+                                .map { Pair(it.key, it.value) }
+                                .sortedBy { it.second }
+                            withContext(Dispatchers.Main) { allStops = stops }
+                        }
                     }
                 }
             }
@@ -155,7 +163,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                 val agency = Agency.entries[spinner.selectedItemPosition]
                 val routes = when (agency) {
                     Agency.BART -> BartParser.getRoutesForStop(selected.first)
-                    Agency.MUNI_METRO, Agency.MUNI_BUS -> emptyMap()
+                    Agency.MUNI -> MuniParser.fetchRoutesForStop(selected.first)
                 }
 
                 withContext(Dispatchers.Main) {

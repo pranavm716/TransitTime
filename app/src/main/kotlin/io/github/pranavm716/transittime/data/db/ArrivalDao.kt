@@ -14,6 +14,6 @@ interface ArrivalDao {
     @Query("SELECT * FROM arrivals WHERE stopId = :stopId ORDER BY arrivalTimestamp ASC")
     suspend fun getArrivalsForStop(stopId: String): List<Arrival>
 
-    @Query("DELETE FROM arrivals WHERE fetchedAt < :cutoff")
-    suspend fun deleteStaleArrivals(cutoff: Long)
+    @Query("DELETE FROM arrivals WHERE stopId = :stopId")
+    suspend fun deleteArrivalsForStop(stopId: String)
 }
