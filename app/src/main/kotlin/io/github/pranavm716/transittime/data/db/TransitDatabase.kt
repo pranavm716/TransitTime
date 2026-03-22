@@ -18,7 +18,7 @@ class Converters {
         if (value.isEmpty()) emptyList() else value.split(",")
 }
 
-@Database(entities = [Arrival::class, WidgetConfig::class], version = 1)
+@Database(entities = [Arrival::class, WidgetConfig::class], version = 1, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class TransitDatabase : RoomDatabase() {
     abstract fun arrivalDao(): ArrivalDao

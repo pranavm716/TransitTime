@@ -15,7 +15,7 @@ object BartApiClient {
         .build()
 
     val api: BartApi = Retrofit.Builder()
-        .baseUrl("http://api.bart.gov/gtfsrt/tripupdate.aspx")
+        .baseUrl("https://api.bart.gov/")
         .client(httpClient)
         .addConverterFactory(GsonConverterFactory.create())
         .build()

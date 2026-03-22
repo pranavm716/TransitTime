@@ -1,7 +1,5 @@
 package io.github.pranavm716.transittime.worker
 
-import android.appwidget.AppWidgetManager
-import android.content.ComponentName
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -9,8 +7,6 @@ import io.github.pranavm716.transittime.data.api.bart.BartApiClient
 import io.github.pranavm716.transittime.data.api.bart.BartParser
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
-
-import io.github.pranavm716.transittime.widget.TransitWidget
 
 class FetchWorker(
     private val context: Context,
@@ -52,11 +48,11 @@ class FetchWorker(
         }
 
         // 5. Notify widgets to redraw
-        val manager = AppWidgetManager.getInstance(context)
-        val widgetIds = manager.getAppWidgetIds(
-            ComponentName(context, TransitWidget::class.java)
-        )
-        manager.notifyAppWidgetViewDataChanged(widgetIds, android.R.id.list)
+//        val manager = AppWidgetManager.getInstance(context)
+//        val widgetIds = manager.getAppWidgetIds(
+//            ComponentName(context, TransitWidget::class.java)
+//        )
+//        manager.notifyAppWidgetViewDataChanged(widgetIds, android.R.id.list)
 
         return Result.success()
     }

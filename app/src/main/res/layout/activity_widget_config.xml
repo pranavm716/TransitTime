@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Configure Widget"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:paddingBottom="16dp" />
+
+    <!-- Agency picker -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Agency" />
+
+    <Spinner
+        android:id="@+id/spinnerAgency"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <!-- Stop name input -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Stop ID"
+        android:paddingTop="16dp" />
+
+    <EditText
+        android:id="@+id/etStopId"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="e.g. M16 for Embarcadero" />
+
+    <!-- Max arrivals -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Max arrivals (1–5)"
+        android:paddingTop="16dp" />
+
+    <EditText
+        android:id="@+id/etMaxArrivals"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="number"
+        android:text="3" />
+
+    <!-- Save button -->
+    <Button
+        android:id="@+id/btnSave"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Add Widget"
+        android:layout_marginTop="24dp" />
+
+</LinearLayout>

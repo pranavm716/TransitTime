@@ -33,7 +33,7 @@ object BartParser {
             val request = Request.Builder()
                 .url("https://www.bart.gov/dev/schedules/google_transit.zip")
                 .build()
-            val bytes = client.newCall(request).execute().body!!.bytes()
+            val bytes = client.newCall(request).execute().body.bytes()
             cacheFile.writeBytes(bytes)
         }
         return cacheFile.inputStream()
@@ -53,14 +53,15 @@ object BartParser {
 
     private fun parseStops(csv: String) {
         val lines = csv.lines()
-        val headers = lines.first().split(",")
+        val headers = lines.first().trimStart('\uFEFF').split(",")
         val idIdx = headers.indexOf("stop_id")
         val nameIdx = headers.indexOf("stop_name")
+        if (idIdx == -1 || nameIdx == -1) return  // guard against bad data
         for (line in lines.drop(1)) {
             if (line.isBlank()) continue
             val cols = line.split(",")
+            if (cols.size <= maxOf(idIdx, nameIdx)) continue  // guard short rows
             val stopId = cols[idIdx]
-            // Only keep platform IDs like "M16-1", skip legacy codes and entrance IDs
             if ("-" in stopId && "_" !in stopId) {
                 val baseId = stopId.substringBeforeLast("-")
                 stopNames[baseId] = cols[nameIdx]
@@ -70,12 +71,14 @@ object BartParser {
 
     private fun parseTrips(csv: String) {
         val lines = csv.lines()
-        val headers = lines.first().split(",")
+        val headers = lines.first().trimStart('\uFEFF').split(",")
         val tripIdx = headers.indexOf("trip_id")
         val headsignIdx = headers.indexOf("trip_headsign")
+        if (tripIdx == -1 || headsignIdx == -1) return
         for (line in lines.drop(1)) {
             if (line.isBlank()) continue
             val cols = line.split(",")
+            if (cols.size <= maxOf(tripIdx, headsignIdx)) continue
             tripHeadsigns[cols[tripIdx]] = cols[headsignIdx]
         }
     }
