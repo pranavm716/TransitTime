@@ -29,14 +29,14 @@ object MuniParser {
     )
 
     private val METRO_DISPLAY_NAMES = mapOf(
-        "metro:Castro" to "Metro Castro Station",
-        "metro:Church" to "Metro Church Station",
-        "metro:CivicCenter" to "Metro Civic Center Station",
-        "metro:Embarcadero" to "Metro Embarcadero Station",
-        "metro:ForestHill" to "Metro Forest Hill Station",
-        "metro:Montgomery" to "Metro Montgomery Station",
-        "metro:Powell" to "Metro Powell Station",
-        "metro:VanNess" to "Metro Van Ness Station",
+        "metro:Castro" to "Castro",
+        "metro:Church" to "Church",
+        "metro:CivicCenter" to "Civic Center",
+        "metro:Embarcadero" to "Embarcadero",
+        "metro:ForestHill" to "Forest Hill",
+        "metro:Montgomery" to "Montgomery",
+        "metro:Powell" to "Powell",
+        "metro:VanNess" to "Van Ness",
     )
 
     // logicalStopId → display name
