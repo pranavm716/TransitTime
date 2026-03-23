@@ -30,7 +30,12 @@
             android:text="@string/station"
             android:textColor="@android:color/white"
             android:textSize="20sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="10sp"
+            android:autoSizeMaxTextSize="22sp"
+            android:autoSizeStepGranularity="1sp" />
 
         <TextView
             android:id="@+id/tvFreshnessText"
@@ -41,6 +46,16 @@
             android:layout_marginEnd="5dp" />
 
     </LinearLayout>
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="1px"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="4dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="4dp"
+        android:src="@android:color/transparent"
+        android:background="#55FFFFFF" />
 
     <!-- Arrival rows container -->
     <LinearLayout

@@ -209,11 +209,7 @@ object BartParser {
                 )
             }
         }
-
-        android.util.Log.d(
-            "BartParser",
-            "Total arrivals parsed: ${arrivals.size}, stopNames loaded: ${stopNames.size}, tripHeadsigns loaded: ${tripHeadsigns.size}"
-        )
+        
         return arrivals
     }
 
