@@ -18,7 +18,7 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:textColor="@android:color/white"
-        android:textSize="15sp"
+        android:textSize="16sp"
         android:text="Destination" />
 
     <TextView
@@ -27,7 +27,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center_vertical"
         android:textColor="#FFD700"
-        android:textSize="13sp"
+        android:textSize="16sp"
         android:textStyle="bold"
         android:text="5 min" />
 

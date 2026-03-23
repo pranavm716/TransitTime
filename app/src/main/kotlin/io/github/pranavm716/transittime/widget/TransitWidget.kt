@@ -117,20 +117,9 @@ class TransitWidget : AppWidgetProvider() {
                     }
                     .sortedBy { it.first().arrivalTimestamp }
 
-                // TODO: Remove this debug code
-                val debugGroups = allGroups +
-                        allGroups.map { arrivals -> arrivals.map { it.copy(headsign = "${it.headsign} 2") } } +
-                        allGroups.map { arrivals -> arrivals.map { it.copy(headsign = "${it.headsign} 3") } } +
-                        allGroups.map { arrivals -> arrivals.map { it.copy(headsign = "${it.headsign} 4") } } +
-                        allGroups.map { arrivals -> arrivals.map { it.copy(headsign = "${it.headsign} 5") } } +
-                        allGroups.map { arrivals -> arrivals.map { it.copy(headsign = "${it.headsign} 6") } } +
-                        allGroups.map { arrivals -> arrivals.map { it.copy(headsign = "${it.headsign} 7") } }
-                val totalGroups = debugGroups.size
-                val grouped = debugGroups.take(maxRows)
+                val totalGroups = allGroups.size
+                val grouped = allGroups.take(maxRows)
                 val overflow = totalGroups - maxRows
-//                val totalGroups = allGroups.size
-//                val grouped = allGroups.take(maxRows)
-//                val overflow = totalGroups - maxRows
 
                 val allArrivalsForStop = db.arrivalDao().getArrivalsForStop(config.stopId)
                 val lastFetchedAt = allArrivalsForStop.maxOfOrNull { it.fetchedAt } ?: 0L
@@ -143,27 +132,33 @@ class TransitWidget : AppWidgetProvider() {
                 views.setTextViewText(R.id.tvFreshnessText, freshnessText)
 
                 views.removeAllViews(R.id.llArrivals)
-                for (arrivals in grouped) {
-                    val first = arrivals.first()
-                    val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
 
-                    val iconSizePx = (36 * context.resources.displayMetrics.density).toInt()
-                    val bitmap = RouteIconDrawer.draw(first.agency, first.routeName, iconSizePx)
-                    rowViews.setImageViewBitmap(R.id.ivRouteIcon, bitmap)
+                if (grouped.isEmpty()) {
+                    val emptyViews = RemoteViews(context.packageName, R.layout.widget_empty)
+                    views.addView(R.id.llArrivals, emptyViews)
+                } else {
+                    for (arrivals in grouped) {
+                        val first = arrivals.first()
+                        val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
 
-                    val timesText = arrivals.joinToString(", ") { arrival ->
-                        val millisAway = arrival.arrivalTimestamp - now
-                        val minutesAway = (millisAway / 60000).toInt()
-                        when {
-                            millisAway < 0 -> "Departed"
-                            minutesAway < 1 -> "Arriving"
-                            else -> "${minutesAway}min"
+                        val iconSizePx = (36 * context.resources.displayMetrics.density).toInt()
+                        val bitmap = RouteIconDrawer.draw(first.agency, first.routeName, iconSizePx)
+                        rowViews.setImageViewBitmap(R.id.ivRouteIcon, bitmap)
+
+                        val timesText = arrivals.joinToString(", ") { arrival ->
+                            val millisAway = arrival.arrivalTimestamp - now
+                            val minutesAway = (millisAway / 60000).toInt()
+                            when {
+                                millisAway < 0 -> "Departed"
+                                minutesAway < 1 -> "Arriving"
+                                else -> "${minutesAway}min"
+                            }
                         }
-                    }
 
-                    rowViews.setTextViewText(R.id.tvHeadsign, first.headsign)
-                    rowViews.setTextViewText(R.id.tvMinutes, timesText)
-                    views.addView(R.id.llArrivals, rowViews)
+                        rowViews.setTextViewText(R.id.tvHeadsign, first.headsign)
+                        rowViews.setTextViewText(R.id.tvMinutes, timesText)
+                        views.addView(R.id.llArrivals, rowViews)
+                    }
                 }
 
                 if (overflow > 0) {
