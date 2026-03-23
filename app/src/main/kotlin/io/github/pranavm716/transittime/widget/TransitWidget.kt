@@ -121,8 +121,7 @@ class TransitWidget : AppWidgetProvider() {
                 val grouped = allGroups.take(maxRows)
                 val overflow = totalGroups - maxRows
 
-                val allArrivalsForStop = db.arrivalDao().getArrivalsForStop(config.stopId)
-                val lastFetchedAt = allArrivalsForStop.maxOfOrNull { it.fetchedAt } ?: 0L
+                val lastFetchedAt = config.lastFetchedAt
                 val freshnessText = if (lastFetchedAt == 0L) {
                     "—"
                 } else {
@@ -169,11 +168,6 @@ class TransitWidget : AppWidgetProvider() {
                 } else {
                     views.setTextViewText(R.id.tvOverflowStatic, "")
                 }
-
-                android.util.Log.d(
-                    "TransitWidget",
-                    "minHeight=$minHeight maxRows=$maxRows totalGroups=$totalGroups overflow=$overflow"
-                )
 
                 appWidgetManager.updateAppWidget(widgetId, views)
             }

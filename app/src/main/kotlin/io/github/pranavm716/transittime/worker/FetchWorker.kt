@@ -25,15 +25,11 @@ class FetchWorker(
         val configs = configDao.getAllConfigs()
         if (configs.isEmpty()) return Result.success()
 
-        val bartStopIds = configs
-            .filter { it.agency == Agency.BART }
-            .map { it.stopId }
-            .toSet()
+        val bartConfigs = configs.filter { it.agency == Agency.BART }
+        val muniConfigs = configs.filter { it.agency == Agency.MUNI }
 
-        val muniStopIds = configs
-            .filter { it.agency == Agency.MUNI }
-            .map { it.stopId }
-            .toSet()
+        val bartStopIds = bartConfigs.map { it.stopId }.toSet()
+        val muniStopIds = muniConfigs.map { it.stopId }.toSet()
 
         val fetchedAt = System.currentTimeMillis()
 
@@ -48,18 +44,29 @@ class FetchWorker(
                     arrivalDao.deleteArrivalsForStop(stopId)
                 }
                 arrivalDao.upsertArrivals(arrivals)
+
+                // Update lastFetchedAt for each BART config
+                for (config in bartConfigs) {
+                    configDao.upsertConfig(config.copy(lastFetchedAt = fetchedAt))
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
 
-        // Fetch MUNI — one logical stop at a time, handles Metro multi-platform internally
+        // Fetch MUNI
         if (muniStopIds.isNotEmpty()) {
             for (stopId in muniStopIds) {
                 try {
                     val arrivals = MuniParser.fetchAndParseStop(stopId, fetchedAt)
                     arrivalDao.deleteArrivalsForStop(stopId)
                     arrivalDao.upsertArrivals(arrivals)
+
+                    // Update lastFetchedAt for this MUNI config
+                    val config = configDao.getConfigByStopId(stopId)
+                    config?.let {
+                        configDao.upsertConfig(it.copy(lastFetchedAt = fetchedAt))
+                    }
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
