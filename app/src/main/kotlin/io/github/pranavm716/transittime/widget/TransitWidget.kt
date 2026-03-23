@@ -117,6 +117,7 @@ class TransitWidget : AppWidgetProvider() {
                     }
                     .sortedBy { it.first().arrivalTimestamp }
 
+                // TODO: Remove this debug code
                 val debugGroups = allGroups +
                         allGroups.map { arrivals -> arrivals.map { it.copy(headsign = "${it.headsign} 2") } } +
                         allGroups.map { arrivals -> arrivals.map { it.copy(headsign = "${it.headsign} 3") } } +
@@ -166,12 +167,12 @@ class TransitWidget : AppWidgetProvider() {
                 }
 
                 if (overflow > 0) {
-                    val overflowViews = RemoteViews(context.packageName, R.layout.widget_overflow)
-                    overflowViews.setTextViewText(
-                        R.id.tvOverflow,
+                    views.setTextViewText(
+                        R.id.tvOverflowStatic,
                         "+$overflow more route${if (overflow > 1) "s" else ""}"
                     )
-                    views.addView(R.id.llArrivals, overflowViews)
+                } else {
+                    views.setTextViewText(R.id.tvOverflowStatic, "")
                 }
 
                 android.util.Log.d(
