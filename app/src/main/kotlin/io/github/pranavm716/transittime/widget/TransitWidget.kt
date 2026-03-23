@@ -12,9 +12,7 @@ import androidx.work.WorkManager
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
-import io.github.pranavm716.transittime.util.RouteColors
 import io.github.pranavm716.transittime.util.RouteIconDrawer
-import io.github.pranavm716.transittime.util.RouteShape
 import io.github.pranavm716.transittime.worker.FetchWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -126,18 +124,7 @@ class TransitWidget : AppWidgetProvider() {
 
                     // Draw route icon
                     val iconSizePx = (36 * context.resources.displayMetrics.density).toInt()
-                    val label = RouteIconDrawer.getLabel(first.agency, first.routeName)
-                    val isWide = first.agency == Agency.MUNI &&
-                            RouteColors.getStyle(
-                                first.agency,
-                                first.routeName
-                            ).shape == RouteShape.ROUNDED_RECT &&
-                            label.length >= 3
-                    val bitmap = if (isWide) {
-                        RouteIconDrawer.drawWide(first.agency, first.routeName, iconSizePx)
-                    } else {
-                        RouteIconDrawer.draw(first.agency, first.routeName, iconSizePx)
-                    }
+                    val bitmap = RouteIconDrawer.draw(first.agency, first.routeName, iconSizePx)
                     rowViews.setImageViewBitmap(R.id.ivRouteIcon, bitmap)
 
                     // Times
