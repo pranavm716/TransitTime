@@ -55,7 +55,6 @@ class TransitWidget : AppWidgetProvider() {
         ) {
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
 
-
             // Wire up refresh button tap
             val refreshIntent = Intent(context, TransitWidget::class.java).apply {
                 action = ACTION_REFRESH
@@ -90,14 +89,6 @@ class TransitWidget : AppWidgetProvider() {
                 views.setImageViewResource(R.id.ivAgencyLogo, logoRes)
 
                 val now = System.currentTimeMillis()
-                val arrivals = db.arrivalDao()
-                    .getArrivalsForStop(config.stopId)
-                    .filter { arrival ->
-                        arrival.arrivalTimestamp > now &&
-                                (config.filteredHeadsigns.isEmpty() ||
-                                        arrival.headsign in config.filteredHeadsigns)
-                    }
-                    .take(config.maxArrivals)
 
                 // Group by route+headsign, take N per group, sort by soonest arrival
                 val grouped = db.arrivalDao()
@@ -113,6 +104,20 @@ class TransitWidget : AppWidgetProvider() {
                     }
                     .entries
                     .sortedBy { (_, arrivals) -> arrivals.first().arrivalTimestamp }
+
+                // Freshness indicator
+                val allArrivalsForStop = db.arrivalDao().getArrivalsForStop(config.stopId)
+                val lastFetchedAt = allArrivalsForStop.maxOfOrNull { it.fetchedAt } ?: 0L
+
+                val freshnessText = if (lastFetchedAt == 0L) {
+                    "—"
+                } else {
+                    val formatter = SimpleDateFormat("h:mm:ss a ↻", Locale.getDefault())
+                    formatter.format(Date(lastFetchedAt))
+                }
+
+                views.setTextViewText(R.id.tvFreshnessText, freshnessText)
+
 
                 views.removeAllViews(R.id.llArrivals)
                 for ((_, arrivals) in grouped) {
@@ -150,13 +155,6 @@ class TransitWidget : AppWidgetProvider() {
                     rowViews.setTextViewText(R.id.tvMinutes, timesText)
                     views.addView(R.id.llArrivals, rowViews)
                 }
-
-                // Update last refreshed timestamp
-                val formatter = SimpleDateFormat("h:mm:ss a", Locale.getDefault())
-                views.setTextViewText(
-                    R.id.tvLastUpdated,
-                    "Updated ${formatter.format(Date(now))}"
-                )
 
                 appWidgetManager.updateAppWidget(widgetId, views)
             }

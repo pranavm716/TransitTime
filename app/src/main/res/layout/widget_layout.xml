@@ -7,7 +7,7 @@
     android:padding="12dp"
     android:background="@android:color/black">
 
-    <!-- Header row: agency logo + stop name -->
+    <!-- Header row -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -31,16 +31,15 @@
             android:textSize="20sp"
             android:textStyle="bold" />
 
-    </LinearLayout>
+        <TextView
+            android:id="@+id/tvFreshnessText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#AAAAAA"
+            android:textSize="13sp"
+            android:layout_marginEnd="5dp" />
 
-    <!-- Last updated timestamp -->
-    <TextView
-        android:id="@+id/tvLastUpdated"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/updated_just_now"
-        android:textColor="#AAAAAA"
-        android:textSize="13sp" />
+    </LinearLayout>
 
     <!-- Arrival rows container -->
     <LinearLayout
