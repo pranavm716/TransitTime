@@ -40,12 +40,13 @@ class FetchWorker(
                 val bytes = BartApiClient.api.getTripUpdates().bytes()
                 val arrivals = BartParser.parseRtFeed(bytes, fetchedAt)
                     .filter { it.stopId in bartStopIds }
+
+                // Only delete after successful fetch
                 for (stopId in bartStopIds) {
                     arrivalDao.deleteArrivalsForStop(stopId)
                 }
                 arrivalDao.upsertArrivals(arrivals)
 
-                // Update lastFetchedAt for each BART config
                 for (config in bartConfigs) {
                     configDao.upsertConfig(config.copy(lastFetchedAt = fetchedAt))
                 }
@@ -56,13 +57,14 @@ class FetchWorker(
 
         // Fetch MUNI
         if (muniStopIds.isNotEmpty()) {
+            MuniParser.loadStaticGtfs(context)
+
             for (stopId in muniStopIds) {
                 try {
                     val arrivals = MuniParser.fetchAndParseStop(stopId, fetchedAt)
                     arrivalDao.deleteArrivalsForStop(stopId)
                     arrivalDao.upsertArrivals(arrivals)
 
-                    // Update lastFetchedAt for this MUNI config
                     val config = configDao.getConfigByStopId(stopId)
                     config?.let {
                         configDao.upsertConfig(it.copy(lastFetchedAt = fetchedAt))
