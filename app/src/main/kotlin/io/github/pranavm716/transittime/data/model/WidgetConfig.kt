@@ -15,6 +15,6 @@ data class WidgetConfig(
     val lastFetchedAt: Long = 0L
 ) {
     init {
-        require(maxArrivals in 1..5) { "maxArrivals must be between 1 and 5." }
+        require(maxArrivals in 1..3) { "maxArrivals must be between 1 and 3." }
     }
 }
