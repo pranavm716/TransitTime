@@ -11,6 +11,10 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.data.db.TransitDatabase
+import io.github.pranavm716.transittime.data.model.Agency
+import io.github.pranavm716.transittime.util.RouteColors
+import io.github.pranavm716.transittime.util.RouteIconDrawer
+import io.github.pranavm716.transittime.util.RouteShape
 import io.github.pranavm716.transittime.worker.FetchWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,6 +55,7 @@ class TransitWidget : AppWidgetProvider() {
         ) {
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
 
+
             // Wire up refresh button tap
             val refreshIntent = Intent(context, TransitWidget::class.java).apply {
                 action = ACTION_REFRESH
@@ -76,6 +81,13 @@ class TransitWidget : AppWidgetProvider() {
                 }
 
                 views.setTextViewText(R.id.tvStopName, config.stopName)
+
+                // Set agency logo
+                val logoRes = when (config.agency) {
+                    Agency.BART -> R.drawable.ic_bart
+                    Agency.MUNI -> R.drawable.ic_muni
+                }
+                views.setImageViewResource(R.id.ivAgencyLogo, logoRes)
 
                 val now = System.currentTimeMillis()
                 val arrivals = db.arrivalDao()
@@ -107,22 +119,34 @@ class TransitWidget : AppWidgetProvider() {
                     val first = arrivals.first()
                     val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
 
+                    // Draw route icon
+                    val iconSizePx = (36 * context.resources.displayMetrics.density).toInt()
+                    val label = RouteIconDrawer.getLabel(first.agency, first.routeName)
+                    val isWide = first.agency == Agency.MUNI &&
+                            RouteColors.getStyle(
+                                first.agency,
+                                first.routeName
+                            ).shape == RouteShape.ROUNDED_RECT &&
+                            label.length >= 3
+                    val bitmap = if (isWide) {
+                        RouteIconDrawer.drawWide(first.agency, first.routeName, iconSizePx)
+                    } else {
+                        RouteIconDrawer.draw(first.agency, first.routeName, iconSizePx)
+                    }
+                    rowViews.setImageViewBitmap(R.id.ivRouteIcon, bitmap)
+
+                    // Times
                     val timesText = arrivals.joinToString(", ") { arrival ->
                         val millisAway = arrival.arrivalTimestamp - now
                         val minutesAway = (millisAway / 60000).toInt()
-                        val secondsAway = ((millisAway % 60000) / 1000).toInt()
                         when {
                             millisAway < 0 -> "Departed"
-                            minutesAway == 0 -> "$secondsAway sec"
-                            minutesAway < 10 && secondsAway > 0 -> "$minutesAway min $secondsAway sec"
-                            else -> "$minutesAway min"
+                            minutesAway < 1 -> "Arriving"
+                            else -> "${minutesAway}min"
                         }
                     }
 
-                    rowViews.setTextViewText(
-                        R.id.tvHeadsign,
-                        "${first.routeName} to ${first.headsign}"
-                    )
+                    rowViews.setTextViewText(R.id.tvHeadsign, first.headsign)
                     rowViews.setTextViewText(R.id.tvMinutes, timesText)
                     views.addView(R.id.llArrivals, rowViews)
                 }
