@@ -6,7 +6,7 @@
     <string name="stop_search_hint">e.g. &quot;Embarcadero&quot; or &quot;Geary Blvd &amp; 20th Ave&quot;</string>
     <string name="max_arrivals">Max arrivals per line (1–3)</string>
     <string name="add_widget">Add Widget</string>
-    <string name="default_max_arrivals">2</string>
+    <string name="default_max_arrivals">3</string>
     <string name="station">Station</string>
     <string name="destination">Destination</string>
     <string name="minutes">5 min</string>
