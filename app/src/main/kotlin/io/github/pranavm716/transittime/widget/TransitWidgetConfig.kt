@@ -169,10 +169,23 @@ class TransitWidgetConfig : AppCompatActivity() {
                 }
 
                 withContext(Dispatchers.Main) {
+                    // Collapse keyboard
+                    val imm =
+                        getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.hideSoftInputFromWindow(
+                        findViewById<EditText>(R.id.etStopSearch).windowToken,
+                        0
+                    )
+
                     currentRoutes = routes
                     if (routes.isEmpty()) {
                         elvRoutes.visibility = View.GONE
                         tvRoutesLabel.visibility = View.GONE
+                        Toast.makeText(
+                            this@TransitWidgetConfig,
+                            "⚠ No routes available right now. Try configuring at a different time.",
+                            Toast.LENGTH_LONG
+                        ).show()
                     } else {
                         routes.entries.forEach { (routeName, headsigns) ->
                             headsigns.forEach { headsign ->
