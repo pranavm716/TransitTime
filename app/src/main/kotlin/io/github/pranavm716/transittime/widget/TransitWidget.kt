@@ -107,7 +107,7 @@ class TransitWidget : AppWidgetProvider() {
                 val allGroups = db.arrivalDao()
                     .getArrivalsForStop(config.stopId)
                     .filter { arrival ->
-                        arrival.arrivalTimestamp > now &&
+                        arrival.departureTimestamp > now &&
                                 (config.filteredHeadsigns.isEmpty() ||
                                         arrival.headsign in config.filteredHeadsigns)
                     }
@@ -116,7 +116,13 @@ class TransitWidget : AppWidgetProvider() {
                     .map { (_, arrivals) ->
                         arrivals.sortedBy { it.arrivalTimestamp }.take(config.maxArrivals)
                     }
-                    .sortedBy { it.first().arrivalTimestamp }
+                    .sortedWith(
+                        compareBy(
+                        { it.first().arrivalTimestamp },
+                        { it.getOrNull(1)?.arrivalTimestamp ?: Long.MAX_VALUE },
+                        { it.getOrNull(2)?.arrivalTimestamp ?: Long.MAX_VALUE },
+                        { it.first().routeName }
+                    ))
 
                 val totalGroups = allGroups.size
                 val grouped = allGroups.take(maxRows)
@@ -151,12 +157,12 @@ class TransitWidget : AppWidgetProvider() {
                         val timeCells = listOf(R.id.tvTime1, R.id.tvTime2, R.id.tvTime3)
 
                         val times = arrivals.map { arrival ->
-                            val millisAway = arrival.arrivalTimestamp - now
-                            val minutesAway = (millisAway / 60000).toInt()
+                            val millisToArrival = arrival.arrivalTimestamp - now
+
                             when {
-                                millisAway < 0 -> "Departed"
-                                minutesAway < 1 -> "Now"
-                                else -> "${minutesAway}min"
+                                arrival.agency == Agency.BART && millisToArrival <= 0 -> "Leaving"
+                                millisToArrival in 1..59_999 -> "Arriving"
+                                else -> "${(millisToArrival / 60000).toInt()}min"
                             }
                         }
 
@@ -170,8 +176,8 @@ class TransitWidget : AppWidgetProvider() {
                         for (i in 0 until config.maxArrivals) {
                             val text = times.getOrNull(i) ?: "—"
                             val color = when (text) {
-                                "Now" -> 0xFF28a745.toInt()
-                                "Departed" -> 0xFF888888.toInt()
+                                "Leaving" -> 0xFFdc3545.toInt()
+                                "Arriving" -> 0xFF28a745.toInt()
                                 "—" -> 0xFFBDC1C7.toInt()
                                 else -> 0xFFFFD700.toInt()
                             }

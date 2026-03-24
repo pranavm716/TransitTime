@@ -12,10 +12,10 @@ data class Arrival(
     val headsign: String,
     val agency: Agency,
     val arrivalTimestamp: Long,
+    val departureTimestamp: Long,
     val fetchedAt: Long
 )
 
 enum class Agency {
-    BART,
-    MUNI
+    BART, MUNI
 }

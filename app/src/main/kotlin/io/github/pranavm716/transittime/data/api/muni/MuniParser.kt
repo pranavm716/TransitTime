@@ -187,7 +187,7 @@ object MuniParser {
 
                 val arrivalTimestamp = try {
                     isoFormat.parse(expectedArrival)?.time ?: continue
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     continue
                 }
 
@@ -204,6 +204,7 @@ object MuniParser {
                         headsign = headsign,
                         agency = Agency.MUNI,
                         arrivalTimestamp = arrivalTimestamp,
+                        departureTimestamp = arrivalTimestamp,  // 511 doesn't provide departure
                         fetchedAt = fetchedAt
                     )
                 )

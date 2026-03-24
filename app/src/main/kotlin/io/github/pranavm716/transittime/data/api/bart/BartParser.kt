@@ -183,15 +183,17 @@ object BartParser {
             val headsign = cleanTerminalName(rawTerminalName)
 
             for (stu in tu.stopTimeUpdateList) {
-                // Skip skipped stops
                 if (stu.scheduleRelationship ==
                     GtfsRealtime.TripUpdate.StopTimeUpdate.ScheduleRelationship.SKIPPED
                 ) continue
-
                 if (!stu.hasArrival()) continue
+
                 val baseId = stu.stopId.substringBeforeLast("-")
                 stopNames[baseId] ?: continue
+
                 val arrivalTimestamp = stu.arrival.time * 1000L
+                val departureTimestamp = if (stu.hasDeparture()) stu.departure.time * 1000L
+                else arrivalTimestamp + 30_000L
 
                 arrivals.add(
                     Arrival(
@@ -201,6 +203,7 @@ object BartParser {
                         headsign = headsign,
                         agency = Agency.BART,
                         arrivalTimestamp = arrivalTimestamp,
+                        departureTimestamp = departureTimestamp,
                         fetchedAt = fetchedAt
                     )
                 )
