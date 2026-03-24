@@ -41,18 +41,46 @@ object RouteColors {
     private fun getMuniStyle(routeName: String): RouteStyle {
         val metroColor = when (routeName.uppercase()) {
             "J" -> "#a96614".toColorInt()
-            "K" -> "#437c93".toColorInt()
+            "K", "KT" -> "#437c93".toColorInt()
             "L" -> "#942d83".toColorInt()
             "M" -> "#008547".toColorInt()
             "N" -> "#005b95".toColorInt()
             "T" -> "#bf2b45".toColorInt()
+            "E", "F" -> "#b49a36".toColorInt()
             else -> null
         }
         if (metroColor != null) {
             return RouteStyle(metroColor, WHITE_TEXT, RouteShape.CIRCLE)
         }
 
-        val isRapid = routeName.endsWith("R", ignoreCase = true)
+        // Metro bus substitutions — same color as metro line, rounded rect
+        val metroSubColor = when (routeName.uppercase()) {
+            "KBUS" -> "#437c93".toColorInt()
+            "LBUS" -> "#942d83".toColorInt()
+            "NBUS" -> "#005b95".toColorInt()
+            "TBUS" -> "#bf2b45".toColorInt()
+            "FBUS" -> "#b49a36".toColorInt()
+            else -> null
+        }
+        if (metroSubColor != null) {
+            return RouteStyle(metroSubColor, WHITE_TEXT, RouteShape.ROUNDED_RECT)
+        }
+
+        // Owl services
+        if (routeName.endsWith("OWL", ignoreCase = true) ||
+            routeName.uppercase() in listOf("90", "91")
+        ) {
+            return RouteStyle("#666666".toColorInt(), WHITE_TEXT, RouteShape.ROUNDED_RECT)
+        }
+
+        // Cable cars
+        if (routeName.uppercase() in listOf("PH", "PM", "CA")) {
+            return RouteStyle("#8B4513".toColorInt(), WHITE_TEXT, RouteShape.ROUNDED_RECT)
+        }
+
+        // Rapid and express (R or X suffix)
+        val isRapid = routeName.endsWith("R", ignoreCase = true) ||
+                routeName.endsWith("X", ignoreCase = true)
         val busColor = if (isRapid) "#bf2b45".toColorInt() else "#005b95".toColorInt()
         return RouteStyle(busColor, WHITE_TEXT, RouteShape.ROUNDED_RECT)
     }
