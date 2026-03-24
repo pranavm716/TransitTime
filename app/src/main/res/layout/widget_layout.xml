@@ -27,21 +27,24 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:layout_marginEnd="5dp"
             android:text="@string/station"
             android:textColor="@android:color/white"
             android:textSize="20sp"
             android:textStyle="bold"
             android:maxLines="1"
+            android:gravity="center_vertical"
             android:autoSizeTextType="uniform"
-            android:autoSizeMinTextSize="10sp"
+            android:autoSizeMinTextSize="11sp"
             android:autoSizeMaxTextSize="22sp"
             android:autoSizeStepGranularity="1sp" />
 
         <TextView
             android:id="@+id/tvFreshnessText"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_gravity="center_vertical"
+            android:gravity="center_vertical"
             android:textColor="#AAAAAA"
             android:textSize="13sp"
             android:layout_marginEnd="5dp" />

@@ -118,11 +118,11 @@ class TransitWidget : AppWidgetProvider() {
                     }
                     .sortedWith(
                         compareBy(
-                        { it.first().arrivalTimestamp },
-                        { it.getOrNull(1)?.arrivalTimestamp ?: Long.MAX_VALUE },
-                        { it.getOrNull(2)?.arrivalTimestamp ?: Long.MAX_VALUE },
-                        { it.first().routeName }
-                    ))
+                            { it.first().arrivalTimestamp },
+                            { it.getOrNull(1)?.arrivalTimestamp ?: Long.MAX_VALUE },
+                            { it.getOrNull(2)?.arrivalTimestamp ?: Long.MAX_VALUE },
+                            { it.first().routeName }
+                        ))
 
                 val totalGroups = allGroups.size
                 val grouped = allGroups.take(maxRows)
