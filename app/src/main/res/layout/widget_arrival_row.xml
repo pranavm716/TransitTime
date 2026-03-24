@@ -32,12 +32,6 @@
         android:textSize="16sp"
         android:textStyle="bold" />
 
-    <ImageView
-        android:id="@+id/ivDivider1"
-        android:layout_width="1px"
-        android:layout_height="16dp"
-        android:background="#bdc1c7" />
-
     <TextView
         android:id="@+id/tvTime2"
         android:layout_width="60dp"
@@ -45,12 +39,6 @@
         android:gravity="center"
         android:textSize="16sp"
         android:textStyle="bold" />
-
-    <ImageView
-        android:id="@+id/ivDivider2"
-        android:layout_width="1px"
-        android:layout_height="16dp"
-        android:background="#bdc1c7" />
 
     <TextView
         android:id="@+id/tvTime3"

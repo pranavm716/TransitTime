@@ -147,7 +147,6 @@ class TransitWidget : AppWidgetProvider() {
                         rowViews.setTextViewText(R.id.tvHeadsign, first.headsign)
 
                         val timeCells = listOf(R.id.tvTime1, R.id.tvTime2, R.id.tvTime3)
-                        val dividers = listOf(R.id.ivDivider1, R.id.ivDivider2)
 
                         val times = arrivals.map { arrival ->
                             val millisAway = arrival.arrivalTimestamp - now
@@ -165,18 +164,13 @@ class TransitWidget : AppWidgetProvider() {
                                 if (i < config.maxArrivals) View.VISIBLE else View.GONE
                             )
                         }
-                        for (i in dividers.indices) {
-                            rowViews.setViewVisibility(
-                                dividers[i],
-                                if (i + 1 < config.maxArrivals) View.VISIBLE else View.GONE
-                            )
-                        }
 
                         for (i in 0 until config.maxArrivals) {
                             val text = times.getOrNull(i) ?: "—"
                             val color = when (text) {
                                 "Now" -> 0xFF28a745.toInt()
                                 "Departed" -> 0xFF888888.toInt()
+                                "—" -> 0xFFBDC1C7.toInt()
                                 else -> 0xFFFFD700.toInt()
                             }
                             rowViews.setTextViewText(timeCells[i], text)
