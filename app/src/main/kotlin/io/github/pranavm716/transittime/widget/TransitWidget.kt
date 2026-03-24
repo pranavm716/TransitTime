@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.RemoteViews
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -143,19 +144,45 @@ class TransitWidget : AppWidgetProvider() {
                         val iconSizePx = (36 * context.resources.displayMetrics.density).toInt()
                         val bitmap = RouteIconDrawer.draw(first.agency, first.routeName, iconSizePx)
                         rowViews.setImageViewBitmap(R.id.ivRouteIcon, bitmap)
+                        rowViews.setTextViewText(R.id.tvHeadsign, first.headsign)
 
-                        val timesText = arrivals.joinToString(", ") { arrival ->
+                        val timeCells = listOf(R.id.tvTime1, R.id.tvTime2, R.id.tvTime3)
+                        val dividers = listOf(R.id.ivDivider1, R.id.ivDivider2)
+
+                        val times = arrivals.map { arrival ->
                             val millisAway = arrival.arrivalTimestamp - now
                             val minutesAway = (millisAway / 60000).toInt()
                             when {
                                 millisAway < 0 -> "Departed"
-                                minutesAway < 1 -> "Arriving"
+                                minutesAway < 1 -> "Now"
                                 else -> "${minutesAway}min"
                             }
                         }
 
-                        rowViews.setTextViewText(R.id.tvHeadsign, first.headsign)
-                        rowViews.setTextViewText(R.id.tvMinutes, timesText)
+                        for (i in timeCells.indices) {
+                            rowViews.setViewVisibility(
+                                timeCells[i],
+                                if (i < config.maxArrivals) View.VISIBLE else View.GONE
+                            )
+                        }
+                        for (i in dividers.indices) {
+                            rowViews.setViewVisibility(
+                                dividers[i],
+                                if (i + 1 < config.maxArrivals) View.VISIBLE else View.GONE
+                            )
+                        }
+
+                        for (i in 0 until config.maxArrivals) {
+                            val text = times.getOrNull(i) ?: "—"
+                            val color = when (text) {
+                                "Now" -> 0xFF28a745.toInt()
+                                "Departed" -> 0xFF888888.toInt()
+                                else -> 0xFFFFD700.toInt()
+                            }
+                            rowViews.setTextViewText(timeCells[i], text)
+                            rowViews.setTextColor(timeCells[i], color)
+                        }
+
                         views.addView(R.id.llArrivals, rowViews)
                     }
                 }

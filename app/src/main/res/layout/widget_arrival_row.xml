@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -19,16 +20,44 @@
         android:layout_weight="1"
         android:textColor="@android:color/white"
         android:textSize="16sp"
+        android:maxLines="1"
+        android:ellipsize="end"
         android:text="Destination" />
 
     <TextView
-        android:id="@+id/tvMinutes"
-        android:layout_width="wrap_content"
+        android:id="@+id/tvTime1"
+        android:layout_width="60dp"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_vertical"
-        android:textColor="#FFD700"
+        android:gravity="center"
         android:textSize="16sp"
-        android:textStyle="bold"
-        android:text="5 min" />
+        android:textStyle="bold" />
+
+    <ImageView
+        android:id="@+id/ivDivider1"
+        android:layout_width="1px"
+        android:layout_height="16dp"
+        android:background="#bdc1c7" />
+
+    <TextView
+        android:id="@+id/tvTime2"
+        android:layout_width="60dp"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <ImageView
+        android:id="@+id/ivDivider2"
+        android:layout_width="1px"
+        android:layout_height="16dp"
+        android:background="#bdc1c7" />
+
+    <TextView
+        android:id="@+id/tvTime3"
+        android:layout_width="60dp"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textSize="16sp"
+        android:textStyle="bold" />
 
 </LinearLayout>

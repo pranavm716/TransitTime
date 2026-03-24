@@ -56,7 +56,7 @@
         android:layout_marginTop="6dp"
         android:layout_marginBottom="4dp"
         android:src="@android:color/transparent"
-        android:background="#55FFFFFF" />
+        android:background="#bdc1c7" />
 
     <!-- Arrivals + overflow -->
     <FrameLayout
