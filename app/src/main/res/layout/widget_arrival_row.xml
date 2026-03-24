@@ -19,9 +19,12 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:textColor="@android:color/white"
-        android:textSize="16sp"
         android:maxLines="1"
-        android:ellipsize="end"
+        android:gravity="center_vertical"
+        android:autoSizeTextType="uniform"
+        android:autoSizeMinTextSize="11sp"
+        android:autoSizeMaxTextSize="16sp"
+        android:autoSizeStepGranularity="1sp"
         android:text="Destination" />
 
     <TextView
