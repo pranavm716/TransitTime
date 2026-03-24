@@ -33,9 +33,10 @@ class TransitWidgetConfig : AppCompatActivity() {
     private var selectedStopId: String? = null
     private var selectedStopName: String? = null
     private var allStops: List<Pair<String, String>> = emptyList()
+    private var currentRoutes: Map<String, List<String>> = emptyMap()
 
     private lateinit var resultsAdapter: ArrayAdapter<String>
-    private val checkedHeadsigns = mutableSetOf<String>()  // stores "routeName|headsign"
+    private val checkedHeadsigns = mutableSetOf<String>()
     private var routeAdapter: RouteHeadsignAdapter? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,7 +62,6 @@ class TransitWidgetConfig : AppCompatActivity() {
         resultsAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
         lvResults.adapter = resultsAdapter
 
-        // Agency spinner
         val agencies = Agency.entries.map { it.name }
         spinner.adapter = ArrayAdapter(
             this,
@@ -79,6 +79,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                 val agency = Agency.entries[position]
                 selectedStopId = null
                 selectedStopName = null
+                currentRoutes = emptyMap()
                 checkedHeadsigns.clear()
                 findViewById<TextView>(R.id.tvSelectedStop).visibility = View.GONE
                 findViewById<EditText>(R.id.etStopSearch).setText("")
@@ -113,7 +114,6 @@ class TransitWidgetConfig : AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>) {}
         }
 
-        // Stop search
         findViewById<EditText>(R.id.etStopSearch).addTextChangedListener(
             object : TextWatcher {
                 override fun beforeTextChanged(
@@ -141,7 +141,6 @@ class TransitWidgetConfig : AppCompatActivity() {
             }
         )
 
-        // Stop selection
         lvResults.setOnItemClickListener { _, _, position, _ ->
             @Suppress("UNCHECKED_CAST")
             val filtered =
@@ -157,21 +156,24 @@ class TransitWidgetConfig : AppCompatActivity() {
             tvSelected.text = "Selected: ${selected.second} (${selected.first})"
             tvSelected.visibility = View.VISIBLE
 
-            // Load routes for this stop
             checkedHeadsigns.clear()
             CoroutineScope(Dispatchers.IO).launch {
                 val agency = Agency.entries[spinner.selectedItemPosition]
                 val routes = when (agency) {
-                    Agency.BART -> BartParser.getRoutesForStop(selected.first)
+                    Agency.BART -> {
+                        BartParser.loadStaticGtfs(applicationContext)
+                        BartParser.fetchRoutesForStop(selected.first)
+                    }
+
                     Agency.MUNI -> MuniParser.fetchRoutesForStop(selected.first)
                 }
 
                 withContext(Dispatchers.Main) {
+                    currentRoutes = routes
                     if (routes.isEmpty()) {
                         elvRoutes.visibility = View.GONE
                         tvRoutesLabel.visibility = View.GONE
                     } else {
-                        // Default: all headsigns checked
                         routes.entries.forEach { (routeName, headsigns) ->
                             headsigns.forEach { headsign ->
                                 checkedHeadsigns.add("$routeName|$headsign")
@@ -183,7 +185,6 @@ class TransitWidgetConfig : AppCompatActivity() {
                             checkedHeadsigns
                         )
                         elvRoutes.setAdapter(routeAdapter)
-                        // Expand all groups by default
                         for (i in routes.keys.indices) elvRoutes.expandGroup(i)
                         elvRoutes.visibility = View.VISIBLE
                         tvRoutesLabel.visibility = View.VISIBLE
@@ -192,7 +193,6 @@ class TransitWidgetConfig : AppCompatActivity() {
             }
         }
 
-        // Save
         findViewById<Button>(R.id.btnSave).setOnClickListener {
             val stopId = selectedStopId
             val stopName = selectedStopName
@@ -211,9 +211,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // Empty checkedHeadsigns means "show all" — but here all are checked by default
-            // so we store empty list only if truly all are selected (no filtering needed)
-            val allRouteHeadsigns = BartParser.getRoutesForStop(stopId)
+            val allRouteHeadsigns = currentRoutes
                 .entries.flatMap { (r, hs) -> hs.map { "$r|$it" } }.toSet()
             val filtered = if (checkedHeadsigns == allRouteHeadsigns) emptyList()
             else checkedHeadsigns.map { it.substringAfter("|") }.toList()
