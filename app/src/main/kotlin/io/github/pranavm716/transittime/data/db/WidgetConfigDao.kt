@@ -20,4 +20,7 @@ interface WidgetConfigDao {
 
     @Query("DELETE FROM widget_configs WHERE widgetId = :widgetId")
     suspend fun deleteConfig(widgetId: Int)
+
+    @Query("SELECT * FROM widget_configs WHERE stopId = :stopId")
+    suspend fun getConfigByStopId(stopId: String): WidgetConfig?
 }

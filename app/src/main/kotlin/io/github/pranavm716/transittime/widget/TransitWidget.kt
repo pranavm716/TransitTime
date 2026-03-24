@@ -5,12 +5,16 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
+import android.view.View
 import android.widget.RemoteViews
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.data.db.TransitDatabase
+import io.github.pranavm716.transittime.data.model.Agency
+import io.github.pranavm716.transittime.util.RouteIconDrawer
 import io.github.pranavm716.transittime.worker.FetchWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,18 +44,34 @@ class TransitWidget : AppWidgetProvider() {
         }
     }
 
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle
+    ) {
+        updateWidget(context, appWidgetManager, appWidgetId)
+    }
+
     companion object {
         const val ACTION_REFRESH = "io.github.pranavm716.transittime.ACTION_REFRESH"
         const val EXTRA_WIDGET_ID = "extra_widget_id"
+
+        private const val HEADER_DP = 44
+        private const val ROW_DP = 40
+        private const val PADDING_DP = 30
 
         fun updateWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,
             widgetId: Int
         ) {
+            val options = appWidgetManager.getAppWidgetOptions(widgetId)
+            val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+            val maxRows = ((minHeight - HEADER_DP - PADDING_DP) / ROW_DP).coerceAtLeast(1)
+
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
 
-            // Wire up refresh button tap
             val refreshIntent = Intent(context, TransitWidget::class.java).apply {
                 action = ACTION_REFRESH
                 putExtra(EXTRA_WIDGET_ID, widgetId)
@@ -64,7 +84,6 @@ class TransitWidget : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.widgetRoot, refreshPendingIntent)
 
-            // Read arrivals from DB and populate the view
             CoroutineScope(Dispatchers.IO).launch {
                 val db = TransitDatabase.getInstance(context)
                 val config = db.widgetConfigDao().getConfig(widgetId)
@@ -77,18 +96,15 @@ class TransitWidget : AppWidgetProvider() {
 
                 views.setTextViewText(R.id.tvStopName, config.stopName)
 
-                val now = System.currentTimeMillis()
-                val arrivals = db.arrivalDao()
-                    .getArrivalsForStop(config.stopId)
-                    .filter { arrival ->
-                        arrival.arrivalTimestamp > now &&
-                                (config.filteredHeadsigns.isEmpty() ||
-                                        arrival.headsign in config.filteredHeadsigns)
-                    }
-                    .take(config.maxArrivals)
+                val logoRes = when (config.agency) {
+                    Agency.BART -> R.drawable.ic_bart
+                    Agency.MUNI -> R.drawable.ic_muni
+                }
+                views.setImageViewResource(R.id.ivAgencyLogo, logoRes)
 
-                // Group by route+headsign, take N per group, sort by soonest arrival
-                val grouped = db.arrivalDao()
+                val now = System.currentTimeMillis()
+
+                val allGroups = db.arrivalDao()
                     .getArrivalsForStop(config.stopId)
                     .filter { arrival ->
                         arrival.arrivalTimestamp > now &&
@@ -96,43 +112,83 @@ class TransitWidget : AppWidgetProvider() {
                                         arrival.headsign in config.filteredHeadsigns)
                     }
                     .groupBy { "${it.routeName}|${it.headsign}" }
-                    .mapValues { (_, arrivals) ->
+                    .entries
+                    .map { (_, arrivals) ->
                         arrivals.sortedBy { it.arrivalTimestamp }.take(config.maxArrivals)
                     }
-                    .entries
-                    .sortedBy { (_, arrivals) -> arrivals.first().arrivalTimestamp }
+                    .sortedBy { it.first().arrivalTimestamp }
+
+                val totalGroups = allGroups.size
+                val grouped = allGroups.take(maxRows)
+                val overflow = totalGroups - maxRows
+
+                val lastFetchedAt = config.lastFetchedAt
+                val freshnessText = if (lastFetchedAt == 0L) {
+                    "—"
+                } else {
+                    val formatter = SimpleDateFormat("h:mm a ↻", Locale.getDefault())
+                    formatter.format(Date(lastFetchedAt))
+                }
+                views.setTextViewText(R.id.tvFreshnessText, freshnessText)
 
                 views.removeAllViews(R.id.llArrivals)
-                for ((_, arrivals) in grouped) {
-                    val first = arrivals.first()
-                    val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
 
-                    val timesText = arrivals.joinToString(", ") { arrival ->
-                        val millisAway = arrival.arrivalTimestamp - now
-                        val minutesAway = (millisAway / 60000).toInt()
-                        val secondsAway = ((millisAway % 60000) / 1000).toInt()
-                        when {
-                            millisAway < 0 -> "Departed"
-                            minutesAway == 0 -> "$secondsAway sec"
-                            minutesAway < 10 && secondsAway > 0 -> "$minutesAway min $secondsAway sec"
-                            else -> "$minutesAway min"
+                if (grouped.isEmpty()) {
+                    val emptyViews = RemoteViews(context.packageName, R.layout.widget_empty)
+                    views.addView(R.id.llArrivals, emptyViews)
+                } else {
+                    for (arrivals in grouped) {
+                        val first = arrivals.first()
+                        val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
+
+                        val iconSizePx = (36 * context.resources.displayMetrics.density).toInt()
+                        val bitmap = RouteIconDrawer.draw(first.agency, first.routeName, iconSizePx)
+                        rowViews.setImageViewBitmap(R.id.ivRouteIcon, bitmap)
+                        rowViews.setTextViewText(R.id.tvHeadsign, first.headsign)
+
+                        val timeCells = listOf(R.id.tvTime1, R.id.tvTime2, R.id.tvTime3)
+
+                        val times = arrivals.map { arrival ->
+                            val millisAway = arrival.arrivalTimestamp - now
+                            val minutesAway = (millisAway / 60000).toInt()
+                            when {
+                                millisAway < 0 -> "Departed"
+                                minutesAway < 1 -> "Now"
+                                else -> "${minutesAway}min"
+                            }
                         }
-                    }
 
-                    rowViews.setTextViewText(
-                        R.id.tvHeadsign,
-                        "${first.routeName} to ${first.headsign}"
-                    )
-                    rowViews.setTextViewText(R.id.tvMinutes, timesText)
-                    views.addView(R.id.llArrivals, rowViews)
+                        for (i in timeCells.indices) {
+                            rowViews.setViewVisibility(
+                                timeCells[i],
+                                if (i < config.maxArrivals) View.VISIBLE else View.GONE
+                            )
+                        }
+
+                        for (i in 0 until config.maxArrivals) {
+                            val text = times.getOrNull(i) ?: "—"
+                            val color = when (text) {
+                                "Now" -> 0xFF28a745.toInt()
+                                "Departed" -> 0xFF888888.toInt()
+                                "—" -> 0xFFBDC1C7.toInt()
+                                else -> 0xFFFFD700.toInt()
+                            }
+                            rowViews.setTextViewText(timeCells[i], text)
+                            rowViews.setTextColor(timeCells[i], color)
+                        }
+
+                        views.addView(R.id.llArrivals, rowViews)
+                    }
                 }
 
-                // Update last refreshed timestamp
-                val formatter = SimpleDateFormat("h:mm:ss a", Locale.getDefault())
-                views.setTextViewText(
-                    R.id.tvLastUpdated,
-                    "Updated ${formatter.format(Date(now))}"
-                )
+                if (overflow > 0) {
+                    views.setTextViewText(
+                        R.id.tvOverflowStatic,
+                        "+$overflow more route${if (overflow > 1) "s" else ""}"
+                    )
+                } else {
+                    views.setTextViewText(R.id.tvOverflowStatic, "")
+                }
 
                 appWidgetManager.updateAppWidget(widgetId, views)
             }

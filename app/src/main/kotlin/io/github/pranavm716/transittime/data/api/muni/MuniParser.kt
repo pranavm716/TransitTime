@@ -29,14 +29,14 @@ object MuniParser {
     )
 
     private val METRO_DISPLAY_NAMES = mapOf(
-        "metro:Castro" to "Metro Castro Station",
-        "metro:Church" to "Metro Church Station",
-        "metro:CivicCenter" to "Metro Civic Center Station",
-        "metro:Embarcadero" to "Metro Embarcadero Station",
-        "metro:ForestHill" to "Metro Forest Hill Station",
-        "metro:Montgomery" to "Metro Montgomery Station",
-        "metro:Powell" to "Metro Powell Station",
-        "metro:VanNess" to "Metro Van Ness Station",
+        "metro:Castro" to "Castro",
+        "metro:Church" to "Church",
+        "metro:CivicCenter" to "Civic Center / UN Plaza",
+        "metro:Embarcadero" to "Embarcadero",
+        "metro:ForestHill" to "Forest Hill",
+        "metro:Montgomery" to "Montgomery Street",
+        "metro:Powell" to "Powell Street",
+        "metro:VanNess" to "Van Ness",
     )
 
     // logicalStopId → display name
@@ -169,11 +169,7 @@ object MuniParser {
             }
     }
 
-    fun parseStopMonitoring(
-        json: String,
-        stopId: String,
-        fetchedAt: Long
-    ): List<Arrival> {
+    fun parseStopMonitoring(json: String, stopId: String, fetchedAt: Long): List<Arrival> {
         val arrivals = mutableListOf<Arrival>()
         try {
             val root = JSONObject(json)
@@ -183,8 +179,7 @@ object MuniParser {
             val visits = delivery.optJSONArray("MonitoredStopVisit") ?: return emptyList()
 
             for (i in 0 until visits.length()) {
-                val journey = visits.getJSONObject(i)
-                    .getJSONObject("MonitoredVehicleJourney")
+                val journey = visits.getJSONObject(i).getJSONObject("MonitoredVehicleJourney")
                 val call = journey.getJSONObject("MonitoredCall")
 
                 val expectedArrival = call.optString("ExpectedArrivalTime", "")

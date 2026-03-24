@@ -11,17 +11,17 @@ import java.util.zip.ZipInputStream
 
 object BartParser {
 
-    // In-memory lookup tables populated once from static GTFS
-    private val stopNames = mutableMapOf<String, String>()     // "M16" -> "Embarcadero"
-    private val tripHeadsigns = mutableMapOf<String, String>() // "1849326" -> "Millbrae..."
-    private val routeColors = mutableMapOf<String, String>() // routeId → "Red", "Blue" etc
-    private val tripRouteIds = mutableMapOf<String, String>() // tripId → routeId
-    private val stopRoutes =
-        mutableMapOf<String, MutableSet<Pair<String, String>>>() // baseStopId → Set of (routeName, normalizedHeadsign)
-
+    private val stopNames = mutableMapOf<String, String>()       // baseId → stop_name
+    private val tripRouteIds = mutableMapOf<String, String>()    // tripId → routeId
+    private val routeColors = mutableMapOf<String, String>()     // routeId → color name
+    private val tripTerminals = mutableMapOf<String, String>()   // tripId → terminal baseId
     private var staticLoaded = false
 
-    // --- Static GTFS loading ---
+    private val TERMINAL_CLEANUP = mapOf(
+        "Berryessa / North San Jose" to "Berryessa",
+        "Millbrae (Caltrain Transfer Platform)" to "Millbrae",
+        "San Francisco International Airport" to "SF Airport",
+    )
 
     fun loadStaticGtfs(context: Context) {
         if (staticLoaded) return
@@ -34,7 +34,6 @@ object BartParser {
         val cacheFile = java.io.File(context.cacheDir, "bart_gtfs.zip")
         val ageMs = System.currentTimeMillis() - cacheFile.lastModified()
         val thirtyDaysMs = 30L * 24 * 60 * 60 * 1000
-
         if (!cacheFile.exists() || ageMs > thirtyDaysMs) {
             val client = OkHttpClient()
             val request = Request.Builder()
@@ -49,7 +48,6 @@ object BartParser {
     private fun parseStaticZip(input: InputStream) {
         val zip = ZipInputStream(input)
         val files = mutableMapOf<String, String>()
-
         var entry = zip.nextEntry
         while (entry != null) {
             if (entry.name in listOf("stops.txt", "trips.txt", "routes.txt", "stop_times.txt")) {
@@ -58,7 +56,6 @@ object BartParser {
             zip.closeEntry()
             entry = zip.nextEntry
         }
-
         files["stops.txt"]?.let { parseStops(it) }
         files["trips.txt"]?.let { parseTrips(it) }
         files["routes.txt"]?.let { parseRoutes(it) }
@@ -68,14 +65,14 @@ object BartParser {
     private fun parseStops(csv: String) {
         val lines = csv.lines()
         val headers = lines.first().trimStart('\uFEFF').split(",")
-            .map { it.trim().removeSurrounding("\"") }  // strip quotes
+            .map { it.trim().removeSurrounding("\"") }
         val idIdx = headers.indexOf("stop_id")
         val nameIdx = headers.indexOf("stop_name")
         if (idIdx == -1 || nameIdx == -1) return
         for (line in lines.drop(1)) {
             if (line.isBlank()) continue
             val cols = line.split(",")
-            if (cols.size < maxOf(idIdx, nameIdx)) continue
+            if (cols.size < maxOf(idIdx, nameIdx) + 1) continue
             val stopId = cols[idIdx].removeSurrounding("\"")
             if ("-" in stopId && "_" !in stopId) {
                 val baseId = stopId.substringBeforeLast("-")
@@ -89,18 +86,14 @@ object BartParser {
         val headers = lines.first().trimStart('\uFEFF').split(",")
             .map { it.trim().removeSurrounding("\"") }
         val tripIdx = headers.indexOf("trip_id")
-        val headsignIdx = headers.indexOf("trip_headsign")
         val routeIdx = headers.indexOf("route_id")
-        if (tripIdx == -1 || headsignIdx == -1) return
+        if (tripIdx == -1 || routeIdx == -1) return
         for (line in lines.drop(1)) {
             if (line.isBlank()) continue
             val cols = line.split(",")
-            if (cols.size < maxOf(tripIdx, headsignIdx) + 1) continue
+            if (cols.size < maxOf(tripIdx, routeIdx) + 1) continue
             val tripId = cols[tripIdx].removeSurrounding("\"")
-            tripHeadsigns[tripId] = cols[headsignIdx].removeSurrounding("\"")
-            if (routeIdx != -1 && cols.size > routeIdx) {
-                tripRouteIds[tripId] = cols[routeIdx].removeSurrounding("\"").lowercase()
-            }
+            tripRouteIds[tripId] = cols[routeIdx].removeSurrounding("\"").lowercase()
         }
     }
 
@@ -127,54 +120,45 @@ object BartParser {
             .map { it.trim().removeSurrounding("\"") }
         val tripIdx = headers.indexOf("trip_id")
         val stopIdx = headers.indexOf("stop_id")
-        if (tripIdx == -1 || stopIdx == -1) return
+        val seqIdx = headers.indexOf("stop_sequence")
+        if (tripIdx == -1 || stopIdx == -1 || seqIdx == -1) return
+
+        // Track max sequence per trip to find terminal
+        val tripMaxSeq = mutableMapOf<String, Int>()
+        val tripTerminalStop = mutableMapOf<String, String>()
 
         for (line in lines.drop(1)) {
             if (line.isBlank()) continue
             val cols = line.split(",")
-            if (cols.size < maxOf(tripIdx, stopIdx) + 1) continue
-
+            if (cols.size < maxOf(tripIdx, stopIdx, seqIdx) + 1) continue
             val tripId = cols[tripIdx].removeSurrounding("\"")
             val stopId = cols[stopIdx].removeSurrounding("\"")
-            val baseId = if ("-" in stopId && "_" !in stopId)
-                stopId.substringBeforeLast("-") else stopId
+            val seq = cols[seqIdx].removeSurrounding("\"").toIntOrNull() ?: continue
+            if (seq > (tripMaxSeq[tripId] ?: -1)) {
+                tripMaxSeq[tripId] = seq
+                tripTerminalStop[tripId] = stopId
+            }
+        }
 
-            val rawHeadsign = tripHeadsigns[tripId] ?: continue
-            val routeId = tripRouteIds[tripId] ?: continue
-            val colorName = routeColors[routeId] ?: continue
-            val headsign = normalizeHeadsign(rawHeadsign, colorName) ?: continue
-            val routeName = "$colorName Line"
-
-            stopRoutes.getOrPut(baseId) { mutableSetOf() }
-                .add(Pair(routeName, headsign))
+        // Convert terminal stop IDs to base IDs and look up names
+        for ((tripId, terminalStopId) in tripTerminalStop) {
+            val baseId = if ("-" in terminalStopId && "_" !in terminalStopId)
+                terminalStopId.substringBeforeLast("-") else terminalStopId
+            tripTerminals[tripId] = baseId
         }
     }
 
     private fun hexToColorName(hex: String): String = when (hex.trimStart('#')) {
         "ff0000", "cc0000" -> "Red"
-        "0099cc", "1c9ac9", "0000cc" -> "Blue"
-        "ffff33", "ffcc00", "f9a620" -> "Yellow"
-        "339933", "00a550", "009b3a" -> "Green"
-        "ff9933", "f78f20", "ff8000" -> "Orange"
+        "0099cc", "1c9ac9", "0099d8" -> "Blue"
+        "ffff33", "ffcc00", "f9a620", "ffff00" -> "Yellow"
+        "339933", "00a550", "009b3a", "50b848" -> "Green"
+        "ff9933", "f78f20", "ff8000", "faa61a" -> "Orange"
         else -> "Unknown"
     }
 
-    private fun normalizeHeadsign(raw: String, routeColor: String? = null): String? = when {
-        raw.contains("Richmond", ignoreCase = true) -> "Richmond"
-        raw.contains("Dublin", ignoreCase = true) -> "Dublin/Pleasanton"
-        raw.contains("Daly City", ignoreCase = true) -> "Daly City"
-        raw.contains("Antioch", ignoreCase = true) -> "Antioch"
-        raw.contains("Berryessa", ignoreCase = true) -> "Berryessa"
-        raw.contains("Millbrae", ignoreCase = true) -> {
-            // Yellow line through-routes to Millbrae via SFO — show as SF Airport instead
-            if (routeColor == "Yellow") "SF Airport" else "Millbrae"
-        }
-
-        raw.contains("San Francisco International", ignoreCase = true) ||
-                raw.contains("SFO", ignoreCase = true) -> "SF Airport"
-
-        else -> null
-    }
+    private fun cleanTerminalName(raw: String): String =
+        TERMINAL_CLEANUP[raw] ?: raw
 
     fun parseRtFeed(feedBytes: ByteArray, fetchedAt: Long): List<Arrival> {
         val feed = FeedMessage.parseFrom(feedBytes)
@@ -184,11 +168,12 @@ object BartParser {
             if (!entity.hasTripUpdate()) continue
             val tu = entity.tripUpdate
             val tripId = tu.trip.tripId
-            val rawHeadsign = tripHeadsigns[tripId] ?: continue
-            val routeId = tripRouteIds[tripId] ?: ""
+            val routeId = tripRouteIds[tripId] ?: continue
             val colorName = routeColors[routeId] ?: continue
-            val headsign = normalizeHeadsign(rawHeadsign, colorName) ?: continue
             val routeName = "$colorName Line"
+            val terminalBaseId = tripTerminals[tripId] ?: continue
+            val rawTerminalName = stopNames[terminalBaseId] ?: continue
+            val headsign = cleanTerminalName(rawTerminalName)
 
             for (stu in tu.stopTimeUpdateList) {
                 if (!stu.hasArrival()) continue
@@ -198,7 +183,7 @@ object BartParser {
 
                 arrivals.add(
                     Arrival(
-                        id = "${baseId}_${arrivalTimestamp}",
+                        id = "${baseId}_${routeName}_${headsign}_${arrivalTimestamp}",
                         stopId = baseId,
                         routeName = routeName,
                         headsign = headsign,
@@ -210,20 +195,54 @@ object BartParser {
             }
         }
 
-        android.util.Log.d(
-            "BartParser",
-            "Total arrivals parsed: ${arrivals.size}, stopNames loaded: ${stopNames.size}, tripHeadsigns loaded: ${tripHeadsigns.size}"
-        )
+        // Deduplicate arrivals within 30 seconds of each other for same stop+route+headsign
         return arrivals
+            .sortedBy { it.arrivalTimestamp }
+            .fold(mutableListOf()) { acc, arrival ->
+                val duplicate = acc.any { existing ->
+                    existing.stopId == arrival.stopId &&
+                            existing.routeName == arrival.routeName &&
+                            existing.headsign == arrival.headsign &&
+                            kotlin.math.abs(existing.arrivalTimestamp - arrival.arrivalTimestamp) < 30_000L
+                }
+                if (!duplicate) acc.add(arrival)
+                acc
+            }
     }
 
     fun getStopNames(): Map<String, String> = stopNames.toMap()
 
-    fun getRoutesForStop(stopId: String): Map<String, List<String>> {
-        return stopRoutes[stopId]
-            ?.groupBy { it.first }
-            ?.mapValues { (_, pairs) -> pairs.map { it.second }.distinct().sorted() }
-            ?: emptyMap()
-    }
 
+    suspend fun fetchRoutesForStop(stopId: String): Map<String, List<String>> {
+        // Use live RT feed to get currently running routes at this stop
+        return try {
+            val bytes = BartApiClient.api.getTripUpdates().bytes()
+            val feed = FeedMessage.parseFrom(bytes)
+            val result = mutableMapOf<String, MutableSet<String>>()
+
+            for (entity in feed.entityList) {
+                if (!entity.hasTripUpdate()) continue
+                val tu = entity.tripUpdate
+                val tripId = tu.trip.tripId
+                val routeId = tripRouteIds[tripId] ?: continue
+                val colorName = routeColors[routeId] ?: continue
+                val routeName = "$colorName Line"
+                val terminalBaseId = tripTerminals[tripId] ?: continue
+                val rawTerminalName = stopNames[terminalBaseId] ?: continue
+                val headsign = cleanTerminalName(rawTerminalName)
+
+                for (stu in tu.stopTimeUpdateList) {
+                    val baseId = stu.stopId.substringBeforeLast("-")
+                    if (baseId == stopId) {
+                        result.getOrPut(routeName) { mutableSetOf() }.add(headsign)
+                        break
+                    }
+                }
+            }
+            result.mapValues { it.value.toList().sorted() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyMap()
+        }
+    }
 }
