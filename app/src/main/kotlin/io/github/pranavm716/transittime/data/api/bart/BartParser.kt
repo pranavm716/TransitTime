@@ -1,6 +1,7 @@
 package io.github.pranavm716.transittime.data.api.bart
 
 import android.content.Context
+import com.google.transit.realtime.GtfsRealtime
 import com.google.transit.realtime.GtfsRealtime.FeedMessage
 import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.Arrival
@@ -167,6 +168,12 @@ object BartParser {
         for (entity in feed.entityList) {
             if (!entity.hasTripUpdate()) continue
             val tu = entity.tripUpdate
+
+            // Skip cancelled trips
+            if (tu.trip.scheduleRelationship ==
+                GtfsRealtime.TripDescriptor.ScheduleRelationship.CANCELED
+            ) continue
+
             val tripId = tu.trip.tripId
             val routeId = tripRouteIds[tripId] ?: continue
             val colorName = routeColors[routeId] ?: continue
@@ -176,6 +183,11 @@ object BartParser {
             val headsign = cleanTerminalName(rawTerminalName)
 
             for (stu in tu.stopTimeUpdateList) {
+                // Skip skipped stops
+                if (stu.scheduleRelationship ==
+                    GtfsRealtime.TripUpdate.StopTimeUpdate.ScheduleRelationship.SKIPPED
+                ) continue
+
                 if (!stu.hasArrival()) continue
                 val baseId = stu.stopId.substringBeforeLast("-")
                 stopNames[baseId] ?: continue
