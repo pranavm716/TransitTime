@@ -122,7 +122,9 @@ class TransitWidget : AppWidgetProvider() {
                 val grouped = allGroups.take(maxRows)
                 val overflow = totalGroups - maxRows
 
-                val lastFetchedAt = config.lastFetchedAt
+                val lastFetchedAt = config.lastFetchedAt.takeIf { it > 0L }
+                    ?: db.arrivalDao().getArrivalsForStop(config.stopId)
+                        .maxOfOrNull { it.fetchedAt } ?: 0L
                 val freshnessText = if (lastFetchedAt == 0L) {
                     "—"
                 } else {
