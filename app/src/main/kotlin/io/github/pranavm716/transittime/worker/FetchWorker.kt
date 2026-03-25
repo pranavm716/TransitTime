@@ -64,10 +64,11 @@ class FetchWorker(
                     if (arrivals.isNotEmpty()) {
                         arrivalDao.deleteArrivalsForStop(stopId)
                         arrivalDao.upsertArrivals(arrivals)
-                        val config = configDao.getConfigByStopId(stopId)
-                        config?.let {
-                            configDao.upsertConfig(it.copy(lastFetchedAt = fetchedAt))
-                        }
+                    }
+                    // Always update lastFetchedAt — even if no arrivals, the fetch succeeded
+                    val config = configDao.getConfigByStopId(stopId)
+                    config?.let {
+                        configDao.upsertConfig(it.copy(lastFetchedAt = fetchedAt))
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
