@@ -1,9 +1,16 @@
-package io.github.pranavm716.transittime.data.api.bart
+package io.github.pranavm716.transittime.transit.bart
 
 import okhttp3.OkHttpClient
+import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.GET
+
+private interface BartApi {
+    @GET("gtfsrt/tripupdate.aspx")
+    suspend fun getTripUpdates(): ResponseBody
+}
 
 object BartApiClient {
     private val httpClient = OkHttpClient.Builder()

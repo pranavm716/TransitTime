@@ -1,4 +1,4 @@
-package io.github.pranavm716.transittime.data.api.muni
+package io.github.pranavm716.transittime.transit.muni
 
 import android.content.Context
 import io.github.pranavm716.transittime.BuildConfig

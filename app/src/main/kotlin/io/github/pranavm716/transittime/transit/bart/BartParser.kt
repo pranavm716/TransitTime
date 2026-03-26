@@ -1,4 +1,4 @@
-package io.github.pranavm716.transittime.data.api.bart
+package io.github.pranavm716.transittime.transit.bart
 
 import android.content.Context
 import com.google.transit.realtime.GtfsRealtime
