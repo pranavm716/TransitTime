@@ -7,7 +7,7 @@
     <application
         android:name=".TransitApplication"
         android:allowBackup="true"
-        android:label="TransitTime"
+        android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.TransitTime">
 
