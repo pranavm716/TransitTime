@@ -7,7 +7,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 
-private interface BartApi {
+internal interface BartApi {
     @GET("gtfsrt/tripupdate.aspx")
     suspend fun getTripUpdates(): ResponseBody
 }
@@ -21,7 +21,7 @@ object BartApiClient {
         )
         .build()
 
-    val api: BartApi = Retrofit.Builder()
+    internal val api: BartApi = Retrofit.Builder()
         .baseUrl("https://api.bart.gov/")
         .client(httpClient)
         .addConverterFactory(GsonConverterFactory.create())

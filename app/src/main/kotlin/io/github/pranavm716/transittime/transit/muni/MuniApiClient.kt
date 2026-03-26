@@ -7,7 +7,7 @@ import retrofit2.Retrofit
 import retrofit2.http.GET
 import retrofit2.http.Query
 
-private interface MuniApi {
+internal interface MuniApi {
     @GET("StopMonitoring")
     suspend fun getStopMonitoring(
         @Query("api_key") apiKey: String,
@@ -26,7 +26,7 @@ object MuniApiClient {
         )
         .build()
 
-    val api: MuniApi = Retrofit.Builder()
+    internal val api: MuniApi = Retrofit.Builder()
         .baseUrl("https://api.511.org/transit/")
         .client(httpClient)
         .build()
