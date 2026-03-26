@@ -11,5 +11,4 @@ object AgencyRegistry {
     )
 
     fun get(agency: Agency): TransitAgency = agencies.getValue(agency)
-    fun all(): Collection<TransitAgency> = agencies.values
 }
