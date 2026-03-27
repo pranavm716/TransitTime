@@ -9,7 +9,66 @@ import io.github.pranavm716.transittime.data.model.Arrival
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.InputStream
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.zip.ZipInputStream
+
+data class ScheduledDeparture(
+    val routeName: String,
+    val headsign: String,
+    val departureTimestamp: Long
+)
+
+fun mergeWithTimetable(
+    rtArrivals: List<Arrival>,
+    scheduledDepartures: List<ScheduledDeparture>,
+    maxArrivals: Int,
+    now: Long,
+    stopId: String,
+    fetchedAt: Long
+): List<Arrival> {
+    val result = rtArrivals.toMutableList()
+
+    val rtByKey = rtArrivals.groupBy { "${it.routeName}|${it.headsign}" }
+
+    val schedByKey = scheduledDepartures
+        .filter { it.departureTimestamp > now }
+        .groupBy { "${it.routeName}|${it.headsign}" }
+
+    for ((key, scheduled) in schedByKey) {
+        val rtCount = rtByKey[key]?.size ?: 0
+        val needed = maxArrivals - rtCount
+        if (needed <= 0) continue
+
+        val rtTimestamps = rtByKey[key]?.map { it.departureTimestamp } ?: emptyList()
+
+        var filled = 0
+        for (dep in scheduled.sortedBy { it.departureTimestamp }) {
+            if (filled >= needed) break
+            val isDuplicate = rtTimestamps.any {
+                kotlin.math.abs(it - dep.departureTimestamp) < 60_000L
+            }
+            if (!isDuplicate) {
+                result.add(
+                    Arrival(
+                        id = "${stopId}_${dep.routeName}_${dep.headsign}_${dep.departureTimestamp}_sched",
+                        stopId = stopId,
+                        routeName = dep.routeName,
+                        headsign = dep.headsign,
+                        agency = Agency.CALTRAIN,
+                        arrivalTimestamp = dep.departureTimestamp,
+                        departureTimestamp = dep.departureTimestamp,
+                        fetchedAt = fetchedAt
+                    )
+                )
+                filled++
+            }
+        }
+    }
+
+    return result
+}
 
 object CaltrainParser {
 
@@ -25,13 +84,26 @@ object CaltrainParser {
     // tripId → headsign (e.g. "San Francisco", "San Jose Diridon")
     private val tripToHeadsign = mutableMapOf<String, String>()
 
+    // tripId → serviceId
+    private val tripServiceId = mutableMapOf<String, String>()
+
     // parentStationId → routeName → Set<headsign>  (built from stop_times.txt)
     private val stationRoutes = mutableMapOf<String, MutableMap<String, MutableSet<String>>>()
+
+    // parentStationId → list of (tripId, departureSeconds)
+    private val stationDepartures = mutableMapOf<String, MutableList<Pair<String, Int>>>()
+
+    // calendar.txt rows as column-name maps
+    private val calendarRows = mutableListOf<Map<String, String>>()
+
+    // calendar_dates.txt rows as column-name maps
+    private val calendarDateRows = mutableListOf<Map<String, String>>()
 
     private var staticLoaded = false
 
     private val SHUTTLE_STOPS = setOf("777402", "777403")
     private val EXCLUDED_STATIONS = setOf("stanford")
+    private val PT = ZoneId.of("America/Los_Angeles")
 
     fun loadStaticGtfs(context: Context) {
         if (staticLoaded) return
@@ -60,7 +132,11 @@ object CaltrainParser {
         val files = mutableMapOf<String, String>()
         var entry = zip.nextEntry
         while (entry != null) {
-            if (entry.name in listOf("stops.txt", "trips.txt", "stop_times.txt")) {
+            if (entry.name in listOf(
+                    "stops.txt", "trips.txt", "stop_times.txt",
+                    "calendar.txt", "calendar_dates.txt"
+                )
+            ) {
                 files[entry.name] = zip.readBytes().decodeToString()
             }
             zip.closeEntry()
@@ -69,6 +145,8 @@ object CaltrainParser {
         files["stops.txt"]?.let { parseStops(it) }
         files["trips.txt"]?.let { parseTrips(it) }
         files["stop_times.txt"]?.let { parseStopTimes(it) }
+        files["calendar.txt"]?.let { parseCalendar(it) }
+        files["calendar_dates.txt"]?.let { parseCalendarDates(it) }
     }
 
     private fun parseStops(csv: String) {
@@ -91,11 +169,9 @@ object CaltrainParser {
             if (stopId in SHUTTLE_STOPS) continue
 
             if (parentStation.isEmpty()) {
-                // Parent station
                 if (stopId in EXCLUDED_STATIONS) continue
                 parentStations[stopId] = cleanStationName(stopName)
             } else {
-                // Platform stop
                 platformToParent[stopId] = parentStation
             }
         }
@@ -111,18 +187,21 @@ object CaltrainParser {
         val tripIdx = headers.indexOf("trip_id")
         val routeIdx = headers.indexOf("route_id")
         val headsignIdx = headers.indexOf("trip_headsign")
-        if (tripIdx == -1 || routeIdx == -1 || headsignIdx == -1) return
+        val serviceIdx = headers.indexOf("service_id")
+        if (tripIdx == -1 || routeIdx == -1 || headsignIdx == -1 || serviceIdx == -1) return
 
         for (line in lines.drop(1)) {
             if (line.isBlank()) continue
             val cols = parseCsvLine(line)
-            if (cols.size <= maxOf(tripIdx, routeIdx, headsignIdx)) continue
+            if (cols.size <= maxOf(tripIdx, routeIdx, headsignIdx, serviceIdx)) continue
             val tripId = cols[tripIdx]
             val routeId = cols[routeIdx]
             val headsign = cols[headsignIdx]
-            if (tripId.isEmpty() || routeId.isEmpty() || headsign.isEmpty()) continue
+            val serviceId = cols[serviceIdx]
+            if (tripId.isEmpty() || routeId.isEmpty() || headsign.isEmpty() || serviceId.isEmpty()) continue
             tripToRoute[tripId] = routeId
             tripToHeadsign[tripId] = headsign
+            tripServiceId[tripId] = serviceId
         }
     }
 
@@ -132,14 +211,19 @@ object CaltrainParser {
             .map { it.trim().removeSurrounding("\"") }
         val tripIdx = headers.indexOf("trip_id")
         val stopIdx = headers.indexOf("stop_id")
-        if (tripIdx == -1 || stopIdx == -1) return
+        val depIdx = headers.indexOf("departure_time")
+        if (tripIdx == -1 || stopIdx == -1 || depIdx == -1) return
+
+        // Track recorded (parentId, tripId) pairs to avoid double-counting from multiple platforms
+        val recorded = mutableSetOf<String>()
 
         for (line in lines.drop(1)) {
             if (line.isBlank()) continue
             val cols = parseCsvLine(line)
-            if (cols.size <= maxOf(tripIdx, stopIdx)) continue
+            if (cols.size <= maxOf(tripIdx, stopIdx, depIdx)) continue
             val tripId = cols[tripIdx]
             val platformId = cols[stopIdx]
+            val departureTimeStr = cols[depIdx]
 
             val parentId = platformToParent[platformId] ?: continue
             if (parentId in EXCLUDED_STATIONS) continue
@@ -148,10 +232,54 @@ object CaltrainParser {
             val stationDisplayName = parentStations[parentId] ?: continue
             if (headsign == stationDisplayName) continue // skip self-terminating headsigns
 
+            // Build the route filter map (deduplicated by route+headsign naturally via Set)
             stationRoutes
                 .getOrPut(parentId) { mutableMapOf() }
                 .getOrPut(routeName) { mutableSetOf() }
                 .add(headsign)
+
+            // Build the scheduled departure list (one entry per parentId+tripId)
+            val key = "$parentId|$tripId"
+            if (recorded.add(key)) {
+                val departureSeconds = parseStopTimeSeconds(departureTimeStr)
+                if (departureSeconds >= 0) {
+                    stationDepartures.getOrPut(parentId) { mutableListOf() }
+                        .add(Pair(tripId, departureSeconds))
+                }
+            }
+        }
+    }
+
+    private fun parseCalendar(csv: String) {
+        val lines = csv.lines()
+        val headers = lines.first().trimStart('\uFEFF').split(",")
+            .map { it.trim().removeSurrounding("\"") }
+        for (line in lines.drop(1)) {
+            if (line.isBlank()) continue
+            val cols = parseCsvLine(line)
+            if (cols.size < headers.size) continue
+            calendarRows.add(headers.zip(cols).toMap())
+        }
+    }
+
+    private fun parseCalendarDates(csv: String) {
+        val lines = csv.lines()
+        val headers = lines.first().trimStart('\uFEFF').split(",")
+            .map { it.trim().removeSurrounding("\"") }
+        for (line in lines.drop(1)) {
+            if (line.isBlank()) continue
+            val cols = parseCsvLine(line)
+            if (cols.size < headers.size) continue
+            calendarDateRows.add(headers.zip(cols).toMap())
+        }
+    }
+
+    private fun parseStopTimeSeconds(time: String): Int {
+        return try {
+            val parts = time.split(":")
+            parts[0].toInt() * 3600 + parts[1].toInt() * 60 + parts[2].toInt()
+        } catch (_: Exception) {
+            -1
         }
     }
 
@@ -183,6 +311,61 @@ object CaltrainParser {
 
     fun getRoutesForStation(stationId: String): Map<String, List<String>> =
         stationRoutes[stationId]?.mapValues { it.value.toList().sorted() } ?: emptyMap()
+
+    fun getActiveServices(): Set<String> {
+        val today = LocalDate.now(PT)
+        val todayStr = today.format(DateTimeFormatter.BASIC_ISO_DATE)
+        val dayColumn = today.dayOfWeek.name.lowercase()
+
+        val activeServices = mutableSetOf<String>()
+
+        for (row in calendarRows) {
+            val startStr = row["start_date"] ?: continue
+            val endStr = row["end_date"] ?: continue
+            val serviceId = row["service_id"] ?: continue
+            val start = LocalDate.parse(startStr, DateTimeFormatter.BASIC_ISO_DATE)
+            val end = LocalDate.parse(endStr, DateTimeFormatter.BASIC_ISO_DATE)
+            if (!today.isBefore(start) && !today.isAfter(end) && row[dayColumn] == "1") {
+                activeServices.add(serviceId)
+            }
+        }
+
+        for (row in calendarDateRows) {
+            if (row["date"] == todayStr) {
+                val serviceId = row["service_id"] ?: continue
+                when (row["exception_type"]) {
+                    "1" -> activeServices.add(serviceId)
+                    "2" -> activeServices.remove(serviceId)
+                }
+            }
+        }
+
+        return activeServices
+    }
+
+    fun getScheduledDepartures(
+        stationId: String,
+        now: Long,
+        activeServices: Set<String>
+    ): List<ScheduledDeparture> {
+        val stationDisplayName = parentStations[stationId] ?: return emptyList()
+        val departures = stationDepartures[stationId] ?: return emptyList()
+
+        val midnightToday = LocalDate.now(PT).atStartOfDay(PT).toEpochSecond()
+
+        val result = mutableListOf<ScheduledDeparture>()
+        for ((tripId, departureSeconds) in departures) {
+            val serviceId = tripServiceId[tripId] ?: continue
+            if (serviceId !in activeServices) continue
+            val routeName = tripToRoute[tripId] ?: continue
+            val headsign = tripToHeadsign[tripId] ?: continue
+            if (headsign == stationDisplayName) continue
+            val departureTimestamp = (midnightToday + departureSeconds) * 1000L
+            result.add(ScheduledDeparture(routeName, headsign, departureTimestamp))
+        }
+
+        return result
+    }
 
     fun parseRtFeed(feedBytes: ByteArray, fetchedAt: Long): List<Arrival> {
         val feed = FeedMessage.parseFrom(feedBytes)

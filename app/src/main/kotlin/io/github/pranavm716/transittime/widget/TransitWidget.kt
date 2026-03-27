@@ -182,11 +182,12 @@ class TransitWidget : AppWidgetProvider() {
 
                         for (i in 0 until config.maxArrivals) {
                             val text = times.getOrNull(i) ?: "—"
+                            val isScheduled = arrivals.getOrNull(i)?.id?.endsWith("_sched") == true
                             val color = when (text) {
                                 "Leaving" -> 0xFFdc3545.toInt()
                                 "Arriving" -> 0xFF28a745.toInt()
                                 "—" -> 0xFFBDC1C7.toInt()
-                                else -> 0xFFFFD700.toInt()
+                                else -> if (isScheduled) 0xFF9E8400.toInt() else 0xFFFFD700.toInt()
                             }
                             rowViews.setTextViewText(timeCells[i], text)
                             rowViews.setTextColor(timeCells[i], color)

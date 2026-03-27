@@ -21,7 +21,25 @@ object CaltrainAgency : TransitAgency {
 
     override suspend fun fetchArrivals(stopIds: Set<String>, fetchedAt: Long): List<Arrival> {
         val bytes = CaltrainApiClient.api.getTripUpdates(apiKey = BuildConfig.MUNI_API_KEY).bytes()
-        return CaltrainParser.parseRtFeed(bytes, fetchedAt).filter { it.stopId in stopIds }
+        val rtArrivals = CaltrainParser.parseRtFeed(bytes, fetchedAt).filter { it.stopId in stopIds }
+
+        val activeServices = CaltrainParser.getActiveServices()
+        val result = mutableListOf<Arrival>()
+        for (stopId in stopIds) {
+            val rtForStop = rtArrivals.filter { it.stopId == stopId }
+            val scheduled = CaltrainParser.getScheduledDepartures(stopId, fetchedAt, activeServices)
+            result.addAll(
+                mergeWithTimetable(
+                    rtArrivals = rtForStop,
+                    scheduledDepartures = scheduled,
+                    maxArrivals = 3,
+                    now = fetchedAt,
+                    stopId = stopId,
+                    fetchedAt = fetchedAt
+                )
+            )
+        }
+        return result
     }
 
     override suspend fun fetchRoutesForStop(stopId: String): Map<String, List<String>> =
