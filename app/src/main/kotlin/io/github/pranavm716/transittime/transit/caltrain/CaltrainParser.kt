@@ -145,6 +145,8 @@ object CaltrainParser {
             if (parentId in EXCLUDED_STATIONS) continue
             val routeName = tripToRoute[tripId] ?: continue
             val headsign = tripToHeadsign[tripId] ?: continue
+            val stationDisplayName = parentStations[parentId] ?: continue
+            if (headsign == stationDisplayName) continue // skip self-terminating headsigns
 
             stationRoutes
                 .getOrPut(parentId) { mutableMapOf() }
