@@ -100,6 +100,7 @@ class TransitWidget : AppWidgetProvider() {
                 val logoRes = when (config.agency) {
                     Agency.BART -> R.drawable.ic_bart
                     Agency.MUNI -> R.drawable.ic_muni
+                    Agency.CALTRAIN -> R.drawable.ic_caltrain
                 }
                 views.setImageViewResource(R.id.ivAgencyLogo, logoRes)
 
@@ -166,7 +167,7 @@ class TransitWidget : AppWidgetProvider() {
                             val millisToArrival = arrival.arrivalTimestamp - now
 
                             when {
-                                arrival.agency == Agency.BART && millisToArrival <= 0 -> "Leaving"
+                                arrival.agency in listOf(Agency.BART, Agency.CALTRAIN) && millisToArrival <= 0 -> "Leaving"
                                 millisToArrival in 1..59_999 -> "Arriving"
                                 else -> "${(millisToArrival / 60000).toInt()}min"
                             }
