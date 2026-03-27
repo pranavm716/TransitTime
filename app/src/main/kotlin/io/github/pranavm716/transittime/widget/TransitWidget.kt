@@ -110,7 +110,7 @@ class TransitWidget : AppWidgetProvider() {
                     .filter { arrival ->
                         arrival.departureTimestamp > now &&
                                 (config.filteredHeadsigns.isEmpty() ||
-                                        arrival.headsign in config.filteredHeadsigns)
+                                        "${arrival.routeName}|${arrival.headsign}" in config.filteredHeadsigns)
                     }
                     .groupBy { "${it.routeName}|${it.headsign}" }
                     .entries
