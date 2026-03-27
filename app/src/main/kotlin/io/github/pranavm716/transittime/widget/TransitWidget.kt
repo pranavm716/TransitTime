@@ -14,6 +14,7 @@ import androidx.work.WorkManager
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
+import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.util.RouteIconDrawer
 import io.github.pranavm716.transittime.worker.FetchWorker
 import kotlinx.coroutines.CoroutineScope
@@ -150,7 +151,12 @@ class TransitWidget : AppWidgetProvider() {
                         val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
 
                         val iconSizePx = (36 * context.resources.displayMetrics.density).toInt()
-                        val bitmap = RouteIconDrawer.draw(first.agency, first.routeName, iconSizePx)
+                        val handler = AgencyRegistry.get(first.agency)
+                        val bitmap = RouteIconDrawer.draw(
+                            style = handler.getRouteStyle(first.routeName),
+                            text = handler.getIconText(first.routeName),
+                            sizePx = iconSizePx
+                        )
                         rowViews.setImageViewBitmap(R.id.ivRouteIcon, bitmap)
                         rowViews.setTextViewText(R.id.tvHeadsign, first.headsign)
 

@@ -17,11 +17,10 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import io.github.pranavm716.transittime.R
-import io.github.pranavm716.transittime.data.api.bart.BartParser
-import io.github.pranavm716.transittime.data.api.muni.MuniParser
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.WidgetConfig
+import io.github.pranavm716.transittime.transit.AgencyRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -89,25 +88,13 @@ class TransitWidgetConfig : AppCompatActivity() {
                 tvRoutesLabel.visibility = View.GONE
 
                 CoroutineScope(Dispatchers.IO).launch {
-                    when (agency) {
-                        Agency.BART -> {
-                            BartParser.loadStaticGtfs(applicationContext)
-                            val stops = BartParser.getStopNames()
-                                .entries
-                                .map { Pair(it.key, it.value) }
-                                .sortedBy { it.second }
-                            withContext(Dispatchers.Main) { allStops = stops }
-                        }
-
-                        Agency.MUNI -> {
-                            MuniParser.loadStaticGtfs(applicationContext)
-                            val stops = MuniParser.getStopNames()
-                                .entries
-                                .map { Pair(it.key, it.value) }
-                                .sortedBy { it.second }
-                            withContext(Dispatchers.Main) { allStops = stops }
-                        }
-                    }
+                    val handler = AgencyRegistry.get(agency)
+                    handler.loadStaticData(applicationContext)
+                    val stops = handler.getStopNames()
+                        .entries
+                        .map { Pair(it.key, it.value) }
+                        .sortedBy { it.second }
+                    withContext(Dispatchers.Main) { allStops = stops }
                 }
             }
 
@@ -159,17 +146,9 @@ class TransitWidgetConfig : AppCompatActivity() {
             checkedHeadsigns.clear()
             CoroutineScope(Dispatchers.IO).launch {
                 val agency = Agency.entries[spinner.selectedItemPosition]
-                val routes = when (agency) {
-                    Agency.BART -> {
-                        BartParser.loadStaticGtfs(applicationContext)
-                        BartParser.fetchRoutesForStop(selected.first)
-                    }
-
-                    Agency.MUNI -> MuniParser.fetchRoutesForStop(selected.first)
-                }
+                val routes = AgencyRegistry.get(agency).fetchRoutesForStop(selected.first)
 
                 withContext(Dispatchers.Main) {
-                    // Collapse keyboard
                     val imm =
                         getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
                     imm.hideSoftInputFromWindow(
