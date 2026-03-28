@@ -19,6 +19,7 @@ import io.github.pranavm716.transittime.util.RouteIconDrawer
 import io.github.pranavm716.transittime.worker.FetchWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -136,7 +137,7 @@ class TransitWidget : AppWidgetProvider() {
                 val freshnessText = if (lastFetchedAt == 0L) {
                     "—"
                 } else {
-                    val formatter = SimpleDateFormat("h:mm a ↻", Locale.getDefault())
+                    val formatter = SimpleDateFormat("h:mm a", Locale.getDefault())
                     formatter.format(Date(lastFetchedAt))
                 }
                 views.setTextViewText(R.id.tvFreshnessText, freshnessText)
@@ -205,6 +206,24 @@ class TransitWidget : AppWidgetProvider() {
             }
         }
 
+        fun animateRefreshIcon(
+            context: Context,
+            appWidgetManager: AppWidgetManager,
+            widgetId: Int
+        ) {
+            CoroutineScope(Dispatchers.IO).launch {
+                val steps = 12
+                val stepAngle = 360f / steps
+                repeat(steps) { i ->
+                    val angle = stepAngle * (i + 1)
+                    val views = RemoteViews(context.packageName, R.layout.widget_layout)
+                    views.setFloat(R.id.ivRefreshIcon, "setRotation", angle)
+                    appWidgetManager.partiallyUpdateAppWidget(widgetId, views)
+                    delay(40)
+                }
+            }
+        }
+
         fun triggerFetch(context: Context) {
             val request = OneTimeWorkRequestBuilder<FetchWorker>().build()
             WorkManager.getInstance(context).enqueueUniqueWork(
@@ -223,8 +242,10 @@ class TransitWidget : AppWidgetProvider() {
                 AppWidgetManager.INVALID_APPWIDGET_ID
             )
             if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                animateRefreshIcon(context, appWidgetManager, widgetId)
                 triggerFetch(context)
-                updateWidget(context, AppWidgetManager.getInstance(context), widgetId)
+                updateWidget(context, appWidgetManager, widgetId)
             }
         }
     }

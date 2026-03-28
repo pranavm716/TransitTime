@@ -6,7 +6,7 @@
     android:orientation="vertical"
     android:paddingHorizontal="16dp"
     android:paddingVertical="12dp"
-    android:background="@android:color/black">
+    android:background="@drawable/widget_ripple_background">
 
     <!-- Header row -->
     <LinearLayout
@@ -47,7 +47,16 @@
             android:gravity="center_vertical"
             android:textColor="#AAAAAA"
             android:textSize="13sp"
-            android:layout_marginEnd="5dp" />
+            android:layout_marginEnd="4dp" />
+
+        <ImageView
+            android:id="@+id/ivRefreshIcon"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:layout_gravity="center_vertical"
+            android:layout_marginEnd="2dp"
+            android:src="@drawable/ic_refresh"
+            android:tint="#AAAAAA" />
 
     </LinearLayout>
 
