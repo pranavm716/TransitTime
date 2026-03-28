@@ -151,8 +151,9 @@ class TransitWidget : AppWidgetProvider() {
                         val first = arrivals.first()
                         val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
 
-                        val iconSizePx = (36 * context.resources.displayMetrics.density).toInt()
                         val handler = AgencyRegistry.get(first.agency)
+
+                        val iconSizePx = (36 * context.resources.displayMetrics.density).toInt()
                         val bitmap = RouteIconDrawer.draw(
                             style = handler.getRouteStyle(first.routeName),
                             text = handler.getIconText(first.routeName),
@@ -164,13 +165,7 @@ class TransitWidget : AppWidgetProvider() {
                         val timeCells = listOf(R.id.tvTime1, R.id.tvTime2, R.id.tvTime3)
 
                         val times = arrivals.map { arrival ->
-                            val millisToArrival = arrival.arrivalTimestamp - now
-
-                            when {
-                                arrival.agency in listOf(Agency.BART, Agency.CALTRAIN) && millisToArrival <= 0 -> "Leaving"
-                                millisToArrival in 1..59_999 -> "Arriving"
-                                else -> "${(millisToArrival / 60000).toInt()}min"
-                            }
+                            handler.getArrivalDisplayTime(arrival, now)
                         }
 
                         for (i in timeCells.indices) {

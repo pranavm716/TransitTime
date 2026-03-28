@@ -29,6 +29,15 @@ object BartAgency : TransitAgency {
     override fun getRouteStyle(routeName: String): RouteStyle = bartGetStyle(routeName)
 
     override fun getIconText(routeName: String): String = bartGetIconText(routeName)
+
+    override fun getArrivalDisplayTime(arrival: Arrival, now: Long): String {
+        val millisToArrival = arrival.arrivalTimestamp - now
+        val millisToDeparture = arrival.departureTimestamp - now
+        return when {
+            millisToArrival <= 0 && millisToDeparture in 0..60_000 -> "Leaving"
+            else -> "${(millisToDeparture / 60000).toInt()}min"
+        }
+    }
 }
 
 private val DARK_TEXT = "#222222".toColorInt()

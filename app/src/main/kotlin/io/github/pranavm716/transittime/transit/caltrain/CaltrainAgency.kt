@@ -48,6 +48,18 @@ object CaltrainAgency : TransitAgency {
     override fun getRouteStyle(routeName: String): RouteStyle = caltrainGetStyle(routeName)
 
     override fun getIconText(routeName: String): String = caltrainGetIconText(routeName)
+
+    override fun getArrivalDisplayTime(arrival: Arrival, now: Long): String {
+        val millisToArrival = arrival.arrivalTimestamp - now
+        val millisToDeparture = arrival.departureTimestamp - now
+        return when {
+            arrival.arrivalTimestamp == arrival.departureTimestamp &&
+                    millisToDeparture in 0..60_000 -> "Leaving"
+            millisToArrival <= 0 && millisToDeparture in 0..60_000 -> "Leaving"
+            millisToArrival in 1..59_999 -> "Arriving"
+            else -> "${(millisToDeparture / 60000).toInt()}min"
+        }
+    }
 }
 
 private val DARK_TEXT = "#222222".toColorInt()

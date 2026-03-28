@@ -186,12 +186,13 @@ object BartParser {
                 if (stu.scheduleRelationship ==
                     GtfsRealtime.TripUpdate.StopTimeUpdate.ScheduleRelationship.SKIPPED
                 ) continue
-                if (!stu.hasArrival()) continue
-
                 val baseId = stu.stopId.substringBeforeLast("-")
                 stopNames[baseId] ?: continue
 
-                val arrivalTimestamp = stu.arrival.time * 1000L
+                val arrivalTimestamp = if (stu.hasArrival()) stu.arrival.time * 1000L
+                else if (stu.hasDeparture()) stu.departure.time * 1000L
+                else continue
+
                 val departureTimestamp = if (stu.hasDeparture()) stu.departure.time * 1000L
                 else arrivalTimestamp + 30_000L
 
