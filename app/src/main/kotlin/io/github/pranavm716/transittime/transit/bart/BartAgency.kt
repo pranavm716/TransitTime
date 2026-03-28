@@ -12,8 +12,11 @@ import io.github.pranavm716.transittime.util.RouteStyle
 object BartAgency : TransitAgency {
     override val agency = Agency.BART
 
+    private var stationRoutes: Map<String, Map<String, List<String>>> = emptyMap()
+
     override suspend fun loadStaticData(context: Context) {
         BartParser.loadStaticGtfs(context)
+        stationRoutes = BartParser.getStationRoutes()
     }
 
     override fun getStopNames(): Map<String, String> = BartParser.getStopNames()
@@ -24,7 +27,7 @@ object BartAgency : TransitAgency {
     }
 
     override suspend fun fetchRoutesForStop(stopId: String): Map<String, List<String>> =
-        BartParser.fetchRoutesForStop(stopId)
+        stationRoutes[stopId] ?: emptyMap()
 
     override fun getRouteStyle(routeName: String): RouteStyle = bartGetStyle(routeName)
 
