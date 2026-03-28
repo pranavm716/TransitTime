@@ -17,7 +17,8 @@ import java.util.zip.ZipInputStream
 data class ScheduledDeparture(
     val routeName: String,
     val headsign: String,
-    val departureTimestamp: Long
+    val departureTimestamp: Long,
+    val tripId: String
 )
 
 fun mergeWithTimetable(
@@ -41,14 +42,15 @@ fun mergeWithTimetable(
         val needed = maxArrivals - rtCount
         if (needed <= 0) continue
 
-        val rtTimestamps = rtByKey[key]?.map { it.departureTimestamp } ?: emptyList()
+        val rtTripIds = rtByKey[key]
+            ?.map { it.id.substringAfterLast('|', "") }
+            ?.toSet()
+            ?: emptySet()
 
         var filled = 0
         for (dep in scheduled.sortedBy { it.departureTimestamp }) {
             if (filled >= needed) break
-            val isDuplicate = rtTimestamps.any {
-                kotlin.math.abs(it - dep.departureTimestamp) < 60_000L
-            }
+            val isDuplicate = dep.tripId in rtTripIds
             if (!isDuplicate) {
                 result.add(
                     Arrival(
@@ -361,7 +363,7 @@ object CaltrainParser {
             val headsign = tripToHeadsign[tripId] ?: continue
             if (headsign == stationDisplayName) continue
             val departureTimestamp = (midnightToday + departureSeconds) * 1000L
-            result.add(ScheduledDeparture(routeName, headsign, departureTimestamp))
+            result.add(ScheduledDeparture(routeName, headsign, departureTimestamp, tripId))
         }
 
         return result
@@ -400,7 +402,7 @@ object CaltrainParser {
 
                 arrivals.add(
                     Arrival(
-                        id = "${parentId}_${routeName}_${headsign}_${arrivalTimestamp}",
+                        id = "${parentId}_${routeName}_${headsign}_${arrivalTimestamp}|${tripId}",
                         stopId = parentId,
                         routeName = routeName,
                         headsign = headsign,
