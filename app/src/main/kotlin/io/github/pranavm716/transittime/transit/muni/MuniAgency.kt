@@ -32,6 +32,14 @@ object MuniAgency : TransitAgency {
     override fun getRouteStyle(routeName: String): RouteStyle = muniGetStyle(routeName)
 
     override fun getIconText(routeName: String): String = routeName.uppercase()
+
+    override fun getArrivalDisplayTime(arrival: Arrival, now: Long): String {
+        val millisToArrival = arrival.arrivalTimestamp - now
+        return when {
+            millisToArrival in 1..59_999 -> "Arriving"
+            else -> "${(millisToArrival / 60000).toInt()}min"
+        }
+    }
 }
 
 private fun muniGetStyle(routeName: String): RouteStyle {

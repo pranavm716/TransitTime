@@ -6,4 +6,4 @@ data class RouteStyle(
     val shape: RouteShape
 )
 
-enum class RouteShape { SQUARE, CIRCLE, ROUNDED_RECT }
+enum class RouteShape { SQUARE, CIRCLE, ROUNDED_RECT, RECT }

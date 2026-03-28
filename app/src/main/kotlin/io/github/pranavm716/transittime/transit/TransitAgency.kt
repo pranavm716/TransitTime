@@ -14,4 +14,5 @@ interface TransitAgency {
     suspend fun fetchRoutesForStop(stopId: String): Map<String, List<String>>
     fun getRouteStyle(routeName: String): RouteStyle
     fun getIconText(routeName: String): String
+    fun getArrivalDisplayTime(arrival: Arrival, now: Long): String
 }

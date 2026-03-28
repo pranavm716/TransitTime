@@ -47,6 +47,12 @@ object RouteIconDrawer {
                 val radius = sizePx * 0.35f
                 canvas.drawRoundRect(bounds, radius, radius, bgPaint)
             }
+
+            RouteShape.RECT -> {
+                val vPad = sizePx * 0.2f
+                val rectBounds = RectF(0f, vPad, sizePx.toFloat(), sizePx.toFloat() - vPad)
+                canvas.drawRect(rectBounds, bgPaint)
+            }
         }
 
         val cx = sizePx / 2f

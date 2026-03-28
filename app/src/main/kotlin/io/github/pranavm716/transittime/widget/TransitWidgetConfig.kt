@@ -206,7 +206,7 @@ class TransitWidgetConfig : AppCompatActivity() {
             val allRouteHeadsigns = currentRoutes
                 .entries.flatMap { (r, hs) -> hs.map { "$r|$it" } }.toSet()
             val filtered = if (checkedHeadsigns == allRouteHeadsigns) emptyList()
-            else checkedHeadsigns.map { it.substringAfter("|") }.toList()
+            else checkedHeadsigns.toList()
 
             val config = WidgetConfig(
                 widgetId = widgetId,

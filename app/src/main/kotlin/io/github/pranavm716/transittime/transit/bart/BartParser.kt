@@ -12,10 +12,11 @@ import java.util.zip.ZipInputStream
 
 object BartParser {
 
-    private val stopNames = mutableMapOf<String, String>()       // baseId → stop_name
-    private val tripRouteIds = mutableMapOf<String, String>()    // tripId → routeId
-    private val routeColors = mutableMapOf<String, String>()     // routeId → color name
-    private val tripTerminals = mutableMapOf<String, String>()   // tripId → terminal baseId
+    private val stopNames = mutableMapOf<String, String>()         // parentStationId → stop_name
+    private val platformToParent = mutableMapOf<String, String>()  // platformBaseId → parentStationId
+    private val tripRouteIds = mutableMapOf<String, String>()      // tripId → routeId
+    private val routeColors = mutableMapOf<String, String>()       // routeId → color name
+    private val tripTerminals = mutableMapOf<String, String>()     // tripId → terminal parentStationId
     private var staticLoaded = false
 
     private val TERMINAL_CLEANUP = mapOf(
@@ -28,6 +29,8 @@ object BartParser {
         if (staticLoaded) return
         val cached = getCachedGtfs(context)
         parseStaticZip(cached)
+        android.util.Log.d("BartAgency", "loadStaticGtfs: stopNames=${stopNames.keys.sorted()}")
+        android.util.Log.d("BartAgency", "loadStaticGtfs: platformToParent size=${platformToParent.size}, sample=${platformToParent.entries.take(5)}")
         staticLoaded = true
     }
 
@@ -69,15 +72,27 @@ object BartParser {
             .map { it.trim().removeSurrounding("\"") }
         val idIdx = headers.indexOf("stop_id")
         val nameIdx = headers.indexOf("stop_name")
-        if (idIdx == -1 || nameIdx == -1) return
+        val typeIdx = headers.indexOf("location_type")
+        val parentIdx = headers.indexOf("parent_station")
+        if (idIdx == -1 || nameIdx == -1 || typeIdx == -1 || parentIdx == -1) return
         for (line in lines.drop(1)) {
             if (line.isBlank()) continue
             val cols = line.split(",")
-            if (cols.size < maxOf(idIdx, nameIdx) + 1) continue
+            if (cols.size < maxOf(idIdx, nameIdx, typeIdx, parentIdx) + 1) continue
             val stopId = cols[idIdx].removeSurrounding("\"")
-            if ("-" in stopId && "_" !in stopId) {
-                val baseId = stopId.substringBeforeLast("-")
-                stopNames[baseId] = cols[nameIdx].removeSurrounding("\"")
+            val stopName = cols[nameIdx].removeSurrounding("\"")
+            val locationType = cols[typeIdx].removeSurrounding("\"")
+            val parentStation = cols[parentIdx].removeSurrounding("\"")
+            when {
+                locationType == "1" -> {
+                    // Parent station — canonical ID used everywhere
+                    stopNames[stopId] = stopName
+                }
+                locationType == "0" && parentStation.isNotEmpty() -> {
+                    // Platform — map its base ID to the parent station
+                    val baseId = if ("-" in stopId) stopId.substringBeforeLast("-") else stopId
+                    platformToParent[baseId] = parentStation
+                }
             }
         }
     }
@@ -141,11 +156,10 @@ object BartParser {
             }
         }
 
-        // Convert terminal stop IDs to base IDs and look up names
+        // Resolve terminal platform IDs to their parent station IDs
         for ((tripId, terminalStopId) in tripTerminalStop) {
-            val baseId = if ("-" in terminalStopId && "_" !in terminalStopId)
-                terminalStopId.substringBeforeLast("-") else terminalStopId
-            tripTerminals[tripId] = baseId
+            val baseId = if ("-" in terminalStopId) terminalStopId.substringBeforeLast("-") else terminalStopId
+            tripTerminals[tripId] = platformToParent[baseId] ?: baseId
         }
     }
 
@@ -178,27 +192,28 @@ object BartParser {
             val routeId = tripRouteIds[tripId] ?: continue
             val colorName = routeColors[routeId] ?: continue
             val routeName = "$colorName Line"
-            val terminalBaseId = tripTerminals[tripId] ?: continue
-            val rawTerminalName = stopNames[terminalBaseId] ?: continue
+            val terminalStationId = tripTerminals[tripId] ?: continue
+            val rawTerminalName = stopNames[terminalStationId] ?: continue
             val headsign = cleanTerminalName(rawTerminalName)
 
             for (stu in tu.stopTimeUpdateList) {
                 if (stu.scheduleRelationship ==
                     GtfsRealtime.TripUpdate.StopTimeUpdate.ScheduleRelationship.SKIPPED
                 ) continue
-                if (!stu.hasArrival()) continue
+                val baseId = if ("-" in stu.stopId) stu.stopId.substringBeforeLast("-") else stu.stopId
+                val stationId = platformToParent[baseId] ?: continue
 
-                val baseId = stu.stopId.substringBeforeLast("-")
-                stopNames[baseId] ?: continue
+                val arrivalTimestamp = if (stu.hasArrival()) stu.arrival.time * 1000L
+                else if (stu.hasDeparture()) stu.departure.time * 1000L
+                else continue
 
-                val arrivalTimestamp = stu.arrival.time * 1000L
                 val departureTimestamp = if (stu.hasDeparture()) stu.departure.time * 1000L
                 else arrivalTimestamp + 30_000L
 
                 arrivals.add(
                     Arrival(
-                        id = "${baseId}_${routeName}_${headsign}_${arrivalTimestamp}",
-                        stopId = baseId,
+                        id = "${stationId}_${routeName}_${headsign}_${arrivalTimestamp}",
+                        stopId = stationId,
                         routeName = routeName,
                         headsign = headsign,
                         agency = Agency.BART,
@@ -227,11 +242,14 @@ object BartParser {
 
     fun getStopNames(): Map<String, String> = stopNames.toMap()
 
-
     suspend fun fetchRoutesForStop(stopId: String): Map<String, List<String>> {
         // Use live RT feed to get currently running routes at this stop
+        android.util.Log.d("BartAgency", "fetchRoutesForStop called for $stopId")
+        android.util.Log.d("BartAgency", "platformToParent contains E30: ${platformToParent.containsKey("E30")}")
+        android.util.Log.d("BartAgency", "platformToParent contains ANTC entries: ${platformToParent.entries.filter { it.value == "ANTC" }}")
         return try {
             val bytes = BartApiClient.api.getTripUpdates().bytes()
+            android.util.Log.d("BartAgency", "fetchRoutesForStop: RT feed downloaded (${bytes.size} bytes)")
             val feed = FeedMessage.parseFrom(bytes)
             val result = mutableMapOf<String, MutableSet<String>>()
 
@@ -242,21 +260,26 @@ object BartParser {
                 val routeId = tripRouteIds[tripId] ?: continue
                 val colorName = routeColors[routeId] ?: continue
                 val routeName = "$colorName Line"
-                val terminalBaseId = tripTerminals[tripId] ?: continue
-                val rawTerminalName = stopNames[terminalBaseId] ?: continue
+                val terminalStationId = tripTerminals[tripId] ?: continue
+                val rawTerminalName = stopNames[terminalStationId] ?: continue
                 val headsign = cleanTerminalName(rawTerminalName)
 
                 for (stu in tu.stopTimeUpdateList) {
-                    val baseId = stu.stopId.substringBeforeLast("-")
-                    if (baseId == stopId) {
+                    android.util.Log.d("BartAgency", "  checking stu.stopId=${stu.stopId} for trip=${tu.trip.tripId}")
+                    val baseId = if ("-" in stu.stopId) stu.stopId.substringBeforeLast("-") else stu.stopId
+                    val stationId = platformToParent[baseId] ?: continue
+                    if (stationId == stopId) {
+                        android.util.Log.d("BartAgency", "Matched ANTC: tripId=$tripId routeId=$routeId headsign=$headsign")
                         result.getOrPut(routeName) { mutableSetOf() }.add(headsign)
                         break
                     }
                 }
             }
-            result.mapValues { it.value.toList().sorted() }
+            val routes = result.mapValues { it.value.toList().sorted() }
+            android.util.Log.d("BartAgency", "fetchRoutesForStop: result for $stopId = $routes")
+            routes
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("BartAgency", "fetchRoutesForStop failed for $stopId", e)
             emptyMap()
         }
     }

@@ -100,6 +100,7 @@ class TransitWidget : AppWidgetProvider() {
                 val logoRes = when (config.agency) {
                     Agency.BART -> R.drawable.ic_bart
                     Agency.MUNI -> R.drawable.ic_muni
+                    Agency.CALTRAIN -> R.drawable.ic_caltrain
                 }
                 views.setImageViewResource(R.id.ivAgencyLogo, logoRes)
 
@@ -110,7 +111,7 @@ class TransitWidget : AppWidgetProvider() {
                     .filter { arrival ->
                         arrival.departureTimestamp > now &&
                                 (config.filteredHeadsigns.isEmpty() ||
-                                        arrival.headsign in config.filteredHeadsigns)
+                                        "${arrival.routeName}|${arrival.headsign}" in config.filteredHeadsigns)
                     }
                     .groupBy { "${it.routeName}|${it.headsign}" }
                     .entries
@@ -150,8 +151,9 @@ class TransitWidget : AppWidgetProvider() {
                         val first = arrivals.first()
                         val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
 
-                        val iconSizePx = (36 * context.resources.displayMetrics.density).toInt()
                         val handler = AgencyRegistry.get(first.agency)
+
+                        val iconSizePx = (36 * context.resources.displayMetrics.density).toInt()
                         val bitmap = RouteIconDrawer.draw(
                             style = handler.getRouteStyle(first.routeName),
                             text = handler.getIconText(first.routeName),
@@ -163,13 +165,7 @@ class TransitWidget : AppWidgetProvider() {
                         val timeCells = listOf(R.id.tvTime1, R.id.tvTime2, R.id.tvTime3)
 
                         val times = arrivals.map { arrival ->
-                            val millisToArrival = arrival.arrivalTimestamp - now
-
-                            when {
-                                arrival.agency == Agency.BART && millisToArrival <= 0 -> "Leaving"
-                                millisToArrival in 1..59_999 -> "Arriving"
-                                else -> "${(millisToArrival / 60000).toInt()}min"
-                            }
+                            handler.getArrivalDisplayTime(arrival, now)
                         }
 
                         for (i in timeCells.indices) {
@@ -181,11 +177,12 @@ class TransitWidget : AppWidgetProvider() {
 
                         for (i in 0 until config.maxArrivals) {
                             val text = times.getOrNull(i) ?: "—"
+                            val isScheduled = arrivals.getOrNull(i)?.id?.endsWith("_sched") == true
                             val color = when (text) {
                                 "Leaving" -> 0xFFdc3545.toInt()
                                 "Arriving" -> 0xFF28a745.toInt()
                                 "—" -> 0xFFBDC1C7.toInt()
-                                else -> 0xFFFFD700.toInt()
+                                else -> if (isScheduled) 0xFF9E8400.toInt() else 0xFFFFD700.toInt()
                             }
                             rowViews.setTextViewText(timeCells[i], text)
                             rowViews.setTextColor(timeCells[i], color)
