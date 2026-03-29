@@ -14,6 +14,7 @@
         android:layout_height="wrap_content"
         android:textSize="14sp"
         android:textColor="#C9D1D9"
-        android:minHeight="40dp" />
+        android:minHeight="40dp"
+        android:buttonTint="#238636" />
 
 </LinearLayout>

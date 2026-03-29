@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="#0D1117">
+    android:background="@color/bg_main">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -17,38 +17,40 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/configure_widget"
-            android:textSize="24sp"
+            android:textSize="26sp"
             android:textStyle="bold"
-            android:textColor="#E6EDF3"
-            android:paddingBottom="24dp" />
+            android:textColor="@color/text_primary"
+            android:paddingBottom="28dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/agency"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:textAllCaps="true"
             android:letterSpacing="0.1"
-            android:textColor="#7D8590"
-            android:paddingBottom="4dp" />
+            android:textStyle="bold"
+            android:textColor="@color/text_secondary"
+            android:paddingBottom="8dp" />
 
         <Spinner
             android:id="@+id/spinnerAgency"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="52dp"
             android:background="@drawable/bg_spinner"
-            android:paddingHorizontal="8dp" />
+            android:paddingHorizontal="12dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/search_for_a_stop"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:textAllCaps="true"
             android:letterSpacing="0.1"
-            android:textColor="#7D8590"
-            android:paddingTop="24dp"
-            android:paddingBottom="4dp" />
+            android:textStyle="bold"
+            android:textColor="@color/text_secondary"
+            android:paddingTop="28dp"
+            android:paddingBottom="8dp" />
 
         <FrameLayout
             android:layout_width="match_parent"
@@ -59,20 +61,20 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="@string/stop_search_hint"
-                android:textColorHint="#4D5562"
+                android:textColorHint="@color/text_hint"
                 android:inputType="text"
                 android:background="@drawable/bg_stop_results"
-                android:paddingVertical="12dp"
-                android:paddingStart="12dp"
-                android:paddingEnd="44dp"
-                android:textColor="#E6EDF3"
-                android:textSize="15sp"
-                android:minHeight="48dp" />
+                android:paddingVertical="14dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="48dp"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:minHeight="52dp" />
 
             <ImageButton
                 android:id="@+id/btnClearSearch"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
                 android:layout_gravity="end|center_vertical"
                 android:layout_marginEnd="4dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
@@ -86,7 +88,7 @@
             android:id="@+id/flStopResultsContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="12dp"
             android:background="@drawable/bg_stop_results"
             android:clipToOutline="true"
             android:visibility="gone">
@@ -95,7 +97,7 @@
                 android:id="@+id/lvStopResults"
                 android:layout_width="match_parent"
                 android:layout_height="320dp"
-                android:divider="#30363D"
+                android:divider="@color/border_color"
                 android:dividerHeight="1dp"
                 android:fadeScrollbars="false"
                 android:scrollbarAlwaysDrawVerticalTrack="true"
@@ -108,9 +110,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="320dp"
                 android:gravity="center"
-                android:text="No results"
-                android:textSize="14sp"
-                android:textColor="#7D8590"
+                android:text="No results found"
+                android:textSize="15sp"
+                android:textColor="@color/text_secondary"
                 android:visibility="gone" />
 
         </FrameLayout>
@@ -119,9 +121,10 @@
             android:id="@+id/tvSelectedStop"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:textColor="#58A6FF"
-            android:paddingTop="12dp"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="@color/accent_color"
+            android:paddingTop="16dp"
             android:paddingBottom="4dp"
             android:visibility="gone" />
 
@@ -130,19 +133,19 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/filter_routes_all_shown_by_default"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:textAllCaps="true"
             android:letterSpacing="0.1"
-            android:textColor="#7D8590"
-            android:paddingTop="24dp"
-            android:paddingBottom="4dp"
-            android:visibility="gone" />
+            android:textStyle="bold"
+            android:textColor="@color/text_secondary"
+            android:paddingTop="28dp"
+            android:paddingBottom="8dp" />
 
         <FrameLayout
             android:id="@+id/flRoutesContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="12dp"
             android:background="@drawable/bg_stop_results"
             android:clipToOutline="true"
             android:visibility="gone">
@@ -152,9 +155,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:groupIndicator="@null"
-                android:divider="#30363D"
+                android:divider="@color/border_color"
                 android:dividerHeight="1dp"
-                android:childDivider="#30363D"
+                android:childDivider="@color/border_color"
                 android:listSelector="@android:color/transparent"
                 android:footerDividersEnabled="true" />
 
@@ -164,12 +167,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/display_options"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:textAllCaps="true"
             android:letterSpacing="0.1"
-            android:textColor="#7D8590"
-            android:paddingTop="24dp"
-            android:paddingBottom="8dp" />
+            android:textStyle="bold"
+            android:textColor="@color/text_secondary"
+            android:paddingTop="28dp"
+            android:paddingBottom="12dp" />
 
         <RadioGroup
             android:id="@+id/rgDisplayMode"
@@ -181,54 +185,57 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/display_relative"
-                android:textColor="#C9D1D9"
-                android:paddingVertical="8dp"
-                android:checked="true" />
+                android:textColor="@color/text_radio"
+                android:paddingVertical="10dp"
+                android:checked="true"
+                android:buttonTint="@color/radio_button_tint" />
 
             <RadioButton
                 android:id="@+id/rbAbsolute"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/display_absolute"
-                android:paddingVertical="8dp"
-                android:textColor="#C9D1D9" />
+                android:paddingVertical="10dp"
+                android:textColor="@color/text_radio"
+                android:buttonTint="@color/radio_button_tint" />
 
             <RadioButton
                 android:id="@+id/rbHybrid"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/display_hybrid_prefix"
-                android:paddingVertical="8dp"
-                android:textColor="#C9D1D9" />
+                android:paddingVertical="10dp"
+                android:textColor="@color/text_radio"
+                android:buttonTint="@color/radio_button_tint" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:paddingStart="32dp"
-                android:paddingBottom="8dp">
+                android:paddingStart="36dp"
+                android:paddingBottom="12dp">
 
                 <EditText
                     android:id="@+id/etHybridThreshold"
-                    android:layout_width="50dp"
+                    android:layout_width="56dp"
                     android:layout_height="wrap_content"
                     android:inputType="number"
                     android:text="@string/default_hybrid_threshold"
                     android:gravity="center"
-                    android:textColor="#E6EDF3"
-                    android:textSize="14sp"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp"
                     android:background="@drawable/bg_stop_results"
-                    android:padding="6dp"
-                    android:minHeight="40dp" />
+                    android:padding="8dp"
+                    android:minHeight="44dp" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/display_hybrid_suffix"
-                    android:textColor="#C9D1D9"
-                    android:textSize="14sp"
-                    android:paddingStart="8dp" />
+                    android:textColor="@color/text_secondary"
+                    android:textSize="15sp"
+                    android:paddingStart="12dp" />
 
             </LinearLayout>
 
@@ -238,12 +245,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/max_arrivals"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:textAllCaps="true"
             android:letterSpacing="0.1"
-            android:textColor="#7D8590"
-            android:paddingTop="24dp"
-            android:paddingBottom="8dp" />
+            android:textStyle="bold"
+            android:textColor="@color/text_secondary"
+            android:paddingTop="28dp"
+            android:paddingBottom="12dp" />
 
         <EditText
             android:id="@+id/etMaxArrivals"
@@ -252,22 +260,22 @@
             android:inputType="number"
             android:text="@string/default_max_arrivals"
             android:background="@drawable/bg_stop_results"
-            android:padding="12dp"
-            android:textColor="#E6EDF3"
-            android:textSize="15sp"
-            android:minHeight="48dp" />
+            android:padding="14dp"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp"
+            android:minHeight="52dp" />
 
         <Button
             android:id="@+id/btnSave"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
             android:text="@string/add_widget"
-            android:layout_marginTop="32dp"
-            android:backgroundTint="#238636"
+            android:layout_marginTop="40dp"
+            android:backgroundTint="@color/accent_color"
             android:textColor="#FFFFFF"
             android:textAllCaps="false"
-            android:textStyle="bold"
-            android:minHeight="48dp" />
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>
