@@ -74,19 +74,6 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/max_arrivals"
-        android:paddingTop="16dp" />
-
-    <EditText
-        android:id="@+id/etMaxArrivals"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:inputType="number"
-        android:text="@string/default_max_arrivals" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
         android:text="@string/display_options"
         android:textStyle="bold"
         android:paddingTop="16dp"
@@ -144,6 +131,19 @@
         </LinearLayout>
 
     </RadioGroup>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/max_arrivals"
+        android:paddingTop="8dp" />
+
+    <EditText
+        android:id="@+id/etMaxArrivals"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="number"
+        android:text="@string/default_max_arrivals" />
 
     <Button
         android:id="@+id/btnSave"
