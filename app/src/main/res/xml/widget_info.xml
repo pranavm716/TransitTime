@@ -10,4 +10,5 @@
     android:configure="io.github.pranavm716.transittime.widget.TransitWidgetConfig"
     android:resizeMode="vertical"
     android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable"
     tools:ignore="UnusedAttribute" />
