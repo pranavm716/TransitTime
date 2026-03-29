@@ -1,209 +1,270 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:paddingTop="44dp"
-    android:paddingHorizontal="24dp"
-    android:paddingBottom="24dp">
+    android:fillViewport="true"
+    android:background="#0D1117">
 
-    <TextView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/configure_widget"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:textColor="#E6EDF3"
-        android:paddingBottom="24dp" />
+        android:orientation="vertical"
+        android:paddingTop="44dp"
+        android:paddingHorizontal="24dp"
+        android:paddingBottom="44dp">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/agency"
-        android:textSize="11sp"
-        android:textAllCaps="true"
-        android:letterSpacing="0.1"
-        android:textColor="#7D8590"
-        android:paddingBottom="4dp" />
-
-    <Spinner
-        android:id="@+id/spinnerAgency"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/search_for_a_stop"
-        android:textSize="11sp"
-        android:textAllCaps="true"
-        android:letterSpacing="0.1"
-        android:textColor="#7D8590"
-        android:paddingTop="20dp"
-        android:paddingBottom="4dp" />
-
-    <EditText
-        android:id="@+id/etStopSearch"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="@string/stop_search_hint"
-        android:textColorHint="#4D5562"
-        android:inputType="text" />
-
-    <ListView
-        android:id="@+id/lvStopResults"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp"
-        android:clipToPadding="false"
-        android:background="@drawable/bg_stop_results"
-        android:fadeScrollbars="false"
-        android:scrollbarAlwaysDrawVerticalTrack="true"
-        android:visibility="gone" />
-
-    <TextView
-        android:id="@+id/tvNoResults"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:gravity="center"
-        android:text="No results"
-        android:textSize="14sp"
-        android:textColor="#7D8590"
-        android:background="@drawable/bg_stop_results"
-        android:visibility="gone" />
-
-    <TextView
-        android:id="@+id/tvSelectedStop"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="14sp"
-        android:textColor="#58A6FF"
-        android:paddingTop="10dp"
-        android:visibility="gone" />
-
-    <TextView
-        android:id="@+id/tvRoutesLabel"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/filter_routes_all_shown_by_default"
-        android:textSize="11sp"
-        android:textAllCaps="true"
-        android:letterSpacing="0.1"
-        android:textColor="#7D8590"
-        android:paddingTop="16dp"
-        android:paddingBottom="4dp"
-        android:visibility="gone" />
-
-    <ExpandableListView
-        android:id="@+id/elvRoutes"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp"
-        android:clipToPadding="false"
-        android:background="@drawable/bg_stop_results"
-        android:groupIndicator="@null"
-        android:fadeScrollbars="false"
-        android:scrollbarAlwaysDrawVerticalTrack="true"
-        android:visibility="gone" />
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="20dp"
-        android:background="#30363D" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/display_options"
-        android:textSize="11sp"
-        android:textAllCaps="true"
-        android:letterSpacing="0.1"
-        android:textColor="#7D8590"
-        android:paddingTop="16dp"
-        android:paddingBottom="4dp" />
-
-    <RadioGroup
-        android:id="@+id/rgDisplayMode"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-
-        <RadioButton
-            android:id="@+id/rbRelative"
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/display_relative"
-            android:checked="true" />
+            android:text="@string/configure_widget"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="#E6EDF3"
+            android:paddingBottom="24dp" />
 
-        <RadioButton
-            android:id="@+id/rbAbsolute"
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/display_absolute" />
+            android:text="@string/agency"
+            android:textSize="11sp"
+            android:textAllCaps="true"
+            android:letterSpacing="0.1"
+            android:textColor="#7D8590"
+            android:paddingBottom="4dp" />
 
-        <RadioButton
-            android:id="@+id/rbHybrid"
+        <Spinner
+            android:id="@+id/spinnerAgency"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_spinner"
+            android:paddingHorizontal="8dp" />
+
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/display_hybrid_prefix" />
+            android:text="@string/search_for_a_stop"
+            android:textSize="11sp"
+            android:textAllCaps="true"
+            android:letterSpacing="0.1"
+            android:textColor="#7D8590"
+            android:paddingTop="24dp"
+            android:paddingBottom="4dp" />
 
-        <LinearLayout
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="40dp"
-            android:paddingBottom="4dp">
+            android:layout_height="wrap_content">
 
             <EditText
-                android:id="@+id/etHybridThreshold"
+                android:id="@+id/etStopSearch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/stop_search_hint"
+                android:textColorHint="#4D5562"
+                android:inputType="text"
+                android:background="@drawable/bg_stop_results"
+                android:paddingVertical="12dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="44dp"
+                android:textColor="#E6EDF3"
+                android:textSize="15sp"
+                android:minHeight="48dp" />
+
+            <ImageButton
+                android:id="@+id/btnClearSearch"
                 android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="end|center_vertical"
+                android:layout_marginEnd="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_clear"
+                android:visibility="gone"
+                android:contentDescription="Clear search" />
+
+        </FrameLayout>
+
+        <ListView
+            android:id="@+id/lvStopResults"
+            android:layout_width="match_parent"
+            android:layout_height="320dp"
+            android:layout_marginTop="8dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:clipToPadding="false"
+            android:background="@drawable/bg_stop_results"
+            android:divider="#30363D"
+            android:dividerHeight="1dp"
+            android:fadeScrollbars="false"
+            android:scrollbarAlwaysDrawVerticalTrack="true"
+            android:nestedScrollingEnabled="true"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tvNoResults"
+            android:layout_width="match_parent"
+            android:layout_height="320dp"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="No results"
+            android:textSize="14sp"
+            android:textColor="#7D8590"
+            android:background="@drawable/bg_stop_results"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tvSelectedStop"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="#58A6FF"
+            android:paddingTop="12dp"
+            android:paddingBottom="4dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tvRoutesLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/filter_routes_all_shown_by_default"
+            android:textSize="11sp"
+            android:textAllCaps="true"
+            android:letterSpacing="0.1"
+            android:textColor="#7D8590"
+            android:paddingTop="24dp"
+            android:paddingBottom="4dp"
+            android:visibility="gone" />
+
+        <ExpandableListView
+            android:id="@+id/elvRoutes"
+            android:layout_width="match_parent"
+            android:layout_height="320dp"
+            android:layout_marginTop="8dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:clipToPadding="false"
+            android:background="@drawable/bg_stop_results"
+            android:groupIndicator="@null"
+            android:divider="#30363D"
+            android:dividerHeight="1dp"
+            android:childDivider="#30363D"
+            android:fadeScrollbars="false"
+            android:scrollbarAlwaysDrawVerticalTrack="true"
+            android:nestedScrollingEnabled="true"
+            android:visibility="gone" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="32dp"
+            android:background="#30363D" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/display_options"
+            android:textSize="11sp"
+            android:textAllCaps="true"
+            android:letterSpacing="0.1"
+            android:textColor="#7D8590"
+            android:paddingTop="24dp"
+            android:paddingBottom="8dp" />
+
+        <RadioGroup
+            android:id="@+id/rgDisplayMode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <RadioButton
+                android:id="@+id/rbRelative"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="number"
-                android:text="@string/default_hybrid_threshold"
-                android:gravity="center"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="14sp" />
+                android:text="@string/display_relative"
+                android:textColor="#C9D1D9"
+                android:paddingVertical="8dp"
+                android:checked="true" />
 
-            <TextView
-                android:layout_width="wrap_content"
+            <RadioButton
+                android:id="@+id/rbAbsolute"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/display_hybrid_suffix"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="14sp" />
+                android:text="@string/display_absolute"
+                android:paddingVertical="8dp"
+                android:textColor="#C9D1D9" />
 
-        </LinearLayout>
+            <RadioButton
+                android:id="@+id/rbHybrid"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/display_hybrid_prefix"
+                android:paddingVertical="8dp"
+                android:textColor="#C9D1D9" />
 
-    </RadioGroup>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="32dp"
+                android:paddingBottom="8dp">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/max_arrivals"
-        android:textSize="11sp"
-        android:textAllCaps="true"
-        android:letterSpacing="0.1"
-        android:textColor="#7D8590"
-        android:paddingTop="16dp"
-        android:paddingBottom="4dp" />
+                <EditText
+                    android:id="@+id/etHybridThreshold"
+                    android:layout_width="50dp"
+                    android:layout_height="wrap_content"
+                    android:inputType="number"
+                    android:text="@string/default_hybrid_threshold"
+                    android:gravity="center"
+                    android:textColor="#E6EDF3"
+                    android:textSize="14sp"
+                    android:background="@drawable/bg_stop_results"
+                    android:padding="6dp"
+                    android:minHeight="40dp" />
 
-    <EditText
-        android:id="@+id/etMaxArrivals"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:inputType="number"
-        android:text="@string/default_max_arrivals" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/display_hybrid_suffix"
+                    android:textColor="#C9D1D9"
+                    android:textSize="14sp"
+                    android:paddingStart="8dp" />
 
-    <Button
-        android:id="@+id/btnSave"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/add_widget"
-        android:layout_marginTop="20dp" />
+            </LinearLayout>
 
-</LinearLayout>
+        </RadioGroup>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/max_arrivals"
+            android:textSize="11sp"
+            android:textAllCaps="true"
+            android:letterSpacing="0.1"
+            android:textColor="#7D8590"
+            android:paddingTop="24dp"
+            android:paddingBottom="8dp" />
+
+        <EditText
+            android:id="@+id/etMaxArrivals"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="number"
+            android:text="@string/default_max_arrivals"
+            android:background="@drawable/bg_stop_results"
+            android:padding="12dp"
+            android:textColor="#E6EDF3"
+            android:textSize="15sp"
+            android:minHeight="48dp" />
+
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/add_widget"
+            android:layout_marginTop="32dp"
+            android:backgroundTint="#238636"
+            android:textColor="#FFFFFF"
+            android:textAllCaps="false"
+            android:textStyle="bold"
+            android:minHeight="48dp" />
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

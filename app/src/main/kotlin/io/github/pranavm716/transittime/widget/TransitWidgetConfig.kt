@@ -12,6 +12,7 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ExpandableListView
+import android.widget.ImageButton
 import android.widget.ListView
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -64,6 +65,7 @@ class TransitWidgetConfig : AppCompatActivity() {
         val elvRoutes = findViewById<ExpandableListView>(R.id.elvRoutes)
         val tvRoutesLabel = findViewById<TextView>(R.id.tvRoutesLabel)
         val etStopSearch = findViewById<EditText>(R.id.etStopSearch)
+        val btnClearSearch = findViewById<ImageButton>(R.id.btnClearSearch)
         val tvSelectedStop = findViewById<TextView>(R.id.tvSelectedStop)
         val btnSave = findViewById<Button>(R.id.btnSave)
         val rgDisplayMode = findViewById<RadioGroup>(R.id.rgDisplayMode)
@@ -78,6 +80,8 @@ class TransitWidgetConfig : AppCompatActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
                 val query = s.toString().trim().lowercase()
+                btnClearSearch.visibility = if (query.isEmpty()) View.GONE else View.VISIBLE
+                
                 val filtered = if (query.isEmpty()) allStops
                 else allStops.filter { it.second.lowercase().contains(query) }
                 resultsAdapter.clear()
@@ -93,6 +97,10 @@ class TransitWidgetConfig : AppCompatActivity() {
                 }
             }
         })
+
+        btnClearSearch.setOnClickListener {
+            etStopSearch.setText("")
+        }
 
         lvResults.setOnItemClickListener { _, _, position, _ ->
             @Suppress("UNCHECKED_CAST")
