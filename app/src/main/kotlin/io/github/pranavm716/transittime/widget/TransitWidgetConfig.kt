@@ -2,6 +2,7 @@ package io.github.pranavm716.transittime.widget
 
 import android.appwidget.AppWidgetManager
 import android.content.Intent
+import android.graphics.Rect
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -21,6 +22,10 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
+import androidx.core.widget.NestedScrollView
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
@@ -49,6 +54,29 @@ class TransitWidgetConfig : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setResult(RESULT_CANCELED)
         setContentView(R.layout.activity_widget_config)
+
+        val scrollView = findViewById<NestedScrollView>(R.id.nestedScrollView)
+        ViewCompat.setOnApplyWindowInsetsListener(scrollView) { v, insets ->
+            val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val sysInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.updatePadding(
+                top = sysInsets.top,
+                bottom = maxOf(imeInsets.bottom, sysInsets.bottom)
+            )
+            
+            if (imeInsets.bottom > 0) {
+                val focusedView = currentFocus
+                if (focusedView != null) {
+                    v.post {
+                        val rect = Rect()
+                        focusedView.getDrawingRect(rect)
+                        (v as NestedScrollView).offsetDescendantRectToMyCoords(focusedView, rect)
+                        v.smoothScrollTo(0, rect.top - 100) // Scroll to show field with some context above
+                    }
+                }
+            }
+            insets
+        }
 
         widgetId = intent.extras?.getInt(
             AppWidgetManager.EXTRA_APPWIDGET_ID,
