@@ -66,7 +66,8 @@ class TransitWidget : AppWidgetProvider() {
         fun updateWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,
-            widgetId: Int
+            widgetId: Int,
+            fetchFailed: Boolean = false
         ) {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
@@ -131,16 +132,18 @@ class TransitWidget : AppWidgetProvider() {
                 val grouped = allGroups.take(maxRows)
                 val overflow = totalGroups - maxRows
 
-                val lastFetchedAt = config.lastFetchedAt.takeIf { it > 0L }
-                    ?: db.arrivalDao().getArrivalsForStop(config.stopId)
-                        .maxOfOrNull { it.fetchedAt } ?: 0L
-                val freshnessText = if (lastFetchedAt == 0L) {
-                    "—"
+                if (fetchFailed) {
+                    views.setTextViewText(R.id.tvFreshnessText, "Failed")
+                    views.setTextColor(R.id.tvFreshnessText, 0xFFFF6B6B.toInt())
                 } else {
-                    val formatter = SimpleDateFormat("h:mm a", Locale.getDefault())
-                    formatter.format(Date(lastFetchedAt))
+                    val lastFetchedAt = config.lastFetchedAt.takeIf { it > 0L }
+                        ?: db.arrivalDao().getArrivalsForStop(config.stopId)
+                            .maxOfOrNull { it.fetchedAt } ?: 0L
+                    val freshnessText = if (lastFetchedAt == 0L) "—"
+                    else SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(lastFetchedAt))
+                    views.setTextViewText(R.id.tvFreshnessText, freshnessText)
+                    views.setTextColor(R.id.tvFreshnessText, 0xFFAAAAAA.toInt())
                 }
-                views.setTextViewText(R.id.tvFreshnessText, freshnessText)
 
                 views.removeAllViews(R.id.llArrivals)
 

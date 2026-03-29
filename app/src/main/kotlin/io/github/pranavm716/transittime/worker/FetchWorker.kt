@@ -23,6 +23,7 @@ class FetchWorker(
         if (configs.isEmpty()) return Result.success()
 
         val fetchedAt = System.currentTimeMillis()
+        val failedAgencies = mutableSetOf<io.github.pranavm716.transittime.data.model.Agency>()
 
         configs.groupBy { it.agency }.forEach { (agency, agencyConfigs) ->
             val handler = AgencyRegistry.get(agency)
@@ -41,6 +42,7 @@ class FetchWorker(
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                failedAgencies.add(agency)
             }
         }
 
@@ -48,8 +50,10 @@ class FetchWorker(
         val ids = manager.getAppWidgetIds(
             ComponentName(context, TransitWidget::class.java)
         )
+        val configByWidgetId = configs.associateBy { it.widgetId }
         for (id in ids) {
-            TransitWidget.updateWidget(context, manager, id)
+            val fetchFailed = configByWidgetId[id]?.agency in failedAgencies
+            TransitWidget.updateWidget(context, manager, id, fetchFailed = fetchFailed)
         }
 
         return Result.success()
