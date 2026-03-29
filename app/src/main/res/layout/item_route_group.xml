@@ -3,12 +3,20 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:paddingStart="16dp"
+    android:paddingStart="12dp"
     android:paddingEnd="16dp"
     android:paddingTop="16dp"
     android:paddingBottom="16dp"
     android:background="?android:attr/selectableItemBackground"
     android:gravity="center_vertical">
+
+    <ImageView
+        android:id="@+id/ivChevron"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/ic_chevron_right"
+        android:layout_marginEnd="4dp"
+        android:contentDescription="" />
 
     <TextView
         android:id="@+id/tvRouteName"
@@ -17,13 +25,13 @@
         android:layout_weight="1"
         android:textSize="15sp"
         android:textStyle="bold"
-        android:textColor="#E6EDF3" />
+        android:textColor="@color/text_primary" />
 
     <TextView
         android:id="@+id/tvRouteSelectedCount"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textSize="13sp"
-        android:textColor="#238636" />
+        android:textColor="@color/accent_color" />
 
 </LinearLayout>

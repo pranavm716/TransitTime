@@ -20,6 +20,7 @@
             android:textSize="26sp"
             android:textStyle="bold"
             android:textColor="@color/text_primary"
+            android:layout_marginTop="24sp"
             android:paddingBottom="28dp" />
 
         <TextView
