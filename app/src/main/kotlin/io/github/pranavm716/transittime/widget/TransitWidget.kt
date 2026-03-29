@@ -15,7 +15,7 @@ import androidx.work.WorkManager
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
-import io.github.pranavm716.transittime.data.model.Departure
+import io.github.pranavm716.transittime.data.model.Arrival
 import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.util.RouteIconDrawer
@@ -99,11 +99,11 @@ class TransitWidget : AppWidgetProvider() {
                 }
 
                 val now = System.currentTimeMillis()
-                val (grouped, overflow) = loadGroupedDepartures(db, config, now, maxRows)
+                val (grouped, overflow) = loadGroupedArrivals(db, config, now, maxRows)
 
                 applyHeader(views, config)
                 applyFreshness(views, db, config, fetchFailed)
-                applyDepartures(context, views, grouped, config, now)
+                applyArrivals(context, views, grouped, config, now)
                 applyOverflow(views, overflow)
 
                 appWidgetManager.updateAppWidget(widgetId, views)
@@ -131,7 +131,7 @@ class TransitWidget : AppWidgetProvider() {
                 views.setTextColor(R.id.tvFreshnessText, 0xFFFF6B6B.toInt())
             } else {
                 val lastFetchedAt = config.lastFetchedAt.takeIf { it > 0L }
-                    ?: db.departureDao().getDeparturesForStop(config.stopId)
+                    ?: db.arrivalDao().getArrivalsForStop(config.stopId)
                         .maxOfOrNull { it.fetchedAt } ?: 0L
                 val freshnessText = if (lastFetchedAt == 0L) "—"
                 else SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(lastFetchedAt))
@@ -140,39 +140,39 @@ class TransitWidget : AppWidgetProvider() {
             }
         }
 
-        private suspend fun loadGroupedDepartures(
+        private suspend fun loadGroupedArrivals(
             db: TransitDatabase,
             config: WidgetConfig,
             now: Long,
             maxRows: Int
-        ): Pair<List<List<Departure>>, Int> {
-            val allGroups = db.departureDao()
-                .getDeparturesForStop(config.stopId)
-                .filter { departure ->
-                    (departure.departureTimestamp ?: departure.arrivalTimestamp ?: Long.MIN_VALUE) > now &&
+        ): Pair<List<List<Arrival>>, Int> {
+            val allGroups = db.arrivalDao()
+                .getArrivalsForStop(config.stopId)
+                .filter { arrival ->
+                    arrival.departureTimestamp > now &&
                             (config.filteredHeadsigns.isEmpty() ||
-                                    "${departure.routeName}|${departure.headsign}" in config.filteredHeadsigns)
+                                    "${arrival.routeName}|${arrival.headsign}" in config.filteredHeadsigns)
                 }
                 .groupBy { "${it.routeName}|${it.headsign}" }
                 .entries
-                .map { (_, departures) ->
-                    departures.sortedBy { it.departureTimestamp ?: it.arrivalTimestamp }.take(config.maxArrivals)
+                .map { (_, arrivals) ->
+                    arrivals.sortedBy { it.arrivalTimestamp }.take(config.maxArrivals)
                 }
                 .sortedWith(
                     compareBy(
-                        { it.first().departureTimestamp ?: it.first().arrivalTimestamp },
-                        { it.getOrNull(1)?.let { it.departureTimestamp ?: it.arrivalTimestamp } ?: Long.MAX_VALUE },
-                        { it.getOrNull(2)?.let { it.departureTimestamp ?: it.arrivalTimestamp } ?: Long.MAX_VALUE },
+                        { it.first().arrivalTimestamp },
+                        { it.getOrNull(1)?.arrivalTimestamp ?: Long.MAX_VALUE },
+                        { it.getOrNull(2)?.arrivalTimestamp ?: Long.MAX_VALUE },
                         { it.first().routeName }
                     ))
             val overflow = (allGroups.size - maxRows).coerceAtLeast(0)
             return allGroups.take(maxRows) to overflow
         }
 
-        private fun applyDepartures(
+        private fun applyArrivals(
             context: Context,
             views: RemoteViews,
-            grouped: List<List<Departure>>,
+            grouped: List<List<Arrival>>,
             config: WidgetConfig,
             now: Long
         ) {
@@ -183,10 +183,10 @@ class TransitWidget : AppWidgetProvider() {
                 return
             }
 
-            val allTimes = grouped.map { departures ->
-                val handler = AgencyRegistry.get(departures.first().agency)
-                departures.map { departure ->
-                    handler.getDisplayTime(departure, now)
+            val allTimes = grouped.map { arrivals ->
+                val handler = AgencyRegistry.get(arrivals.first().agency)
+                arrivals.map { arrival ->
+                    handler.getArrivalDisplayTime(arrival, now, config.displayMode, config.hybridThresholdMinutes)
                 }
             }
             val globalMaxTimeLen = allTimes.maxOfOrNull { times ->
@@ -199,22 +199,22 @@ class TransitWidget : AppWidgetProvider() {
                 else -> 16f
             }
 
-            for ((departures, times) in grouped.zip(allTimes)) {
+            for ((arrivals, times) in grouped.zip(allTimes)) {
                 views.addView(
                     R.id.llArrivals,
-                    buildDepartureRow(context, departures, times, timeFontSizeSp, config.maxArrivals)
+                    buildArrivalRow(context, arrivals, times, timeFontSizeSp, config.maxArrivals)
                 )
             }
         }
 
-        private fun buildDepartureRow(
+        private fun buildArrivalRow(
             context: Context,
-            departures: List<Departure>,
+            arrivals: List<Arrival>,
             times: List<String>,
             timeFontSizeSp: Float,
             maxArrivals: Int
         ): RemoteViews {
-            val first = departures.first()
+            val first = arrivals.first()
             val handler = AgencyRegistry.get(first.agency)
             val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
 
@@ -237,7 +237,7 @@ class TransitWidget : AppWidgetProvider() {
             }
             for (i in 0 until maxArrivals) {
                 val text = times.getOrNull(i) ?: "—"
-                val isScheduled = departures.getOrNull(i)?.id?.endsWith("_sched") == true
+                val isScheduled = arrivals.getOrNull(i)?.id?.endsWith("_sched") == true
                 val color = when (text) {
                     "Leaving" -> 0xFFdc3545.toInt()
                     "Arriving" -> 0xFF28a745.toInt()

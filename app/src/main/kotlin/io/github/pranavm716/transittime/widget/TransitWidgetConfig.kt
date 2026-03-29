@@ -106,7 +106,7 @@ class TransitWidgetConfig : AppCompatActivity() {
         val rbHybrid = findViewById<RadioButton>(R.id.rbHybrid)
         val llHybridThresholdRow = findViewById<LinearLayout>(R.id.llHybridThresholdRow)
         val etHybridThreshold = findViewById<EditText>(R.id.etHybridThreshold)
-        val etMaxDepartures = findViewById<EditText>(R.id.etMaxArrivals)
+        val etMaxArrivals = findViewById<EditText>(R.id.etMaxArrivals)
 
         findViewById<TextView>(R.id.tvRelativeDesc).setOnClickListener { rbRelative.isChecked = true }
         findViewById<TextView>(R.id.tvAbsoluteDesc).setOnClickListener { rbAbsolute.isChecked = true }
@@ -223,7 +223,7 @@ class TransitWidgetConfig : AppCompatActivity() {
 
                 existingConfig?.let { config ->
                     spinner.setSelection(config.agency.ordinal)
-                    etMaxDepartures.setText(config.maxArrivals.toString())
+                    etMaxArrivals.setText(config.maxArrivals.toString())
                     etHybridThreshold.setText(config.hybridThresholdMinutes.toString())
                     when (config.displayMode) {
                         DisplayMode.ABSOLUTE -> rbAbsolute.isChecked = true
@@ -238,7 +238,7 @@ class TransitWidgetConfig : AppCompatActivity() {
         btnSave.setOnClickListener {
             val stopId = selectedStopId
             val stopName = selectedStopName
-            val maxDepartures = etMaxDepartures.text.toString().trim().toIntOrNull() ?: 2
+            val maxArrivals = etMaxArrivals.text.toString().trim().toIntOrNull() ?: 2
             val agency = Agency.entries[spinner.selectedItemPosition]
 
             if (stopId == null || stopName == null) {
@@ -246,8 +246,8 @@ class TransitWidgetConfig : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            if (maxDepartures !in 1..3) {
-                Toast.makeText(this, "Max departures must be between 1 and 3", Toast.LENGTH_SHORT).show()
+            if (maxArrivals !in 1..3) {
+                Toast.makeText(this, "Max arrivals must be between 1 and 3", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
@@ -274,7 +274,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                 stopName = stopName,
                 agency = agency,
                 filteredHeadsigns = filtered,
-                maxArrivals = maxDepartures,
+                maxArrivals = maxArrivals,
                 displayMode = displayMode,
                 hybridThresholdMinutes = hybridThresholdMinutes
             )
