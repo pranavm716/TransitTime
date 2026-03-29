@@ -12,6 +12,7 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ExpandableListView
+import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ListView
 import android.widget.RadioButton
@@ -60,8 +61,10 @@ class TransitWidgetConfig : AppCompatActivity() {
         }
 
         val spinner = findViewById<Spinner>(R.id.spinnerAgency)
+        val flStopResults = findViewById<FrameLayout>(R.id.flStopResultsContainer)
         val lvResults = findViewById<ListView>(R.id.lvStopResults)
         val tvNoResults = findViewById<TextView>(R.id.tvNoResults)
+        val flRoutes = findViewById<FrameLayout>(R.id.flRoutesContainer)
         val elvRoutes = findViewById<ExpandableListView>(R.id.elvRoutes)
         val tvRoutesLabel = findViewById<TextView>(R.id.tvRoutesLabel)
         val etStopSearch = findViewById<EditText>(R.id.etStopSearch)
@@ -88,10 +91,11 @@ class TransitWidgetConfig : AppCompatActivity() {
                 resultsAdapter.addAll(filtered.map { it.second })
                 lvResults.tag = filtered
                 val hasStopsLoaded = allStops.isNotEmpty()
+                flStopResults.visibility = if (hasStopsLoaded) View.VISIBLE else View.GONE
                 lvResults.visibility = if (hasStopsLoaded && filtered.isNotEmpty()) View.VISIBLE else View.GONE
                 tvNoResults.visibility = if (hasStopsLoaded && filtered.isEmpty()) View.VISIBLE else View.GONE
                 if (hasStopsLoaded) {
-                    elvRoutes.visibility = View.GONE
+                    flRoutes.visibility = View.GONE
                     tvRoutesLabel.visibility = View.GONE
                     tvSelectedStop.visibility = View.GONE
                 }
@@ -110,13 +114,12 @@ class TransitWidgetConfig : AppCompatActivity() {
             selectedStopName = selected.second
 
             etStopSearch.setText(selected.second)
-            lvResults.visibility = View.GONE
-            tvNoResults.visibility = View.GONE
+            flStopResults.visibility = View.GONE
 
             tvSelectedStop.text = "Selected: ${selected.second} (${selected.first})"
             tvSelectedStop.visibility = View.VISIBLE
 
-            fetchRoutes(selected.first, spinner, elvRoutes, tvRoutesLabel, etStopSearch)
+            fetchRoutes(selected.first, spinner, flRoutes, elvRoutes, tvRoutesLabel, etStopSearch)
         }
 
         CoroutineScope(Dispatchers.IO).launch {
@@ -143,9 +146,9 @@ class TransitWidgetConfig : AppCompatActivity() {
                         etStopSearch.setText("")
                         resultsAdapter.clear()
                         allStops = emptyList()
-                        elvRoutes.visibility = View.GONE
+                        flRoutes.visibility = View.GONE
                         tvRoutesLabel.visibility = View.GONE
-                        tvNoResults.visibility = View.GONE
+                        flStopResults.visibility = View.GONE
 
                         CoroutineScope(Dispatchers.IO).launch {
                             val handler = AgencyRegistry.get(agency)
@@ -159,6 +162,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                                 resultsAdapter.clear()
                                 resultsAdapter.addAll(stops.map { it.second })
                                 lvResults.tag = stops
+                                flStopResults.visibility = if (stops.isEmpty()) View.GONE else View.VISIBLE
                                 lvResults.visibility = if (stops.isEmpty()) View.GONE else View.VISIBLE
                                 tvNoResults.visibility = View.GONE
 
@@ -167,11 +171,10 @@ class TransitWidgetConfig : AppCompatActivity() {
                                     selectedStopId = config.stopId
                                     selectedStopName = config.stopName
                                     etStopSearch.setText(config.stopName)
-                                    lvResults.visibility = View.GONE
-                                    tvNoResults.visibility = View.GONE
+                                    flStopResults.visibility = View.GONE
                                     tvSelectedStop.text = "Selected: ${config.stopName} (${config.stopId})"
                                     tvSelectedStop.visibility = View.VISIBLE
-                                    fetchRoutes(config.stopId, spinner, elvRoutes, tvRoutesLabel, etStopSearch, config)
+                                    fetchRoutes(config.stopId, spinner, flRoutes, elvRoutes, tvRoutesLabel, etStopSearch, config)
                                 }
                             }
                         }
@@ -264,6 +267,7 @@ class TransitWidgetConfig : AppCompatActivity() {
     private fun fetchRoutes(
         stopId: String,
         spinner: Spinner,
+        flRoutes: FrameLayout,
         elvRoutes: ExpandableListView,
         tvRoutesLabel: TextView,
         etStopSearch: EditText,
@@ -280,7 +284,7 @@ class TransitWidgetConfig : AppCompatActivity() {
 
                 currentRoutes = routes
                 if (routes.isEmpty()) {
-                    elvRoutes.visibility = View.GONE
+                    flRoutes.visibility = View.GONE
                     tvRoutesLabel.visibility = View.GONE
                     Toast.makeText(
                         this@TransitWidgetConfig,
@@ -304,7 +308,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                     )
                     elvRoutes.setAdapter(routeAdapter)
                     for (i in routes.keys.indices) elvRoutes.expandGroup(i)
-                    elvRoutes.visibility = View.VISIBLE
+                    flRoutes.visibility = View.VISIBLE
                     tvRoutesLabel.visibility = View.VISIBLE
                 }
             }

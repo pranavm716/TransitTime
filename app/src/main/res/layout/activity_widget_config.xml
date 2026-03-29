@@ -82,33 +82,40 @@
 
         </FrameLayout>
 
-        <ListView
-            android:id="@+id/lvStopResults"
+        <FrameLayout
+            android:id="@+id/flStopResultsContainer"
             android:layout_width="match_parent"
-            android:layout_height="320dp"
+            android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:clipToPadding="false"
             android:background="@drawable/bg_stop_results"
-            android:divider="#30363D"
-            android:dividerHeight="1dp"
-            android:fadeScrollbars="false"
-            android:scrollbarAlwaysDrawVerticalTrack="true"
-            android:nestedScrollingEnabled="true"
-            android:visibility="gone" />
+            android:clipToOutline="true"
+            android:visibility="gone">
 
-        <TextView
-            android:id="@+id/tvNoResults"
-            android:layout_width="match_parent"
-            android:layout_height="320dp"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:text="No results"
-            android:textSize="14sp"
-            android:textColor="#7D8590"
-            android:background="@drawable/bg_stop_results"
-            android:visibility="gone" />
+            <ListView
+                android:id="@+id/lvStopResults"
+                android:layout_width="match_parent"
+                android:layout_height="320dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:clipToPadding="false"
+                android:divider="#30363D"
+                android:dividerHeight="1dp"
+                android:fadeScrollbars="false"
+                android:scrollbarAlwaysDrawVerticalTrack="true"
+                android:nestedScrollingEnabled="true"
+                android:listSelector="@android:color/transparent" />
+
+            <TextView
+                android:id="@+id/tvNoResults"
+                android:layout_width="match_parent"
+                android:layout_height="320dp"
+                android:gravity="center"
+                android:text="No results"
+                android:textSize="14sp"
+                android:textColor="#7D8590"
+                android:visibility="gone" />
+
+        </FrameLayout>
 
         <TextView
             android:id="@+id/tvSelectedStop"
@@ -133,29 +140,29 @@
             android:paddingBottom="4dp"
             android:visibility="gone" />
 
-        <ExpandableListView
-            android:id="@+id/elvRoutes"
+        <FrameLayout
+            android:id="@+id/flRoutesContainer"
             android:layout_width="match_parent"
-            android:layout_height="320dp"
+            android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:clipToPadding="false"
             android:background="@drawable/bg_stop_results"
-            android:groupIndicator="@null"
-            android:divider="#30363D"
-            android:dividerHeight="1dp"
-            android:childDivider="#30363D"
-            android:fadeScrollbars="false"
-            android:scrollbarAlwaysDrawVerticalTrack="true"
-            android:nestedScrollingEnabled="true"
-            android:visibility="gone" />
+            android:clipToOutline="true"
+            android:visibility="gone">
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="32dp"
-            android:background="#30363D" />
+            <io.github.pranavm716.transittime.widget.NonScrollableExpandableListView
+                android:id="@+id/elvRoutes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:clipToPadding="false"
+                android:groupIndicator="@null"
+                android:divider="#30363D"
+                android:dividerHeight="1dp"
+                android:childDivider="#30363D"
+                android:listSelector="@android:color/transparent" />
+
+        </FrameLayout>
 
         <TextView
             android:layout_width="match_parent"
