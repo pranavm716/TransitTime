@@ -12,6 +12,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ExpandableListView
 import android.widget.ListView
+import android.widget.RadioGroup
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -19,6 +20,7 @@ import androidx.appcompat.app.AppCompatActivity
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
+import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import kotlinx.coroutines.CoroutineScope
@@ -94,7 +96,13 @@ class TransitWidgetConfig : AppCompatActivity() {
                         .entries
                         .map { Pair(it.key, it.value) }
                         .sortedBy { it.second }
-                    withContext(Dispatchers.Main) { allStops = stops }
+                    withContext(Dispatchers.Main) {
+                        allStops = stops
+                        resultsAdapter.clear()
+                        resultsAdapter.addAll(stops.map { it.second })
+                        lvResults.tag = stops
+                        lvResults.visibility = if (stops.isEmpty()) View.GONE else View.VISIBLE
+                    }
                 }
             }
 
@@ -114,12 +122,8 @@ class TransitWidgetConfig : AppCompatActivity() {
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: Editable?) {
                     val query = s.toString().trim().lowercase()
-                    if (query.isEmpty()) {
-                        lvResults.visibility = View.GONE
-                        resultsAdapter.clear()
-                        return
-                    }
-                    val filtered = allStops.filter { it.second.lowercase().contains(query) }
+                    val filtered = if (query.isEmpty()) allStops
+                    else allStops.filter { it.second.lowercase().contains(query) }
                     resultsAdapter.clear()
                     resultsAdapter.addAll(filtered.map { it.second })
                     lvResults.tag = filtered
@@ -185,6 +189,9 @@ class TransitWidgetConfig : AppCompatActivity() {
             }
         }
 
+        val rgDisplayMode = findViewById<RadioGroup>(R.id.rgDisplayMode)
+        val etHybridThreshold = findViewById<EditText>(R.id.etHybridThreshold)
+
         findViewById<Button>(R.id.btnSave).setOnClickListener {
             val stopId = selectedStopId
             val stopName = selectedStopName
@@ -203,6 +210,19 @@ class TransitWidgetConfig : AppCompatActivity() {
                 return@setOnClickListener
             }
 
+            val displayMode = when (rgDisplayMode.checkedRadioButtonId) {
+                R.id.rbAbsolute -> DisplayMode.ABSOLUTE
+                R.id.rbHybrid -> DisplayMode.HYBRID
+                else -> DisplayMode.RELATIVE
+            }
+            val hybridThresholdMinutes = etHybridThreshold.text.toString().trim().toIntOrNull() ?: 60
+
+            if (displayMode == DisplayMode.HYBRID && hybridThresholdMinutes !in 1..1440) {
+                Toast.makeText(this, "Hybrid threshold must be between 1 and 1440 minutes", Toast.LENGTH_SHORT)
+                    .show()
+                return@setOnClickListener
+            }
+
             val allRouteHeadsigns = currentRoutes
                 .entries.flatMap { (r, hs) -> hs.map { "$r|$it" } }.toSet()
             val filtered = if (checkedHeadsigns == allRouteHeadsigns) emptyList()
@@ -214,7 +234,9 @@ class TransitWidgetConfig : AppCompatActivity() {
                 stopName = stopName,
                 agency = agency,
                 filteredHeadsigns = filtered,
-                maxArrivals = maxArrivals
+                maxArrivals = maxArrivals,
+                displayMode = displayMode,
+                hybridThresholdMinutes = hybridThresholdMinutes
             )
 
             CoroutineScope(Dispatchers.IO).launch {

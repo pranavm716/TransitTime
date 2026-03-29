@@ -166,7 +166,7 @@ class TransitWidget : AppWidgetProvider() {
                         val timeCells = listOf(R.id.tvTime1, R.id.tvTime2, R.id.tvTime3)
 
                         val times = arrivals.map { arrival ->
-                            handler.getArrivalDisplayTime(arrival, now)
+                            handler.getArrivalDisplayTime(arrival, now, config.displayMode, config.hybridThresholdMinutes)
                         }
 
                         for (i in timeCells.indices) {

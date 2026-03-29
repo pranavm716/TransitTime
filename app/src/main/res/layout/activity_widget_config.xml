@@ -84,6 +84,67 @@
         android:inputType="number"
         android:text="@string/default_max_arrivals" />
 
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/display_options"
+        android:textStyle="bold"
+        android:paddingTop="16dp"
+        android:paddingBottom="4dp" />
+
+    <RadioGroup
+        android:id="@+id/rgDisplayMode"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <RadioButton
+            android:id="@+id/rbRelative"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/display_relative"
+            android:checked="true" />
+
+        <RadioButton
+            android:id="@+id/rbAbsolute"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/display_absolute" />
+
+        <RadioButton
+            android:id="@+id/rbHybrid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/display_hybrid_prefix" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="40dp"
+            android:paddingBottom="4dp">
+
+            <EditText
+                android:id="@+id/etHybridThreshold"
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:inputType="number"
+                android:text="@string/default_hybrid_threshold"
+                android:gravity="center"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/display_hybrid_suffix"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+    </RadioGroup>
+
     <Button
         android:id="@+id/btnSave"
         android:layout_width="match_parent"
