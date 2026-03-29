@@ -108,10 +108,10 @@ class TransitWidgetConfig : AppCompatActivity() {
         val etHybridThreshold = findViewById<EditText>(R.id.etHybridThreshold)
         val etMaxArrivals = findViewById<EditText>(R.id.etMaxArrivals)
 
-        // Ensure clicking the threshold row selects the hybrid radio button
-        llHybridThresholdRow.setOnClickListener {
-            rbHybrid.isChecked = true
-        }
+        findViewById<TextView>(R.id.tvRelativeDesc).setOnClickListener { rbRelative.isChecked = true }
+        findViewById<TextView>(R.id.tvAbsoluteDesc).setOnClickListener { rbAbsolute.isChecked = true }
+        llHybridThresholdRow.setOnClickListener { rbHybrid.isChecked = true }
+        etHybridThreshold.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) rbHybrid.isChecked = true }
 
         resultsAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
         lvResults.adapter = resultsAdapter

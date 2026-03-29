@@ -195,6 +195,16 @@
                 android:checked="true"
                 android:buttonTint="@color/radio_button_tint" />
 
+            <TextView
+                android:id="@+id/tvRelativeDesc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/display_relative_desc"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:paddingStart="32dp"
+                android:paddingBottom="12dp" />
+
             <RadioButton
                 android:id="@+id/rbAbsolute"
                 android:layout_width="match_parent"
@@ -203,6 +213,16 @@
                 android:textColor="@color/text_radio"
                 android:paddingVertical="10dp"
                 android:buttonTint="@color/radio_button_tint" />
+
+            <TextView
+                android:id="@+id/tvAbsoluteDesc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/display_absolute_desc"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:paddingStart="32dp"
+                android:paddingBottom="12dp" />
 
             <RadioButton
                 android:id="@+id/rbHybrid"
@@ -222,28 +242,37 @@
                 android:paddingStart="32dp"
                 android:paddingBottom="12dp">
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/display_hybrid_sentence_prefix"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:paddingEnd="8dp" />
+
                 <EditText
                     android:id="@+id/etHybridThreshold"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:minWidth="64dp"
+                    android:minWidth="52dp"
                     android:inputType="number"
                     android:text="@string/default_hybrid_threshold"
                     android:gravity="center"
                     android:textColor="@color/text_primary"
-                    android:textSize="14sp"
+                    android:textSize="12sp"
                     android:background="@drawable/bg_stop_results"
-                    android:padding="8dp"
-                    android:minHeight="44dp" />
+                    android:padding="6dp"
+                    android:minHeight="36dp" />
 
                 <TextView
                     android:id="@+id/tvHybridSuffix"
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:text="@string/display_hybrid_suffix"
-                    android:textColor="@color/text_radio"
-                    android:textSize="14sp"
-                    android:paddingStart="12dp" />
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:paddingStart="8dp" />
 
             </LinearLayout>
 
