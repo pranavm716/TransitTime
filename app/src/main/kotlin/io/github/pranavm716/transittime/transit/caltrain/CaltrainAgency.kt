@@ -5,10 +5,8 @@ import android.graphics.Color
 import androidx.core.graphics.toColorInt
 import io.github.pranavm716.transittime.BuildConfig
 import io.github.pranavm716.transittime.data.model.Agency
-import io.github.pranavm716.transittime.data.model.Arrival
-import io.github.pranavm716.transittime.data.model.DisplayMode
+import io.github.pranavm716.transittime.data.model.Departure
 import io.github.pranavm716.transittime.transit.TransitAgency
-import io.github.pranavm716.transittime.transit.formatArrivalTime
 import io.github.pranavm716.transittime.util.RouteShape
 import io.github.pranavm716.transittime.util.RouteStyle
 
@@ -21,23 +19,25 @@ object CaltrainAgency : TransitAgency {
 
     override fun getStopNames(): Map<String, String> = CaltrainParser.getStopNames()
 
-    override suspend fun fetchArrivals(stopIds: Set<String>, fetchedAt: Long): List<Arrival> {
+    override suspend fun fetchArrivals(stopIds: Set<String>, fetchedAt: Long): List<Departure> {
         val bytes = CaltrainApiClient.api.getTripUpdates(apiKey = BuildConfig.MUNI_API_KEY).bytes()
-        val rtArrivals = CaltrainParser.parseRtFeed(bytes, fetchedAt).filter { it.stopId in stopIds }
+        val rtDepartures = CaltrainParser.parseRtFeed(bytes, fetchedAt).filter { it.stopId in stopIds }
 
         val activeServices = CaltrainParser.getActiveServices()
-        val result = mutableListOf<Arrival>()
+        val tripTerminals = CaltrainParser.getTripTerminals()
+        val result = mutableListOf<Departure>()
         for (stopId in stopIds) {
-            val rtForStop = rtArrivals.filter { it.stopId == stopId }
+            val rtForStop = rtDepartures.filter { it.stopId == stopId }
             val scheduled = CaltrainParser.getScheduledDepartures(stopId, activeServices)
             result.addAll(
                 mergeWithTimetable(
-                    rtArrivals = rtForStop,
+                    rtDepartures = rtForStop,
                     scheduledDepartures = scheduled,
                     maxArrivals = 3,
                     now = fetchedAt,
                     stopId = stopId,
-                    fetchedAt = fetchedAt
+                    fetchedAt = fetchedAt,
+                    tripTerminals = tripTerminals
                 )
             )
         }
@@ -51,17 +51,7 @@ object CaltrainAgency : TransitAgency {
 
     override fun getIconText(routeName: String): String = caltrainGetIconText(routeName)
 
-    override fun getArrivalDisplayTime(arrival: Arrival, now: Long, displayMode: DisplayMode, hybridThresholdMinutes: Int): String {
-        val millisToArrival = arrival.arrivalTimestamp - now
-        val millisToDeparture = arrival.departureTimestamp - now
-        return when {
-            arrival.arrivalTimestamp == arrival.departureTimestamp &&
-                    millisToDeparture in 0..60_000 -> "Leaving"
-            millisToArrival <= 0 && millisToDeparture in 0..60_000 -> "Leaving"
-            millisToArrival in 1..59_999 -> "Arriving"
-            else -> formatArrivalTime(arrival.departureTimestamp, millisToDeparture, displayMode, hybridThresholdMinutes)
-        }
-    }
+    override fun getDisplayTime(departure: Departure, now: Long): String = ""
 }
 
 private val DARK_TEXT = "#222222".toColorInt()

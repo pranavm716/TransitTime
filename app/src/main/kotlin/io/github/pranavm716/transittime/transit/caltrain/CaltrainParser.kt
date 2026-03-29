@@ -5,7 +5,7 @@ import com.google.transit.realtime.GtfsRealtime
 import com.google.transit.realtime.GtfsRealtime.FeedMessage
 import io.github.pranavm716.transittime.BuildConfig
 import io.github.pranavm716.transittime.data.model.Agency
-import io.github.pranavm716.transittime.data.model.Arrival
+import io.github.pranavm716.transittime.data.model.Departure
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.InputStream
@@ -22,16 +22,17 @@ data class ScheduledDeparture(
 )
 
 fun mergeWithTimetable(
-    rtArrivals: List<Arrival>,
+    rtDepartures: List<Departure>,
     scheduledDepartures: List<ScheduledDeparture>,
     maxArrivals: Int,
     now: Long,
     stopId: String,
-    fetchedAt: Long
-): List<Arrival> {
-    val result = rtArrivals.toMutableList()
+    fetchedAt: Long,
+    tripTerminals: Map<String, String>
+): List<Departure> {
+    val result = rtDepartures.toMutableList()
 
-    val rtByKey = rtArrivals.groupBy { "${it.routeName}|${it.headsign}" }
+    val rtByKey = rtDepartures.groupBy { "${it.routeName}|${it.headsign}" }
 
     val schedByKey = scheduledDepartures
         .filter { it.departureTimestamp > now }
@@ -53,14 +54,15 @@ fun mergeWithTimetable(
             val isDuplicate = dep.tripId in rtTripIds
             if (!isDuplicate) {
                 result.add(
-                    Arrival(
+                    Departure(
                         id = "${stopId}_${dep.routeName}_${dep.headsign}_${dep.departureTimestamp}_sched",
                         stopId = stopId,
                         routeName = dep.routeName,
                         headsign = dep.headsign,
                         agency = Agency.CALTRAIN,
-                        arrivalTimestamp = dep.departureTimestamp,
+                        arrivalTimestamp = null,
                         departureTimestamp = dep.departureTimestamp,
+                        isTerminalStop = (stopId == tripTerminals[dep.tripId]),
                         fetchedAt = fetchedAt
                     )
                 )
@@ -88,6 +90,9 @@ object CaltrainParser {
 
     // tripId → serviceId
     private val tripServiceId = mutableMapOf<String, String>()
+
+    // tripId → terminal parentStationId
+    private val tripTerminals = mutableMapOf<String, String>()
 
     // parentStationId → routeName → Set<headsign>  (built from stop_times.txt)
     private val stationRoutes = mutableMapOf<String, MutableMap<String, MutableSet<String>>>()
@@ -237,10 +242,15 @@ object CaltrainParser {
         val tripIdx = headers.indexOf("trip_id")
         val stopIdx = headers.indexOf("stop_id")
         val depIdx = headers.indexOf("departure_time")
+        val seqIdx = headers.indexOf("stop_sequence")
         if (tripIdx == -1 || stopIdx == -1 || depIdx == -1) return
 
         // Track recorded (parentId, tripId) pairs to avoid double-counting from multiple platforms
         val recorded = mutableSetOf<String>()
+
+        // Track max sequence per trip to find terminal
+        val tripMaxSeq = mutableMapOf<String, Int>()
+        val tripTerminalStop = mutableMapOf<String, String>()
 
         for (line in lines.drop(1)) {
             if (line.isBlank()) continue
@@ -249,6 +259,15 @@ object CaltrainParser {
             val tripId = cols[tripIdx]
             val platformId = cols[stopIdx]
             val departureTimeStr = cols[depIdx]
+
+            // Track terminal stops using stop_sequence
+            if (seqIdx != -1 && cols.size > seqIdx) {
+                val seq = cols[seqIdx].toIntOrNull()
+                if (seq != null && seq > (tripMaxSeq[tripId] ?: -1)) {
+                    tripMaxSeq[tripId] = seq
+                    tripTerminalStop[tripId] = platformId
+                }
+            }
 
             val parentId = platformToParent[platformId] ?: continue
             if (parentId in EXCLUDED_STATIONS) continue
@@ -272,6 +291,11 @@ object CaltrainParser {
                         .add(Pair(tripId, departureSeconds))
                 }
             }
+        }
+
+        // Resolve terminal platform IDs to their parent station IDs
+        for ((tripId, terminalPlatformId) in tripTerminalStop) {
+            tripTerminals[tripId] = platformToParent[terminalPlatformId] ?: terminalPlatformId
         }
     }
 
@@ -334,6 +358,8 @@ object CaltrainParser {
 
     fun getStopNames(): Map<String, String> = parentStations.toMap()
 
+    fun getTripTerminals(): Map<String, String> = tripTerminals.toMap()
+
     fun getRoutesForStation(stationId: String): Map<String, List<String>> =
         stationRoutes[stationId]?.mapValues { it.value.toList().sorted() } ?: emptyMap()
 
@@ -391,9 +417,9 @@ object CaltrainParser {
         return result
     }
 
-    fun parseRtFeed(feedBytes: ByteArray, fetchedAt: Long): List<Arrival> {
+    fun parseRtFeed(feedBytes: ByteArray, fetchedAt: Long): List<Departure> {
         val feed = FeedMessage.parseFrom(feedBytes)
-        val arrivals = mutableListOf<Arrival>()
+        val departures = mutableListOf<Departure>()
 
         for (entity in feed.entityList) {
             if (!entity.hasTripUpdate()) continue
@@ -414,40 +440,45 @@ object CaltrainParser {
 
                 val parentId = platformToParent[stu.stopId] ?: continue
 
-                val arrivalTimestamp = when {
+                val arrivalTimestamp: Long? = when {
                     stu.hasArrival() -> stu.arrival.time * 1000L
                     stu.hasDeparture() -> stu.departure.time * 1000L
-                    else -> continue
+                    else -> null
                 }
-                val departureTimestamp = if (stu.hasDeparture()) stu.departure.time * 1000L
-                else arrivalTimestamp + 60_000L
+                val departureTimestamp: Long? = if (stu.hasDeparture()) stu.departure.time * 1000L else null
+                if (arrivalTimestamp == null && departureTimestamp == null) continue
 
-                arrivals.add(
-                    Arrival(
-                        id = "${parentId}_${routeName}_${headsign}_${arrivalTimestamp}|${tripId}",
+                departures.add(
+                    Departure(
+                        id = "${parentId}_${routeName}_${headsign}_${arrivalTimestamp ?: departureTimestamp}|${tripId}",
                         stopId = parentId,
                         routeName = routeName,
                         headsign = headsign,
                         agency = Agency.CALTRAIN,
                         arrivalTimestamp = arrivalTimestamp,
                         departureTimestamp = departureTimestamp,
+                        isTerminalStop = (parentId == tripTerminals[tripId]),
                         fetchedAt = fetchedAt
                     )
                 )
             }
         }
 
-        // Deduplicate arrivals within 30 seconds for same stop+route+headsign
-        return arrivals
-            .sortedBy { it.arrivalTimestamp }
-            .fold(mutableListOf()) { acc, arrival ->
+        // Deduplicate departures within 30 seconds for same stop+route+headsign
+        return departures
+            .sortedBy { it.arrivalTimestamp ?: it.departureTimestamp ?: Long.MAX_VALUE }
+            .fold(mutableListOf()) { acc, departure ->
                 val duplicate = acc.any { existing ->
-                    existing.stopId == arrival.stopId &&
-                            existing.routeName == arrival.routeName &&
-                            existing.headsign == arrival.headsign &&
-                            kotlin.math.abs(existing.arrivalTimestamp - arrival.arrivalTimestamp) < 30_000L
+                    existing.stopId == departure.stopId &&
+                            existing.routeName == departure.routeName &&
+                            existing.headsign == departure.headsign &&
+                            run {
+                                val existingTs = existing.arrivalTimestamp ?: existing.departureTimestamp ?: Long.MIN_VALUE
+                                val currentTs = departure.arrivalTimestamp ?: departure.departureTimestamp ?: Long.MIN_VALUE
+                                kotlin.math.abs(existingTs - currentTs) < 30_000L
+                            }
                 }
-                if (!duplicate) acc.add(arrival)
+                if (!duplicate) acc.add(departure)
                 acc
             }
     }
