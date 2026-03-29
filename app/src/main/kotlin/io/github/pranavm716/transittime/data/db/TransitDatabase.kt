@@ -7,6 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import io.github.pranavm716.transittime.data.model.Arrival
+import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.data.model.WidgetConfig
 
 class Converters {
@@ -16,9 +17,15 @@ class Converters {
     @TypeConverter
     fun toList(value: String): List<String> =
         if (value.isEmpty()) emptyList() else value.split(",")
+
+    @TypeConverter
+    fun fromDisplayMode(value: DisplayMode): String = value.name
+
+    @TypeConverter
+    fun toDisplayMode(value: String): DisplayMode = DisplayMode.valueOf(value)
 }
 
-@Database(entities = [Arrival::class, WidgetConfig::class], version = 1, exportSchema = false)
+@Database(entities = [Arrival::class, WidgetConfig::class], version = 2, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class TransitDatabase : RoomDatabase() {
     abstract fun arrivalDao(): ArrivalDao
@@ -31,10 +38,10 @@ abstract class TransitDatabase : RoomDatabase() {
         fun getInstance(context: Context): TransitDatabase {
             return instance ?: synchronized(this) {
                 Room.databaseBuilder(
-                    context.applicationContext,
-                    TransitDatabase::class.java,
-                    "transit_database"
-                ).build().also { instance = it }
+                                context.applicationContext,
+                                TransitDatabase::class.java,
+                                "transit_database"
+                            ).fallbackToDestructiveMigration(false).build().also { instance = it }
             }
         }
     }

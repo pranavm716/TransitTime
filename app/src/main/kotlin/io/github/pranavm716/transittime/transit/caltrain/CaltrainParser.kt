@@ -109,21 +109,43 @@ object CaltrainParser {
 
     fun loadStaticGtfs(context: Context) {
         if (staticLoaded) return
-        val cached = getCachedGtfs(context)
-        parseStaticZip(cached)
+        try {
+            val cached = getCachedGtfs(context)
+            parseStaticZip(cached)
+        } catch (e: Exception) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                android.widget.Toast.makeText(context, "Caltrain stop data failed to load: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+        if (parentStations.isEmpty()) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                android.widget.Toast.makeText(context, "Caltrain stop data loaded but empty — check 511 API key", android.widget.Toast.LENGTH_LONG).show()
+            }
+            return
+        }
         staticLoaded = true
+    }
+
+    private fun isValidZip(file: java.io.File): Boolean {
+        if (file.length() < 4) return false
+        val header = ByteArray(4)
+        file.inputStream().use { it.read(header) }
+        return header[0] == 0x50.toByte() && header[1] == 0x4B.toByte()
     }
 
     private fun getCachedGtfs(context: Context): InputStream {
         val cacheFile = java.io.File(context.cacheDir, "caltrain_gtfs.zip")
         val ageMs = System.currentTimeMillis() - cacheFile.lastModified()
         val thirtyDaysMs = 30L * 24 * 60 * 60 * 1000
-        if (!cacheFile.exists() || ageMs > thirtyDaysMs) {
+        if (!cacheFile.exists() || ageMs > thirtyDaysMs || !isValidZip(cacheFile)) {
             val client = OkHttpClient()
             val request = Request.Builder()
                 .url("https://api.511.org/transit/datafeeds?api_key=${BuildConfig.MUNI_API_KEY}&operator_id=CT")
                 .build()
-            val bytes = client.newCall(request).execute().body.bytes()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) throw java.io.IOException("511 API returned HTTP ${response.code}")
+            val bytes = response.body.bytes()
             cacheFile.writeBytes(bytes)
         }
         return cacheFile.inputStream()
@@ -134,12 +156,13 @@ object CaltrainParser {
         val files = mutableMapOf<String, String>()
         var entry = zip.nextEntry
         while (entry != null) {
-            if (entry.name in listOf(
+            val fileName = entry.name.substringAfterLast('/')
+            if (fileName in listOf(
                     "stops.txt", "trips.txt", "stop_times.txt",
                     "calendar.txt", "calendar_dates.txt"
                 )
             ) {
-                files[entry.name] = zip.readBytes().decodeToString()
+                files[fileName] = zip.readBytes().decodeToString()
             }
             zip.closeEntry()
             entry = zip.nextEntry
@@ -347,7 +370,6 @@ object CaltrainParser {
 
     fun getScheduledDepartures(
         stationId: String,
-        now: Long,
         activeServices: Set<String>
     ): List<ScheduledDeparture> {
         val stationDisplayName = parentStations[stationId] ?: return emptyList()

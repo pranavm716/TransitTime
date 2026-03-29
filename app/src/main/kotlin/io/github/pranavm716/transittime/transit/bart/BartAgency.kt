@@ -5,7 +5,9 @@ import android.graphics.Color
 import androidx.core.graphics.toColorInt
 import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.Arrival
+import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.transit.TransitAgency
+import io.github.pranavm716.transittime.transit.formatArrivalTime
 import io.github.pranavm716.transittime.util.RouteShape
 import io.github.pranavm716.transittime.util.RouteStyle
 
@@ -30,12 +32,12 @@ object BartAgency : TransitAgency {
 
     override fun getIconText(routeName: String): String = bartGetIconText(routeName)
 
-    override fun getArrivalDisplayTime(arrival: Arrival, now: Long): String {
+    override fun getArrivalDisplayTime(arrival: Arrival, now: Long, displayMode: DisplayMode, hybridThresholdMinutes: Int): String {
         val millisToArrival = arrival.arrivalTimestamp - now
         val millisToDeparture = arrival.departureTimestamp - now
         return when {
             millisToArrival <= 0 && millisToDeparture in 0..60_000 -> "Leaving"
-            else -> "${(millisToDeparture / 60000).toInt()}min"
+            else -> formatArrivalTime(arrival.departureTimestamp, millisToDeparture, displayMode, hybridThresholdMinutes)
         }
     }
 }

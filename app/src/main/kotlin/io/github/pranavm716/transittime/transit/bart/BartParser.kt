@@ -29,8 +29,6 @@ object BartParser {
         if (staticLoaded) return
         val cached = getCachedGtfs(context)
         parseStaticZip(cached)
-        android.util.Log.d("BartAgency", "loadStaticGtfs: stopNames=${stopNames.keys.sorted()}")
-        android.util.Log.d("BartAgency", "loadStaticGtfs: platformToParent size=${platformToParent.size}, sample=${platformToParent.entries.take(5)}")
         staticLoaded = true
     }
 
@@ -244,12 +242,8 @@ object BartParser {
 
     suspend fun fetchRoutesForStop(stopId: String): Map<String, List<String>> {
         // Use live RT feed to get currently running routes at this stop
-        android.util.Log.d("BartAgency", "fetchRoutesForStop called for $stopId")
-        android.util.Log.d("BartAgency", "platformToParent contains E30: ${platformToParent.containsKey("E30")}")
-        android.util.Log.d("BartAgency", "platformToParent contains ANTC entries: ${platformToParent.entries.filter { it.value == "ANTC" }}")
         return try {
             val bytes = BartApiClient.api.getTripUpdates().bytes()
-            android.util.Log.d("BartAgency", "fetchRoutesForStop: RT feed downloaded (${bytes.size} bytes)")
             val feed = FeedMessage.parseFrom(bytes)
             val result = mutableMapOf<String, MutableSet<String>>()
 
@@ -265,21 +259,17 @@ object BartParser {
                 val headsign = cleanTerminalName(rawTerminalName)
 
                 for (stu in tu.stopTimeUpdateList) {
-                    android.util.Log.d("BartAgency", "  checking stu.stopId=${stu.stopId} for trip=${tu.trip.tripId}")
                     val baseId = if ("-" in stu.stopId) stu.stopId.substringBeforeLast("-") else stu.stopId
                     val stationId = platformToParent[baseId] ?: continue
                     if (stationId == stopId) {
-                        android.util.Log.d("BartAgency", "Matched ANTC: tripId=$tripId routeId=$routeId headsign=$headsign")
                         result.getOrPut(routeName) { mutableSetOf() }.add(headsign)
                         break
                     }
                 }
             }
             val routes = result.mapValues { it.value.toList().sorted() }
-            android.util.Log.d("BartAgency", "fetchRoutesForStop: result for $stopId = $routes")
             routes
-        } catch (e: Exception) {
-            android.util.Log.e("BartAgency", "fetchRoutesForStop failed for $stopId", e)
+        } catch (_: Exception) {
             emptyMap()
         }
     }

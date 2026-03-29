@@ -55,9 +55,29 @@ object MuniParser {
 
     fun loadStaticGtfs(context: Context) {
         if (staticLoaded) return
-        val cached = getCachedGtfs(context)
-        parseStaticZip(cached)
+        try {
+            val cached = getCachedGtfs(context)
+            parseStaticZip(cached)
+        } catch (e: Exception) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                android.widget.Toast.makeText(context, "Muni stop data failed to load: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+        if (busStopDisplayNames.isEmpty()) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                android.widget.Toast.makeText(context, "Muni stop data loaded but empty — check 511 API key", android.widget.Toast.LENGTH_LONG).show()
+            }
+            return
+        }
         staticLoaded = true
+    }
+
+    private fun isValidZip(file: java.io.File): Boolean {
+        if (file.length() < 4) return false
+        val header = ByteArray(4)
+        file.inputStream().use { it.read(header) }
+        return header[0] == 0x50.toByte() && header[1] == 0x4B.toByte()
     }
 
     private fun getCachedGtfs(context: Context): InputStream {
@@ -65,12 +85,14 @@ object MuniParser {
         val ageMs = System.currentTimeMillis() - cacheFile.lastModified()
         val thirtyDaysMs = 30L * 24 * 60 * 60 * 1000
 
-        if (!cacheFile.exists() || ageMs > thirtyDaysMs) {
+        if (!cacheFile.exists() || ageMs > thirtyDaysMs || !isValidZip(cacheFile)) {
             val client = OkHttpClient()
             val request = Request.Builder()
                 .url("https://api.511.org/transit/datafeeds?api_key=${BuildConfig.MUNI_API_KEY}&operator_id=SF")
                 .build()
-            val bytes = client.newCall(request).execute().body.bytes()
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) throw java.io.IOException("511 API returned HTTP ${response.code}")
+            val bytes = response.body.bytes()
             cacheFile.writeBytes(bytes)
         }
         return cacheFile.inputStream()
@@ -80,7 +102,7 @@ object MuniParser {
         val zip = ZipInputStream(input)
         var entry = zip.nextEntry
         while (entry != null) {
-            if (entry.name == "stops.txt") {
+            if (entry.name.substringAfterLast('/') == "stops.txt") {
                 parseStops(BufferedReader(InputStreamReader(zip, Charsets.UTF_8)).readText())
                 break
             }

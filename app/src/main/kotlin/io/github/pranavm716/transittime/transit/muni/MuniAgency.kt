@@ -5,7 +5,9 @@ import android.graphics.Color
 import androidx.core.graphics.toColorInt
 import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.Arrival
+import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.transit.TransitAgency
+import io.github.pranavm716.transittime.transit.formatArrivalTime
 import io.github.pranavm716.transittime.util.RouteShape
 import io.github.pranavm716.transittime.util.RouteStyle
 
@@ -33,11 +35,11 @@ object MuniAgency : TransitAgency {
 
     override fun getIconText(routeName: String): String = routeName.uppercase()
 
-    override fun getArrivalDisplayTime(arrival: Arrival, now: Long): String {
+    override fun getArrivalDisplayTime(arrival: Arrival, now: Long, displayMode: DisplayMode, hybridThresholdMinutes: Int): String {
         val millisToArrival = arrival.arrivalTimestamp - now
         return when {
             millisToArrival in 1..59_999 -> "Arriving"
-            else -> "${(millisToArrival / 60000).toInt()}min"
+            else -> formatArrivalTime(arrival.arrivalTimestamp, millisToArrival, displayMode, hybridThresholdMinutes)
         }
     }
 }

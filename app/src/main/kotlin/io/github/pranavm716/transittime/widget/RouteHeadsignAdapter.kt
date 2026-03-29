@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseExpandableListAdapter
 import android.widget.CheckBox
+import android.widget.ImageView
 import android.widget.TextView
 import io.github.pranavm716.transittime.R
 
@@ -52,6 +53,9 @@ class RouteHeadsignAdapter(
             if (selectedCount == headsigns.size) "All"
             else if (selectedCount == 0) "None"
             else "$selectedCount/${headsigns.size}"
+
+        val ivChevron = view.findViewById<ImageView>(R.id.ivChevron)
+        ivChevron.rotation = if (isExpanded) 90f else 0f
 
         return view
     }
