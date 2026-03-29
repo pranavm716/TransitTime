@@ -15,6 +15,7 @@ import android.widget.EditText
 import android.widget.ExpandableListView
 import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -71,7 +72,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                         val rect = Rect()
                         focusedView.getDrawingRect(rect)
                         (v as NestedScrollView).offsetDescendantRectToMyCoords(focusedView, rect)
-                        v.smoothScrollTo(0, rect.top - 100) // Scroll to show field with some context above
+                        v.smoothScrollTo(0, rect.top - 100)
                     }
                 }
             }
@@ -100,8 +101,17 @@ class TransitWidgetConfig : AppCompatActivity() {
         val tvSelectedStop = findViewById<TextView>(R.id.tvSelectedStop)
         val btnSave = findViewById<Button>(R.id.btnSave)
         val rgDisplayMode = findViewById<RadioGroup>(R.id.rgDisplayMode)
+        val rbRelative = findViewById<RadioButton>(R.id.rbRelative)
+        val rbAbsolute = findViewById<RadioButton>(R.id.rbAbsolute)
+        val rbHybrid = findViewById<RadioButton>(R.id.rbHybrid)
+        val llHybridThresholdRow = findViewById<LinearLayout>(R.id.llHybridThresholdRow)
         val etHybridThreshold = findViewById<EditText>(R.id.etHybridThreshold)
         val etMaxArrivals = findViewById<EditText>(R.id.etMaxArrivals)
+
+        // Ensure clicking the threshold row selects the hybrid radio button
+        llHybridThresholdRow.setOnClickListener {
+            rbHybrid.isChecked = true
+        }
 
         resultsAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
         lvResults.adapter = resultsAdapter
@@ -215,12 +225,11 @@ class TransitWidgetConfig : AppCompatActivity() {
                     spinner.setSelection(config.agency.ordinal)
                     etMaxArrivals.setText(config.maxArrivals.toString())
                     etHybridThreshold.setText(config.hybridThresholdMinutes.toString())
-                    val rbId = when (config.displayMode) {
-                        DisplayMode.ABSOLUTE -> R.id.rbAbsolute
-                        DisplayMode.HYBRID -> R.id.rbHybrid
-                        DisplayMode.RELATIVE -> R.id.rbRelative
+                    when (config.displayMode) {
+                        DisplayMode.ABSOLUTE -> rbAbsolute.isChecked = true
+                        DisplayMode.HYBRID -> rbHybrid.isChecked = true
+                        DisplayMode.RELATIVE -> rbRelative.isChecked = true
                     }
-                    findViewById<RadioButton>(rbId).isChecked = true
                     btnSave.setText(R.string.save_changes)
                 }
             }

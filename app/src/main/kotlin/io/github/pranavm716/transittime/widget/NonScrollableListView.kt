@@ -2,7 +2,6 @@ package io.github.pranavm716.transittime.widget
 
 import android.content.Context
 import android.util.AttributeSet
-import android.view.View
 import android.widget.ListView
 
 class NonScrollableListView @JvmOverloads constructor(
@@ -12,8 +11,8 @@ class NonScrollableListView @JvmOverloads constructor(
 ) : ListView(context, attrs, defStyleAttr) {
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val heightMeasureSpecCustom = View.MeasureSpec.makeMeasureSpec(
-            Int.MAX_VALUE shr 2, View.MeasureSpec.AT_MOST
+        val heightMeasureSpecCustom = MeasureSpec.makeMeasureSpec(
+            Int.MAX_VALUE shr 2, MeasureSpec.AT_MOST
         )
         super.onMeasure(widthMeasureSpec, heightMeasureSpecCustom)
         val params = layoutParams

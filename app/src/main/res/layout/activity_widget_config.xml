@@ -182,7 +182,8 @@
         <RadioGroup
             android:id="@+id/rgDisplayMode"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
 
             <RadioButton
                 android:id="@+id/rbRelative"
@@ -199,8 +200,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/display_absolute"
-                android:paddingVertical="10dp"
                 android:textColor="@color/text_radio"
+                android:paddingVertical="10dp"
                 android:buttonTint="@color/radio_button_tint" />
 
             <RadioButton
@@ -208,37 +209,40 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/display_hybrid_prefix"
-                android:paddingVertical="10dp"
                 android:textColor="@color/text_radio"
+                android:paddingVertical="10dp"
                 android:buttonTint="@color/radio_button_tint" />
 
             <LinearLayout
+                android:id="@+id/llHybridThresholdRow"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:paddingStart="36dp"
+                android:paddingStart="32dp"
                 android:paddingBottom="12dp">
 
                 <EditText
                     android:id="@+id/etHybridThreshold"
-                    android:layout_width="56dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:minWidth="64dp"
                     android:inputType="number"
                     android:text="@string/default_hybrid_threshold"
                     android:gravity="center"
                     android:textColor="@color/text_primary"
-                    android:textSize="15sp"
+                    android:textSize="14sp"
                     android:background="@drawable/bg_stop_results"
                     android:padding="8dp"
                     android:minHeight="44dp" />
 
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:id="@+id/tvHybridSuffix"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/display_hybrid_suffix"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="15sp"
+                    android:textColor="@color/text_radio"
+                    android:textSize="14sp"
                     android:paddingStart="12dp" />
 
             </LinearLayout>
