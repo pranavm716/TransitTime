@@ -95,15 +95,13 @@
                 android:id="@+id/lvStopResults"
                 android:layout_width="match_parent"
                 android:layout_height="320dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
-                android:clipToPadding="false"
                 android:divider="#30363D"
                 android:dividerHeight="1dp"
                 android:fadeScrollbars="false"
                 android:scrollbarAlwaysDrawVerticalTrack="true"
                 android:nestedScrollingEnabled="true"
-                android:listSelector="@android:color/transparent" />
+                android:listSelector="@android:color/transparent"
+                android:footerDividersEnabled="true" />
 
             <TextView
                 android:id="@+id/tvNoResults"
@@ -153,14 +151,12 @@
                 android:id="@+id/elvRoutes"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
-                android:clipToPadding="false"
                 android:groupIndicator="@null"
                 android:divider="#30363D"
                 android:dividerHeight="1dp"
                 android:childDivider="#30363D"
-                android:listSelector="@android:color/transparent" />
+                android:listSelector="@android:color/transparent"
+                android:footerDividersEnabled="true" />
 
         </FrameLayout>
 
