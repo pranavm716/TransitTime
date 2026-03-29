@@ -195,7 +195,6 @@ class TransitWidget : AppWidgetProvider() {
                 } ?: 0
             } ?: 0
             val timeFontSizeSp = when {
-                globalMaxTimeLen >= 8 -> 14f  // e.g. "Arriving"
                 globalMaxTimeLen >= 7 -> 15f  // e.g. "12:30PM", "Leaving"
                 else -> 16f
             }
