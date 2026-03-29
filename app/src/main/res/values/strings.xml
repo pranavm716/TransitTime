@@ -12,9 +12,9 @@
     <string name="minutes">5 min</string>
     <string name="filter_routes_all_shown_by_default">Filter routes</string>
     <string name="display_options">Display options</string>
-    <string name="display_relative">Relative: Shows number of minutes until departure</string>
-    <string name="display_absolute">Absolute: Shows the exact time of departure</string>
-    <string name="display_hybrid_prefix">Hybrid: Shows relative times under</string>
+    <string name="display_relative">Relative: Show number of minutes until departure</string>
+    <string name="display_absolute">Absolute: Show the exact time of departure</string>
+    <string name="display_hybrid_prefix">Hybrid: Show relative times under</string>
     <string name="display_hybrid_suffix">minutes, absolute times otherwise</string>
     <string name="default_hybrid_threshold">60</string>
 </resources>
