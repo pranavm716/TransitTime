@@ -38,10 +38,10 @@ abstract class TransitDatabase : RoomDatabase() {
         fun getInstance(context: Context): TransitDatabase {
             return instance ?: synchronized(this) {
                 Room.databaseBuilder(
-                    context.applicationContext,
-                    TransitDatabase::class.java,
-                    "transit_database"
-                ).fallbackToDestructiveMigration().build().also { instance = it }
+                                context.applicationContext,
+                                TransitDatabase::class.java,
+                                "transit_database"
+                            ).fallbackToDestructiveMigration(false).build().also { instance = it }
             }
         }
     }

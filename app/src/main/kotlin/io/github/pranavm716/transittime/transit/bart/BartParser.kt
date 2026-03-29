@@ -269,7 +269,7 @@ object BartParser {
             }
             val routes = result.mapValues { it.value.toList().sorted() }
             routes
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             emptyMap()
         }
     }

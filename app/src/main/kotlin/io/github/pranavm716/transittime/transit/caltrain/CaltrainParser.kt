@@ -370,7 +370,6 @@ object CaltrainParser {
 
     fun getScheduledDepartures(
         stationId: String,
-        now: Long,
         activeServices: Set<String>
     ): List<ScheduledDeparture> {
         val stationDisplayName = parentStations[stationId] ?: return emptyList()

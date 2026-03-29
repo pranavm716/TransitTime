@@ -29,7 +29,7 @@ object CaltrainAgency : TransitAgency {
         val result = mutableListOf<Arrival>()
         for (stopId in stopIds) {
             val rtForStop = rtArrivals.filter { it.stopId == stopId }
-            val scheduled = CaltrainParser.getScheduledDepartures(stopId, fetchedAt, activeServices)
+            val scheduled = CaltrainParser.getScheduledDepartures(stopId, activeServices)
             result.addAll(
                 mergeWithTimetable(
                     rtArrivals = rtForStop,
