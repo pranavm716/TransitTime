@@ -5,7 +5,7 @@ import com.google.transit.realtime.GtfsRealtime
 import com.google.transit.realtime.GtfsRealtime.FeedMessage
 import io.github.pranavm716.transittime.BuildConfig
 import io.github.pranavm716.transittime.data.model.Agency
-import io.github.pranavm716.transittime.data.model.Arrival
+import io.github.pranavm716.transittime.data.model.Departure
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.InputStream
@@ -22,16 +22,16 @@ data class ScheduledDeparture(
 )
 
 fun mergeWithTimetable(
-    rtArrivals: List<Arrival>,
+    rtDepartures: List<Departure>,
     scheduledDepartures: List<ScheduledDeparture>,
-    maxArrivals: Int,
+    maxDepartures: Int,
     now: Long,
     stopId: String,
     fetchedAt: Long
-): List<Arrival> {
-    val result = rtArrivals.toMutableList()
+): List<Departure> {
+    val result = rtDepartures.toMutableList()
 
-    val rtByKey = rtArrivals.groupBy { "${it.routeName}|${it.headsign}" }
+    val rtByKey = rtDepartures.groupBy { "${it.routeName}|${it.headsign}" }
 
     val schedByKey = scheduledDepartures
         .filter { it.departureTimestamp > now }
@@ -39,7 +39,7 @@ fun mergeWithTimetable(
 
     for ((key, scheduled) in schedByKey) {
         val rtCount = rtByKey[key]?.size ?: 0
-        val needed = maxArrivals - rtCount
+        val needed = maxDepartures - rtCount
         if (needed <= 0) continue
 
         val rtTripIds = rtByKey[key]
@@ -52,8 +52,9 @@ fun mergeWithTimetable(
             if (filled >= needed) break
             val isDuplicate = dep.tripId in rtTripIds
             if (!isDuplicate) {
+                val terminalStationId = CaltrainParser.getTerminalForTrip(dep.tripId)
                 result.add(
-                    Arrival(
+                    Departure(
                         id = "${stopId}_${dep.routeName}_${dep.headsign}_${dep.departureTimestamp}_sched",
                         stopId = stopId,
                         routeName = dep.routeName,
@@ -61,6 +62,7 @@ fun mergeWithTimetable(
                         agency = Agency.CALTRAIN,
                         arrivalTimestamp = dep.departureTimestamp,
                         departureTimestamp = dep.departureTimestamp,
+                        isTerminalStop = stopId == terminalStationId,
                         fetchedAt = fetchedAt
                     )
                 )
@@ -94,6 +96,9 @@ object CaltrainParser {
 
     // parentStationId → list of (tripId, departureSeconds)
     private val stationDepartures = mutableMapOf<String, MutableList<Pair<String, Int>>>()
+
+    // tripId → terminal parentStationId
+    private val tripTerminals = mutableMapOf<String, String>()
 
     // calendar.txt rows as column-name maps
     private val calendarRows = mutableListOf<Map<String, String>>()
@@ -237,18 +242,23 @@ object CaltrainParser {
         val tripIdx = headers.indexOf("trip_id")
         val stopIdx = headers.indexOf("stop_id")
         val depIdx = headers.indexOf("departure_time")
-        if (tripIdx == -1 || stopIdx == -1 || depIdx == -1) return
+        val seqIdx = headers.indexOf("stop_sequence")
+        if (tripIdx == -1 || stopIdx == -1 || depIdx == -1 || seqIdx == -1) return
 
         // Track recorded (parentId, tripId) pairs to avoid double-counting from multiple platforms
         val recorded = mutableSetOf<String>()
 
+        val tripMaxSeq = mutableMapOf<String, Int>()
+        val tripTerminalStop = mutableMapOf<String, String>()
+
         for (line in lines.drop(1)) {
             if (line.isBlank()) continue
             val cols = parseCsvLine(line)
-            if (cols.size <= maxOf(tripIdx, stopIdx, depIdx)) continue
+            if (cols.size <= maxOf(tripIdx, stopIdx, depIdx, seqIdx)) continue
             val tripId = cols[tripIdx]
             val platformId = cols[stopIdx]
             val departureTimeStr = cols[depIdx]
+            val seq = cols[seqIdx].toIntOrNull() ?: continue
 
             val parentId = platformToParent[platformId] ?: continue
             if (parentId in EXCLUDED_STATIONS) continue
@@ -272,6 +282,15 @@ object CaltrainParser {
                         .add(Pair(tripId, departureSeconds))
                 }
             }
+
+            if (seq > (tripMaxSeq[tripId] ?: -1)) {
+                tripMaxSeq[tripId] = seq
+                tripTerminalStop[tripId] = platformId
+            }
+        }
+
+        for ((tripId, terminalStopId) in tripTerminalStop) {
+            tripTerminals[tripId] = platformToParent[terminalStopId] ?: terminalStopId
         }
     }
 
@@ -391,9 +410,11 @@ object CaltrainParser {
         return result
     }
 
-    fun parseRtFeed(feedBytes: ByteArray, fetchedAt: Long): List<Arrival> {
+    fun getTerminalForTrip(tripId: String): String? = tripTerminals[tripId]
+
+    fun parseRtFeed(feedBytes: ByteArray, fetchedAt: Long): List<Departure> {
         val feed = FeedMessage.parseFrom(feedBytes)
-        val arrivals = mutableListOf<Arrival>()
+        val departures = mutableListOf<Departure>()
 
         for (entity in feed.entityList) {
             if (!entity.hasTripUpdate()) continue
@@ -406,6 +427,7 @@ object CaltrainParser {
             val tripId = tu.trip.tripId
             val routeName = tripToRoute[tripId] ?: continue
             val headsign = tripToHeadsign[tripId] ?: continue
+            val terminalStationId = tripTerminals[tripId]
 
             for (stu in tu.stopTimeUpdateList) {
                 if (stu.scheduleRelationship ==
@@ -414,40 +436,40 @@ object CaltrainParser {
 
                 val parentId = platformToParent[stu.stopId] ?: continue
 
-                val arrivalTimestamp = when {
-                    stu.hasArrival() -> stu.arrival.time * 1000L
-                    stu.hasDeparture() -> stu.departure.time * 1000L
-                    else -> continue
-                }
-                val departureTimestamp = if (stu.hasDeparture()) stu.departure.time * 1000L
-                else arrivalTimestamp + 60_000L
+                val arrivalTimestamp = if (stu.hasArrival()) stu.arrival.time * 1000L else null
+                val departureTimestamp = if (stu.hasDeparture()) stu.departure.time * 1000L else null
 
-                arrivals.add(
-                    Arrival(
-                        id = "${parentId}_${routeName}_${headsign}_${arrivalTimestamp}|${tripId}",
+                if (arrivalTimestamp == null && departureTimestamp == null) continue
+
+                departures.add(
+                    Departure(
+                        id = "${parentId}_${routeName}_${headsign}_${arrivalTimestamp ?: departureTimestamp}|${tripId}",
                         stopId = parentId,
                         routeName = routeName,
                         headsign = headsign,
                         agency = Agency.CALTRAIN,
                         arrivalTimestamp = arrivalTimestamp,
                         departureTimestamp = departureTimestamp,
+                        isTerminalStop = parentId == terminalStationId,
                         fetchedAt = fetchedAt
                     )
                 )
             }
         }
 
-        // Deduplicate arrivals within 30 seconds for same stop+route+headsign
-        return arrivals
-            .sortedBy { it.arrivalTimestamp }
-            .fold(mutableListOf()) { acc, arrival ->
+        // Deduplicate departures within 30 seconds for same stop+route+headsign
+        return departures
+            .sortedBy { it.departureTimestamp ?: it.arrivalTimestamp }
+            .fold(mutableListOf()) { acc, departure ->
+                val depTime = departure.departureTimestamp ?: departure.arrivalTimestamp ?: 0L
                 val duplicate = acc.any { existing ->
-                    existing.stopId == arrival.stopId &&
-                            existing.routeName == arrival.routeName &&
-                            existing.headsign == arrival.headsign &&
-                            kotlin.math.abs(existing.arrivalTimestamp - arrival.arrivalTimestamp) < 30_000L
+                    val existingTime = existing.departureTimestamp ?: existing.arrivalTimestamp ?: 0L
+                    existing.stopId == departure.stopId &&
+                            existing.routeName == departure.routeName &&
+                            existing.headsign == departure.headsign &&
+                            kotlin.math.abs(existingTime - depTime) < 30_000L
                 }
-                if (!duplicate) acc.add(arrival)
+                if (!duplicate) acc.add(departure)
                 acc
             }
     }

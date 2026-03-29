@@ -16,7 +16,7 @@ class FetchWorker(
 
     override suspend fun doWork(): Result {
         val db = TransitDatabase.getInstance(context)
-        val arrivalDao = db.arrivalDao()
+        val departureDao = db.departureDao()
         val configDao = db.widgetConfigDao()
 
         val configs = configDao.getAllConfigs()
@@ -30,11 +30,11 @@ class FetchWorker(
             try {
                 handler.loadStaticData(context)
                 val stopIds = agencyConfigs.map { it.stopId }.toSet()
-                val arrivals = handler.fetchArrivals(stopIds, fetchedAt)
-                arrivals.groupBy { it.stopId }.forEach { (stopId, stopArrivals) ->
-                    if (stopArrivals.isNotEmpty()) {
-                        arrivalDao.deleteArrivalsForStop(stopId)
-                        arrivalDao.upsertArrivals(stopArrivals)
+                val departures = handler.fetchArrivals(stopIds, fetchedAt)
+                departures.groupBy { it.stopId }.forEach { (stopId, stopDepartures) ->
+                    if (stopDepartures.isNotEmpty()) {
+                        departureDao.deleteDeparturesForStop(stopId)
+                        departureDao.upsertDepartures(stopDepartures)
                     }
                 }
                 for (config in agencyConfigs) {

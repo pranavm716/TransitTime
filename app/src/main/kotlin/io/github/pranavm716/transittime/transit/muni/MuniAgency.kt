@@ -4,10 +4,8 @@ import android.content.Context
 import android.graphics.Color
 import androidx.core.graphics.toColorInt
 import io.github.pranavm716.transittime.data.model.Agency
-import io.github.pranavm716.transittime.data.model.Arrival
-import io.github.pranavm716.transittime.data.model.DisplayMode
+import io.github.pranavm716.transittime.data.model.Departure
 import io.github.pranavm716.transittime.transit.TransitAgency
-import io.github.pranavm716.transittime.transit.formatArrivalTime
 import io.github.pranavm716.transittime.util.RouteShape
 import io.github.pranavm716.transittime.util.RouteStyle
 
@@ -20,12 +18,12 @@ object MuniAgency : TransitAgency {
 
     override fun getStopNames(): Map<String, String> = MuniParser.getStopNames()
 
-    override suspend fun fetchArrivals(stopIds: Set<String>, fetchedAt: Long): List<Arrival> {
-        val arrivals = mutableListOf<Arrival>()
+    override suspend fun fetchDepartures(stopIds: Set<String>, fetchedAt: Long): List<Departure> {
+        val departures = mutableListOf<Departure>()
         for (stopId in stopIds) {
-            arrivals.addAll(MuniParser.fetchAndParseStop(stopId, fetchedAt))
+            departures.addAll(MuniParser.fetchAndParseStop(stopId, fetchedAt))
         }
-        return arrivals
+        return departures
     }
 
     override suspend fun fetchRoutesForStop(stopId: String): Map<String, List<String>> =
@@ -35,12 +33,8 @@ object MuniAgency : TransitAgency {
 
     override fun getIconText(routeName: String): String = routeName.uppercase()
 
-    override fun getArrivalDisplayTime(arrival: Arrival, now: Long, displayMode: DisplayMode, hybridThresholdMinutes: Int): String {
-        val millisToArrival = arrival.arrivalTimestamp - now
-        return when {
-            millisToArrival in 1..59_999 -> "Arriving"
-            else -> formatArrivalTime(arrival.arrivalTimestamp, millisToArrival, displayMode, hybridThresholdMinutes)
-        }
+    override fun getDisplayTime(departure: Departure, now: Long): String {
+        return ""
     }
 }
 

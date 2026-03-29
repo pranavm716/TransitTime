@@ -11,12 +11,12 @@ data class WidgetConfig(
     val stopName: String,
     val agency: Agency,
     val filteredHeadsigns: List<String>,
-    val maxArrivals: Int,
+    val maxDepartures: Int,
     val lastFetchedAt: Long = 0L,
     val displayMode: DisplayMode = DisplayMode.RELATIVE,
     val hybridThresholdMinutes: Int = 60
 ) {
     init {
-        require(maxArrivals in 1..3) { "maxArrivals must be between 1 and 3." }
+        require(maxDepartures in 1..3) { "maxDepartures must be between 1 and 3." }
     }
 }

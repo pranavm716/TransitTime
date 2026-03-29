@@ -4,7 +4,7 @@ import android.content.Context
 import com.google.transit.realtime.GtfsRealtime
 import com.google.transit.realtime.GtfsRealtime.FeedMessage
 import io.github.pranavm716.transittime.data.model.Agency
-import io.github.pranavm716.transittime.data.model.Arrival
+import io.github.pranavm716.transittime.data.model.Departure
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.InputStream
@@ -173,9 +173,9 @@ object BartParser {
     private fun cleanTerminalName(raw: String): String =
         TERMINAL_CLEANUP[raw] ?: raw
 
-    fun parseRtFeed(feedBytes: ByteArray, fetchedAt: Long): List<Arrival> {
+    fun parseRtFeed(feedBytes: ByteArray, fetchedAt: Long): List<Departure> {
         val feed = FeedMessage.parseFrom(feedBytes)
-        val arrivals = mutableListOf<Arrival>()
+        val departures = mutableListOf<Departure>()
 
         for (entity in feed.entityList) {
             if (!entity.hasTripUpdate()) continue
@@ -201,39 +201,39 @@ object BartParser {
                 val baseId = if ("-" in stu.stopId) stu.stopId.substringBeforeLast("-") else stu.stopId
                 val stationId = platformToParent[baseId] ?: continue
 
-                val arrivalTimestamp = if (stu.hasArrival()) stu.arrival.time * 1000L
-                else if (stu.hasDeparture()) stu.departure.time * 1000L
-                else continue
+                val arrivalTimestamp = if (stu.hasArrival()) stu.arrival.time * 1000L else null
+                val departureTimestamp = if (stu.hasDeparture()) stu.departure.time * 1000L else null
+                if (arrivalTimestamp == null && departureTimestamp == null) continue
 
-                val departureTimestamp = if (stu.hasDeparture()) stu.departure.time * 1000L
-                else arrivalTimestamp + 30_000L
-
-                arrivals.add(
-                    Arrival(
-                        id = "${stationId}_${routeName}_${headsign}_${arrivalTimestamp}",
+                departures.add(
+                    Departure(
+                        id = "${stationId}_${routeName}_${headsign}_${arrivalTimestamp ?: departureTimestamp}",
                         stopId = stationId,
                         routeName = routeName,
                         headsign = headsign,
                         agency = Agency.BART,
                         arrivalTimestamp = arrivalTimestamp,
                         departureTimestamp = departureTimestamp,
+                        isTerminalStop = stationId == terminalStationId,
                         fetchedAt = fetchedAt
                     )
                 )
             }
         }
 
-        // Deduplicate arrivals within 30 seconds of each other for same stop+route+headsign
-        return arrivals
-            .sortedBy { it.arrivalTimestamp }
-            .fold(mutableListOf()) { acc, arrival ->
+        // Deduplicate departures within 30 seconds of each other for same stop+route+headsign
+        return departures
+            .sortedBy { it.departureTimestamp ?: it.arrivalTimestamp }
+            .fold(mutableListOf()) { acc, departure ->
+                val depTime = departure.departureTimestamp ?: departure.arrivalTimestamp ?: 0L
                 val duplicate = acc.any { existing ->
-                    existing.stopId == arrival.stopId &&
-                            existing.routeName == arrival.routeName &&
-                            existing.headsign == arrival.headsign &&
-                            kotlin.math.abs(existing.arrivalTimestamp - arrival.arrivalTimestamp) < 30_000L
+                    val existingTime = existing.departureTimestamp ?: existing.arrivalTimestamp ?: 0L
+                    existing.stopId == departure.stopId &&
+                            existing.routeName == departure.routeName &&
+                            existing.headsign == departure.headsign &&
+                            kotlin.math.abs(existingTime - depTime) < 30_000L
                 }
-                if (!duplicate) acc.add(arrival)
+                if (!duplicate) acc.add(departure)
                 acc
             }
     }

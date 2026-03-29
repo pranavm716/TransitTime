@@ -3,7 +3,7 @@ package io.github.pranavm716.transittime.transit.muni
 import android.content.Context
 import io.github.pranavm716.transittime.BuildConfig
 import io.github.pranavm716.transittime.data.model.Agency
-import io.github.pranavm716.transittime.data.model.Arrival
+import io.github.pranavm716.transittime.data.model.Departure
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
@@ -161,9 +161,9 @@ object MuniParser {
     suspend fun fetchAndParseStop(
         stopId: String,
         fetchedAt: Long
-    ): List<Arrival> {
+    ): List<Departure> {
         val platformIds = getStopIdsForStop(stopId)
-        val allArrivals = mutableListOf<Arrival>()
+        val allDepartures = mutableListOf<Departure>()
 
         for (platformId in platformIds) {
             try {
@@ -171,28 +171,30 @@ object MuniParser {
                     apiKey = BuildConfig.MUNI_API_KEY,
                     stopCode = platformId
                 )
-                allArrivals.addAll(parseStopMonitoring(responseBody.string(), stopId, fetchedAt))
+                allDepartures.addAll(parseStopMonitoring(responseBody.string(), stopId, fetchedAt))
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
 
-        // Deduplicate arrivals within 30 seconds for same route+headsign
-        return allArrivals
-            .sortedBy { it.arrivalTimestamp }
-            .fold(mutableListOf()) { acc, arrival ->
+        // Deduplicate departures within 30 seconds for same route+headsign
+        return allDepartures
+            .sortedBy { it.arrivalTimestamp ?: it.departureTimestamp }
+            .fold(mutableListOf()) { acc, departure ->
+                val depTime = departure.arrivalTimestamp ?: departure.departureTimestamp ?: 0L
                 val duplicate = acc.any { existing ->
-                    existing.routeName == arrival.routeName &&
-                            existing.headsign == arrival.headsign &&
-                            kotlin.math.abs(existing.arrivalTimestamp - arrival.arrivalTimestamp) < 30_000L
+                    val existingTime = existing.arrivalTimestamp ?: existing.departureTimestamp ?: 0L
+                    existing.routeName == departure.routeName &&
+                            existing.headsign == departure.headsign &&
+                            kotlin.math.abs(existingTime - depTime) < 30_000L
                 }
-                if (!duplicate) acc.add(arrival)
+                if (!duplicate) acc.add(departure)
                 acc
             }
     }
 
-    fun parseStopMonitoring(json: String, stopId: String, fetchedAt: Long): List<Arrival> {
-        val arrivals = mutableListOf<Arrival>()
+    fun parseStopMonitoring(json: String, stopId: String, fetchedAt: Long): List<Departure> {
+        val departures = mutableListOf<Departure>()
         try {
             val root = JSONObject(json)
             val delivery = root
@@ -205,12 +207,14 @@ object MuniParser {
                 val call = journey.getJSONObject("MonitoredCall")
 
                 val expectedArrival = call.optString("ExpectedArrivalTime", "")
-                    .takeIf { it.isNotEmpty() && it != "null" } ?: continue
+                    .takeIf { it.isNotEmpty() && it != "null" }
 
-                val arrivalTimestamp = try {
-                    isoFormat.parse(expectedArrival)?.time ?: continue
-                } catch (_: Exception) {
-                    continue
+                val arrivalTimestamp = expectedArrival?.let {
+                    try {
+                        isoFormat.parse(it)?.time
+                    } catch (_: Exception) {
+                        null
+                    }
                 }
 
                 val lineRef = journey.optString("LineRef", "")
@@ -218,15 +222,18 @@ object MuniParser {
                 val headsign = call.optString("DestinationDisplay", "")
                     .takeIf { it.isNotEmpty() } ?: continue
 
-                arrivals.add(
-                    Arrival(
+                if (arrivalTimestamp == null) continue
+
+                departures.add(
+                    Departure(
                         id = "${stopId}_${lineRef}_${arrivalTimestamp}",
                         stopId = stopId,
                         routeName = lineRef,
                         headsign = headsign,
                         agency = Agency.MUNI,
                         arrivalTimestamp = arrivalTimestamp,
-                        departureTimestamp = arrivalTimestamp,  // 511 doesn't provide departure
+                        departureTimestamp = null,
+                        isTerminalStop = false,
                         fetchedAt = fetchedAt
                     )
                 )
@@ -234,7 +241,7 @@ object MuniParser {
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        return arrivals
+        return departures
     }
 
     fun parseRoutesFromResponse(json: String): Map<String, List<String>> {
