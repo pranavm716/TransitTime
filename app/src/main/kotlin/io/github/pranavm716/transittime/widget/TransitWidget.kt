@@ -15,6 +15,8 @@ import androidx.work.WorkManager
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
+import io.github.pranavm716.transittime.data.model.Arrival
+import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.util.RouteIconDrawer
 import io.github.pranavm716.transittime.worker.FetchWorker
@@ -90,141 +92,170 @@ class TransitWidget : AppWidgetProvider() {
 
             CoroutineScope(Dispatchers.IO).launch {
                 val db = TransitDatabase.getInstance(context)
-                val config = db.widgetConfigDao().getConfig(widgetId)
-
-                if (config == null) {
+                val config = db.widgetConfigDao().getConfig(widgetId) ?: run {
                     views.setTextViewText(R.id.tvStopName, "Not configured")
                     appWidgetManager.updateAppWidget(widgetId, views)
                     return@launch
                 }
 
-                views.setTextViewText(R.id.tvStopName, config.stopName)
-
-                val logoRes = when (config.agency) {
-                    Agency.BART -> R.drawable.ic_bart
-                    Agency.MUNI -> R.drawable.ic_muni
-                    Agency.CALTRAIN -> R.drawable.ic_caltrain
-                }
-                views.setImageViewResource(R.id.ivAgencyLogo, logoRes)
-
                 val now = System.currentTimeMillis()
+                val (grouped, overflow) = loadGroupedArrivals(db, config, now, maxRows)
 
-                val allGroups = db.arrivalDao()
-                    .getArrivalsForStop(config.stopId)
-                    .filter { arrival ->
-                        arrival.departureTimestamp > now &&
-                                (config.filteredHeadsigns.isEmpty() ||
-                                        "${arrival.routeName}|${arrival.headsign}" in config.filteredHeadsigns)
-                    }
-                    .groupBy { "${it.routeName}|${it.headsign}" }
-                    .entries
-                    .map { (_, arrivals) ->
-                        arrivals.sortedBy { it.arrivalTimestamp }.take(config.maxArrivals)
-                    }
-                    .sortedWith(
-                        compareBy(
-                            { it.first().arrivalTimestamp },
-                            { it.getOrNull(1)?.arrivalTimestamp ?: Long.MAX_VALUE },
-                            { it.getOrNull(2)?.arrivalTimestamp ?: Long.MAX_VALUE },
-                            { it.first().routeName }
-                        ))
-
-                val totalGroups = allGroups.size
-                val grouped = allGroups.take(maxRows)
-                val overflow = totalGroups - maxRows
-
-                if (fetchFailed) {
-                    views.setTextViewText(R.id.tvFreshnessText, "Failed")
-                    views.setTextColor(R.id.tvFreshnessText, 0xFFFF6B6B.toInt())
-                } else {
-                    val lastFetchedAt = config.lastFetchedAt.takeIf { it > 0L }
-                        ?: db.arrivalDao().getArrivalsForStop(config.stopId)
-                            .maxOfOrNull { it.fetchedAt } ?: 0L
-                    val freshnessText = if (lastFetchedAt == 0L) "—"
-                    else SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(lastFetchedAt))
-                    views.setTextViewText(R.id.tvFreshnessText, freshnessText)
-                    views.setTextColor(R.id.tvFreshnessText, 0xFFAAAAAA.toInt())
-                }
-
-                views.removeAllViews(R.id.llArrivals)
-
-                if (grouped.isEmpty()) {
-                    val emptyViews = RemoteViews(context.packageName, R.layout.widget_empty)
-                    views.addView(R.id.llArrivals, emptyViews)
-                } else {
-                    val allTimes = grouped.map { arrivals ->
-                        val handler = AgencyRegistry.get(arrivals.first().agency)
-                        arrivals.map { arrival ->
-                            handler.getArrivalDisplayTime(arrival, now, config.displayMode, config.hybridThresholdMinutes)
-                        }
-                    }
-                    val globalMaxTimeLen = allTimes.maxOfOrNull { times ->
-                        (0 until config.maxArrivals).maxOfOrNull { i ->
-                            (times.getOrNull(i) ?: "—").length
-                        } ?: 0
-                    } ?: 0
-                    val timeFontSizeSp = when {
-                        globalMaxTimeLen >= 8 -> 13f  // e.g. "Arriving"
-                        globalMaxTimeLen >= 7 -> 14f  // e.g. "12:30PM", "Leaving"
-                        else -> 16f
-                    }
-
-                    for ((arrivals, times) in grouped.zip(allTimes)) {
-                        val first = arrivals.first()
-                        val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
-
-                        val handler = AgencyRegistry.get(first.agency)
-
-                        val iconSizePx = (36 * context.resources.displayMetrics.density).toInt()
-                        val bitmap = RouteIconDrawer.draw(
-                            style = handler.getRouteStyle(first.routeName),
-                            text = handler.getIconText(first.routeName),
-                            sizePx = iconSizePx
-                        )
-                        rowViews.setImageViewBitmap(R.id.ivRouteIcon, bitmap)
-                        rowViews.setTextViewText(R.id.tvHeadsign, first.headsign)
-
-                        val timeCells = listOf(R.id.tvTime1, R.id.tvTime2, R.id.tvTime3)
-
-                        for (i in timeCells.indices) {
-                            rowViews.setViewVisibility(
-                                timeCells[i],
-                                if (i < config.maxArrivals) View.VISIBLE else View.GONE
-                            )
-                        }
-
-                        for (cell in timeCells) {
-                            rowViews.setTextViewTextSize(cell, TypedValue.COMPLEX_UNIT_SP, timeFontSizeSp)
-                        }
-
-                        for (i in 0 until config.maxArrivals) {
-                            val text = times.getOrNull(i) ?: "—"
-                            val isScheduled = arrivals.getOrNull(i)?.id?.endsWith("_sched") == true
-                            val color = when (text) {
-                                "Leaving" -> 0xFFdc3545.toInt()
-                                "Arriving" -> 0xFF28a745.toInt()
-                                "—" -> 0xFFBDC1C7.toInt()
-                                else -> if (isScheduled) 0xFF9E8400.toInt() else 0xFFFFD700.toInt()
-                            }
-                            rowViews.setTextViewText(timeCells[i], text)
-                            rowViews.setTextColor(timeCells[i], color)
-                        }
-
-                        views.addView(R.id.llArrivals, rowViews)
-                    }
-                }
-
-                if (overflow > 0) {
-                    views.setTextViewText(
-                        R.id.tvOverflowStatic,
-                        "+$overflow more route${if (overflow > 1) "s" else ""}"
-                    )
-                } else {
-                    views.setTextViewText(R.id.tvOverflowStatic, "")
-                }
+                applyHeader(views, config)
+                applyFreshness(views, db, config, fetchFailed)
+                applyArrivals(context, views, grouped, config, now)
+                applyOverflow(views, overflow)
 
                 appWidgetManager.updateAppWidget(widgetId, views)
             }
+        }
+
+        private fun applyHeader(views: RemoteViews, config: WidgetConfig) {
+            views.setTextViewText(R.id.tvStopName, config.stopName)
+            val logoRes = when (config.agency) {
+                Agency.BART -> R.drawable.ic_bart
+                Agency.MUNI -> R.drawable.ic_muni
+                Agency.CALTRAIN -> R.drawable.ic_caltrain
+            }
+            views.setImageViewResource(R.id.ivAgencyLogo, logoRes)
+        }
+
+        private suspend fun applyFreshness(
+            views: RemoteViews,
+            db: TransitDatabase,
+            config: WidgetConfig,
+            fetchFailed: Boolean
+        ) {
+            if (fetchFailed) {
+                views.setTextViewText(R.id.tvFreshnessText, "Failed")
+                views.setTextColor(R.id.tvFreshnessText, 0xFFFF6B6B.toInt())
+            } else {
+                val lastFetchedAt = config.lastFetchedAt.takeIf { it > 0L }
+                    ?: db.arrivalDao().getArrivalsForStop(config.stopId)
+                        .maxOfOrNull { it.fetchedAt } ?: 0L
+                val freshnessText = if (lastFetchedAt == 0L) "—"
+                else SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(lastFetchedAt))
+                views.setTextViewText(R.id.tvFreshnessText, freshnessText)
+                views.setTextColor(R.id.tvFreshnessText, 0xFFAAAAAA.toInt())
+            }
+        }
+
+        private suspend fun loadGroupedArrivals(
+            db: TransitDatabase,
+            config: WidgetConfig,
+            now: Long,
+            maxRows: Int
+        ): Pair<List<List<Arrival>>, Int> {
+            val allGroups = db.arrivalDao()
+                .getArrivalsForStop(config.stopId)
+                .filter { arrival ->
+                    arrival.departureTimestamp > now &&
+                            (config.filteredHeadsigns.isEmpty() ||
+                                    "${arrival.routeName}|${arrival.headsign}" in config.filteredHeadsigns)
+                }
+                .groupBy { "${it.routeName}|${it.headsign}" }
+                .entries
+                .map { (_, arrivals) ->
+                    arrivals.sortedBy { it.arrivalTimestamp }.take(config.maxArrivals)
+                }
+                .sortedWith(
+                    compareBy(
+                        { it.first().arrivalTimestamp },
+                        { it.getOrNull(1)?.arrivalTimestamp ?: Long.MAX_VALUE },
+                        { it.getOrNull(2)?.arrivalTimestamp ?: Long.MAX_VALUE },
+                        { it.first().routeName }
+                    ))
+            val overflow = (allGroups.size - maxRows).coerceAtLeast(0)
+            return allGroups.take(maxRows) to overflow
+        }
+
+        private fun applyArrivals(
+            context: Context,
+            views: RemoteViews,
+            grouped: List<List<Arrival>>,
+            config: WidgetConfig,
+            now: Long
+        ) {
+            views.removeAllViews(R.id.llArrivals)
+
+            if (grouped.isEmpty()) {
+                views.addView(R.id.llArrivals, RemoteViews(context.packageName, R.layout.widget_empty))
+                return
+            }
+
+            val allTimes = grouped.map { arrivals ->
+                val handler = AgencyRegistry.get(arrivals.first().agency)
+                arrivals.map { arrival ->
+                    handler.getArrivalDisplayTime(arrival, now, config.displayMode, config.hybridThresholdMinutes)
+                }
+            }
+            val globalMaxTimeLen = allTimes.maxOfOrNull { times ->
+                (0 until config.maxArrivals).maxOfOrNull { i ->
+                    (times.getOrNull(i) ?: "—").length
+                } ?: 0
+            } ?: 0
+            val timeFontSizeSp = when {
+                globalMaxTimeLen >= 8 -> 14f  // e.g. "Arriving"
+                globalMaxTimeLen >= 7 -> 15f  // e.g. "12:30PM", "Leaving"
+                else -> 16f
+            }
+
+            for ((arrivals, times) in grouped.zip(allTimes)) {
+                views.addView(
+                    R.id.llArrivals,
+                    buildArrivalRow(context, arrivals, times, timeFontSizeSp, config.maxArrivals)
+                )
+            }
+        }
+
+        private fun buildArrivalRow(
+            context: Context,
+            arrivals: List<Arrival>,
+            times: List<String>,
+            timeFontSizeSp: Float,
+            maxArrivals: Int
+        ): RemoteViews {
+            val first = arrivals.first()
+            val handler = AgencyRegistry.get(first.agency)
+            val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
+
+            val iconSizePx = (36 * context.resources.displayMetrics.density).toInt()
+            val bitmap = RouteIconDrawer.draw(
+                style = handler.getRouteStyle(first.routeName),
+                text = handler.getIconText(first.routeName),
+                sizePx = iconSizePx
+            )
+            rowViews.setImageViewBitmap(R.id.ivRouteIcon, bitmap)
+            rowViews.setTextViewText(R.id.tvHeadsign, first.headsign)
+
+            val timeCells = listOf(R.id.tvTime1, R.id.tvTime2, R.id.tvTime3)
+
+            for (i in timeCells.indices) {
+                rowViews.setViewVisibility(timeCells[i], if (i < maxArrivals) View.VISIBLE else View.GONE)
+            }
+            for (cell in timeCells) {
+                rowViews.setTextViewTextSize(cell, TypedValue.COMPLEX_UNIT_SP, timeFontSizeSp)
+            }
+            for (i in 0 until maxArrivals) {
+                val text = times.getOrNull(i) ?: "—"
+                val isScheduled = arrivals.getOrNull(i)?.id?.endsWith("_sched") == true
+                val color = when (text) {
+                    "Leaving" -> 0xFFdc3545.toInt()
+                    "Arriving" -> 0xFF28a745.toInt()
+                    "—" -> 0xFFBDC1C7.toInt()
+                    else -> if (isScheduled) 0xFF9E8400.toInt() else 0xFFFFD700.toInt()
+                }
+                rowViews.setTextViewText(timeCells[i], text)
+                rowViews.setTextColor(timeCells[i], color)
+            }
+            return rowViews
+        }
+
+        private fun applyOverflow(views: RemoteViews, overflow: Int) {
+            views.setTextViewText(
+                R.id.tvOverflowStatic,
+                if (overflow > 0) "+$overflow more route${if (overflow > 1) "s" else ""}" else ""
+            )
         }
 
         fun animateRefreshIcon(
