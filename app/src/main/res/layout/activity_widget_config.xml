@@ -11,14 +11,20 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/configure_widget"
-        android:textSize="20sp"
+        android:textSize="24sp"
         android:textStyle="bold"
-        android:paddingBottom="16dp" />
+        android:textColor="#E6EDF3"
+        android:paddingBottom="24dp" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/agency" />
+        android:text="@string/agency"
+        android:textSize="11sp"
+        android:textAllCaps="true"
+        android:letterSpacing="0.1"
+        android:textColor="#7D8590"
+        android:paddingBottom="4dp" />
 
     <Spinner
         android:id="@+id/spinnerAgency"
@@ -29,13 +35,19 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/search_for_a_stop"
-        android:paddingTop="16dp" />
+        android:textSize="11sp"
+        android:textAllCaps="true"
+        android:letterSpacing="0.1"
+        android:textColor="#7D8590"
+        android:paddingTop="20dp"
+        android:paddingBottom="4dp" />
 
     <EditText
         android:id="@+id/etStopSearch"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="@string/stop_search_hint"
+        android:textColorHint="#4D5562"
         android:inputType="text" />
 
     <ListView
@@ -58,7 +70,8 @@
         android:layout_weight="1"
         android:gravity="center"
         android:text="No results"
-        android:textColor="#66FFFFFF"
+        android:textSize="14sp"
+        android:textColor="#7D8590"
         android:background="@drawable/bg_stop_results"
         android:visibility="gone" />
 
@@ -66,17 +79,22 @@
         android:id="@+id/tvSelectedStop"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textStyle="bold"
-        android:paddingTop="8dp"
+        android:textSize="14sp"
+        android:textColor="#58A6FF"
+        android:paddingTop="10dp"
         android:visibility="gone" />
 
-    <!-- Route/headsign filter -->
     <TextView
         android:id="@+id/tvRoutesLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/filter_routes_all_shown_by_default"
+        android:textSize="11sp"
+        android:textAllCaps="true"
+        android:letterSpacing="0.1"
+        android:textColor="#7D8590"
         android:paddingTop="16dp"
+        android:paddingBottom="4dp"
         android:visibility="gone" />
 
     <ExpandableListView
@@ -88,6 +106,7 @@
         android:paddingBottom="4dp"
         android:clipToPadding="false"
         android:background="@drawable/bg_stop_results"
+        android:groupIndicator="@null"
         android:fadeScrollbars="false"
         android:scrollbarAlwaysDrawVerticalTrack="true"
         android:visibility="gone" />
@@ -95,14 +114,17 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:layout_marginTop="16dp"
-        android:background="#1AFFFFFF" />
+        android:layout_marginTop="20dp"
+        android:background="#30363D" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/display_options"
-        android:textStyle="bold"
+        android:textSize="11sp"
+        android:textAllCaps="true"
+        android:letterSpacing="0.1"
+        android:textColor="#7D8590"
         android:paddingTop="16dp"
         android:paddingBottom="4dp" />
 
@@ -163,7 +185,12 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/max_arrivals"
-        android:paddingTop="8dp" />
+        android:textSize="11sp"
+        android:textAllCaps="true"
+        android:letterSpacing="0.1"
+        android:textColor="#7D8590"
+        android:paddingTop="16dp"
+        android:paddingBottom="4dp" />
 
     <EditText
         android:id="@+id/etMaxArrivals"
@@ -177,6 +204,6 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/add_widget"
-        android:layout_marginTop="16dp" />
+        android:layout_marginTop="20dp" />
 
 </LinearLayout>

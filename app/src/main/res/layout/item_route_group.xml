@@ -3,7 +3,10 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:padding="12dp"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="14dp"
+    android:paddingBottom="14dp"
     android:background="?attr/selectableItemBackground">
 
     <TextView
@@ -11,15 +14,15 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:paddingStart="22sp"
-        android:textSize="16sp"
-        android:textStyle="bold" />
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:textColor="#E6EDF3" />
 
     <TextView
         android:id="@+id/tvRouteSelectedCount"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textSize="14sp"
-        android:textColor="#888888" />
+        android:textSize="13sp"
+        android:textColor="#58A6FF" />
 
 </LinearLayout>
