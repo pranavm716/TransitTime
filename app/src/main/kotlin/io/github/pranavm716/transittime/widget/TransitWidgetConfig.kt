@@ -57,6 +57,7 @@ class TransitWidgetConfig : AppCompatActivity() {
 
         val spinner = findViewById<Spinner>(R.id.spinnerAgency)
         val lvResults = findViewById<ListView>(R.id.lvStopResults)
+        val tvNoResults = findViewById<TextView>(R.id.tvNoResults)
         val elvRoutes = findViewById<ExpandableListView>(R.id.elvRoutes)
         val tvRoutesLabel = findViewById<TextView>(R.id.tvRoutesLabel)
 
@@ -88,6 +89,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                 allStops = emptyList()
                 elvRoutes.visibility = View.GONE
                 tvRoutesLabel.visibility = View.GONE
+                tvNoResults.visibility = View.GONE
 
                 CoroutineScope(Dispatchers.IO).launch {
                     val handler = AgencyRegistry.get(agency)
@@ -102,6 +104,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                         resultsAdapter.addAll(stops.map { it.second })
                         lvResults.tag = stops
                         lvResults.visibility = if (stops.isEmpty()) View.GONE else View.VISIBLE
+                        tvNoResults.visibility = View.GONE
                     }
                 }
             }
@@ -111,14 +114,7 @@ class TransitWidgetConfig : AppCompatActivity() {
 
         findViewById<EditText>(R.id.etStopSearch).addTextChangedListener(
             object : TextWatcher {
-                override fun beforeTextChanged(
-                    s: CharSequence?,
-                    start: Int,
-                    count: Int,
-                    after: Int
-                ) {
-                }
-
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 override fun afterTextChanged(s: Editable?) {
                     val query = s.toString().trim().lowercase()
@@ -127,7 +123,14 @@ class TransitWidgetConfig : AppCompatActivity() {
                     resultsAdapter.clear()
                     resultsAdapter.addAll(filtered.map { it.second })
                     lvResults.tag = filtered
-                    lvResults.visibility = if (filtered.isEmpty()) View.GONE else View.VISIBLE
+                    val hasStopsLoaded = allStops.isNotEmpty()
+                    lvResults.visibility = if (hasStopsLoaded && filtered.isNotEmpty()) View.VISIBLE else View.GONE
+                    tvNoResults.visibility = if (hasStopsLoaded && filtered.isEmpty()) View.VISIBLE else View.GONE
+                    if (hasStopsLoaded) {
+                        elvRoutes.visibility = View.GONE
+                        tvRoutesLabel.visibility = View.GONE
+                        findViewById<TextView>(R.id.tvSelectedStop).visibility = View.GONE
+                    }
                 }
             }
         )
@@ -142,6 +145,7 @@ class TransitWidgetConfig : AppCompatActivity() {
 
             findViewById<EditText>(R.id.etStopSearch).setText(selected.second)
             lvResults.visibility = View.GONE
+            tvNoResults.visibility = View.GONE
 
             val tvSelected = findViewById<TextView>(R.id.tvSelectedStop)
             tvSelected.text = "Selected: ${selected.second} (${selected.first})"

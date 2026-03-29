@@ -44,6 +44,22 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:clipToPadding="false"
+        android:background="@drawable/bg_stop_results"
+        android:fadeScrollbars="false"
+        android:scrollbarAlwaysDrawVerticalTrack="true"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/tvNoResults"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text="No results"
+        android:textColor="#66FFFFFF"
+        android:background="@drawable/bg_stop_results"
         android:visibility="gone" />
 
     <TextView
@@ -67,9 +83,20 @@
         android:id="@+id/elvRoutes"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="2"
+        android:layout_weight="1"
         android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:clipToPadding="false"
+        android:background="@drawable/bg_stop_results"
+        android:fadeScrollbars="false"
+        android:scrollbarAlwaysDrawVerticalTrack="true"
         android:visibility="gone" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="16dp"
+        android:background="#1AFFFFFF" />
 
     <TextView
         android:layout_width="match_parent"
