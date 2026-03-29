@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import androidx.work.ExistingWorkPolicy
@@ -151,7 +152,24 @@ class TransitWidget : AppWidgetProvider() {
                     val emptyViews = RemoteViews(context.packageName, R.layout.widget_empty)
                     views.addView(R.id.llArrivals, emptyViews)
                 } else {
-                    for (arrivals in grouped) {
+                    val allTimes = grouped.map { arrivals ->
+                        val handler = AgencyRegistry.get(arrivals.first().agency)
+                        arrivals.map { arrival ->
+                            handler.getArrivalDisplayTime(arrival, now, config.displayMode, config.hybridThresholdMinutes)
+                        }
+                    }
+                    val globalMaxTimeLen = allTimes.maxOfOrNull { times ->
+                        (0 until config.maxArrivals).maxOfOrNull { i ->
+                            (times.getOrNull(i) ?: "—").length
+                        } ?: 0
+                    } ?: 0
+                    val timeFontSizeSp = when {
+                        globalMaxTimeLen >= 8 -> 13f  // e.g. "Arriving"
+                        globalMaxTimeLen >= 7 -> 14f  // e.g. "12:30PM", "Leaving"
+                        else -> 16f
+                    }
+
+                    for ((arrivals, times) in grouped.zip(allTimes)) {
                         val first = arrivals.first()
                         val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
 
@@ -168,15 +186,15 @@ class TransitWidget : AppWidgetProvider() {
 
                         val timeCells = listOf(R.id.tvTime1, R.id.tvTime2, R.id.tvTime3)
 
-                        val times = arrivals.map { arrival ->
-                            handler.getArrivalDisplayTime(arrival, now, config.displayMode, config.hybridThresholdMinutes)
-                        }
-
                         for (i in timeCells.indices) {
                             rowViews.setViewVisibility(
                                 timeCells[i],
                                 if (i < config.maxArrivals) View.VISIBLE else View.GONE
                             )
+                        }
+
+                        for (cell in timeCells) {
+                            rowViews.setTextViewTextSize(cell, TypedValue.COMPLEX_UNIT_SP, timeFontSizeSp)
                         }
 
                         for (i in 0 until config.maxArrivals) {
