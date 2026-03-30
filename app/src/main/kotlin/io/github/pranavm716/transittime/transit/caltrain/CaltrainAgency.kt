@@ -25,6 +25,7 @@ object CaltrainAgency : TransitAgency {
 
         val activeServices = CaltrainParser.getActiveServices()
         val tripTerminals = CaltrainParser.getTripTerminals()
+        val tripOrigins = CaltrainParser.getTripOrigins()
         val result = mutableListOf<Departure>()
         for (stopId in stopIds) {
             val rtForStop = rtDepartures.filter { it.stopId == stopId }
@@ -37,7 +38,8 @@ object CaltrainAgency : TransitAgency {
                     now = fetchedAt,
                     stopId = stopId,
                     fetchedAt = fetchedAt,
-                    tripTerminals = tripTerminals
+                    tripTerminals = tripTerminals,
+                    tripOrigins = tripOrigins
                 )
             )
         }

@@ -15,7 +15,7 @@ data class Departure(
     val agency: Agency,
     val arrivalTimestamp: Long?,      // null if not provided by API
     val departureTimestamp: Long?,    // null if not provided by API
-    val isTerminalStop: Boolean,
+    val isOriginStop: Boolean = false,
     val isScheduled: Boolean,
     val tripId: String?,
     val fetchedAt: Long
@@ -31,21 +31,21 @@ data class Departure(
 
         // Scheduled departures always show Xmin — never Arriving or Leaving
         if (!isScheduled) {
-            // Leaving — terminal stop about to depart
-            if (isTerminalStop && millisToDeparture != null && millisToDeparture in 0..60_000) {
+            // Leaving — origin stop about to depart
+            if (isOriginStop && millisToDeparture != null && millisToDeparture in 0..60_000) {
                 return "Leaving"
             }
 
             // Leaving — train at platform, departure imminent
-            if (!isTerminalStop &&
+            if (!isOriginStop &&
                 millisToArrival != null && millisToArrival <= 0 &&
                 millisToDeparture != null && millisToDeparture in 0..60_000
             ) {
                 return "Leaving"
             }
 
-            // Arriving — train less than 1 minute away, has arrival data, not a terminal stop
-            if (!isTerminalStop && millisToArrival != null && millisToArrival in 1..59_999) {
+            // Arriving — train less than 1 minute away, has arrival data, not an origin stop
+            if (!isOriginStop && millisToArrival != null && millisToArrival in 1..59_999) {
                 return "Arriving"
             }
         }

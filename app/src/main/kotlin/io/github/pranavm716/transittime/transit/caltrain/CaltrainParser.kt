@@ -28,7 +28,8 @@ fun mergeWithTimetable(
     now: Long,
     stopId: String,
     fetchedAt: Long,
-    tripTerminals: Map<String, String>
+    tripTerminals: Map<String, String>,
+    tripOrigins: Map<String, String> = emptyMap()
 ): List<Departure> {
     val result = rtDepartures.toMutableList()
 
@@ -53,6 +54,11 @@ fun mergeWithTimetable(
             if (filled >= needed) break
             val isDuplicate = dep.tripId in rtTripIds
             if (!isDuplicate) {
+                // Robust filtering: skip if this stop is the terminal for the trip
+                if (stopId == tripTerminals[dep.tripId]) continue
+
+                val isOrigin = (stopId == tripOrigins[dep.tripId])
+                
                 result.add(
                     Departure(
                         id = "${stopId}_${dep.routeName}_${dep.headsign}_${dep.departureTimestamp}",
@@ -62,7 +68,7 @@ fun mergeWithTimetable(
                         agency = Agency.CALTRAIN,
                         arrivalTimestamp = null,
                         departureTimestamp = dep.departureTimestamp,
-                        isTerminalStop = (stopId == tripTerminals[dep.tripId]),
+                        isOriginStop = isOrigin,
                         isScheduled = true,
                         tripId = dep.tripId,
                         fetchedAt = fetchedAt
@@ -95,6 +101,9 @@ object CaltrainParser {
 
     // tripId → terminal parentStationId
     private val tripTerminals = mutableMapOf<String, String>()
+
+    // tripId → origin parentStationId
+    private val tripOrigins = mutableMapOf<String, String>()
 
     // parentStationId → routeName → Set<headsign>  (built from stop_times.txt)
     private val stationRoutes = mutableMapOf<String, MutableMap<String, MutableSet<String>>>()
@@ -247,13 +256,44 @@ object CaltrainParser {
         val seqIdx = headers.indexOf("stop_sequence")
         if (tripIdx == -1 || stopIdx == -1 || depIdx == -1) return
 
-        // Track recorded (parentId, tripId) pairs to avoid double-counting from multiple platforms
-        val recorded = mutableSetOf<String>()
-
-        // Track max sequence per trip to find terminal
+        // Pass 1: find terminal/origin platform IDs for each trip
         val tripMaxSeq = mutableMapOf<String, Int>()
-        val tripTerminalStop = mutableMapOf<String, String>()
+        val tripTerminalPlatform = mutableMapOf<String, String>()
+        val tripMinSeq = mutableMapOf<String, Int>()
+        val tripOriginPlatform = mutableMapOf<String, String>()
 
+        for (line in lines.drop(1)) {
+            if (line.isBlank()) continue
+            val cols = parseCsvLine(line)
+            if (cols.size <= maxOf(tripIdx, stopIdx, depIdx)) continue
+            val tripId = cols[tripIdx]
+            val platformId = cols[stopIdx]
+            
+            if (seqIdx != -1 && cols.size > seqIdx) {
+                val seq = cols[seqIdx].toIntOrNull()
+                if (seq != null) {
+                    if (seq > (tripMaxSeq[tripId] ?: -1)) {
+                        tripMaxSeq[tripId] = seq
+                        tripTerminalPlatform[tripId] = platformId
+                    }
+                    if (seq < (tripMinSeq[tripId] ?: Int.MAX_VALUE)) {
+                        tripMinSeq[tripId] = seq
+                        tripOriginPlatform[tripId] = platformId
+                    }
+                }
+            }
+        }
+
+        // Resolve terminal/origin platform IDs to their parent station IDs
+        for ((tripId, platformId) in tripTerminalPlatform) {
+            tripTerminals[tripId] = platformToParent[platformId] ?: platformId
+        }
+        for ((tripId, platformId) in tripOriginPlatform) {
+            tripOrigins[tripId] = platformToParent[platformId] ?: platformId
+        }
+
+        // Pass 2: build stationRoutes and stationDepartures, skipping terminal stops
+        val recorded = mutableSetOf<String>()
         for (line in lines.drop(1)) {
             if (line.isBlank()) continue
             val cols = parseCsvLine(line)
@@ -262,21 +302,14 @@ object CaltrainParser {
             val platformId = cols[stopIdx]
             val departureTimeStr = cols[depIdx]
 
-            // Track terminal stops using stop_sequence
-            if (seqIdx != -1 && cols.size > seqIdx) {
-                val seq = cols[seqIdx].toIntOrNull()
-                if (seq != null && seq > (tripMaxSeq[tripId] ?: -1)) {
-                    tripMaxSeq[tripId] = seq
-                    tripTerminalStop[tripId] = platformId
-                }
-            }
-
             val parentId = platformToParent[platformId] ?: continue
             if (parentId in EXCLUDED_STATIONS) continue
+            
+            // SKIP if this stop is the terminal for the trip
+            if (parentId == tripTerminals[tripId]) continue
+
             val routeName = tripToRoute[tripId] ?: continue
             val headsign = tripToHeadsign[tripId] ?: continue
-            val stationDisplayName = parentStations[parentId] ?: continue
-            if (headsign == stationDisplayName) continue // skip self-terminating headsigns
 
             // Build the route filter map (deduplicated by route+headsign naturally via Set)
             stationRoutes
@@ -293,11 +326,6 @@ object CaltrainParser {
                         .add(Pair(tripId, departureSeconds))
                 }
             }
-        }
-
-        // Resolve terminal platform IDs to their parent station IDs
-        for ((tripId, terminalPlatformId) in tripTerminalStop) {
-            tripTerminals[tripId] = platformToParent[terminalPlatformId] ?: terminalPlatformId
         }
     }
 
@@ -362,6 +390,8 @@ object CaltrainParser {
 
     fun getTripTerminals(): Map<String, String> = tripTerminals.toMap()
 
+    fun getTripOrigins(): Map<String, String> = tripOrigins.toMap()
+
     fun getRoutesForStation(stationId: String): Map<String, List<String>> =
         stationRoutes[stationId]?.mapValues { it.value.toList().sorted() } ?: emptyMap()
 
@@ -400,7 +430,6 @@ object CaltrainParser {
         stationId: String,
         activeServices: Set<String>
     ): List<ScheduledDeparture> {
-        val stationDisplayName = parentStations[stationId] ?: return emptyList()
         val departures = stationDepartures[stationId] ?: return emptyList()
 
         val midnightToday = LocalDate.now(PT).atStartOfDay(PT).toEpochSecond()
@@ -411,7 +440,10 @@ object CaltrainParser {
             if (serviceId !in activeServices) continue
             val routeName = tripToRoute[tripId] ?: continue
             val headsign = tripToHeadsign[tripId] ?: continue
-            if (headsign == stationDisplayName) continue
+
+            // Robust filtering: skip if this stop is the terminal for the trip
+            if (stationId == tripTerminals[tripId]) continue
+
             val departureTimestamp = (midnightToday + departureSeconds) * 1000L
             result.add(ScheduledDeparture(routeName, headsign, departureTimestamp, tripId))
         }
@@ -434,6 +466,8 @@ object CaltrainParser {
             val tripId = tu.trip.tripId
             val routeName = tripToRoute[tripId] ?: continue
             val headsign = tripToHeadsign[tripId] ?: continue
+            val terminalStationId = tripTerminals[tripId]
+            val originStationId = tripOrigins[tripId]
 
             for (stu in tu.stopTimeUpdateList) {
                 if (stu.scheduleRelationship ==
@@ -441,6 +475,9 @@ object CaltrainParser {
                 ) continue
 
                 val parentId = platformToParent[stu.stopId] ?: continue
+
+                // Robust filtering: skip if this stop is the terminal for this trip
+                if (parentId == terminalStationId) continue
 
                 val arrivalTimestamp: Long? = when {
                     stu.hasArrival() -> stu.arrival.time * 1000L
@@ -450,6 +487,8 @@ object CaltrainParser {
                 val departureTimestamp: Long? = if (stu.hasDeparture()) stu.departure.time * 1000L else null
                 if (arrivalTimestamp == null && departureTimestamp == null) continue
 
+                val isOrigin = (parentId == originStationId)
+                
                 departures.add(
                     Departure(
                         id = "${parentId}_${routeName}_${headsign}_${arrivalTimestamp ?: departureTimestamp}",
@@ -459,7 +498,7 @@ object CaltrainParser {
                         agency = Agency.CALTRAIN,
                         arrivalTimestamp = arrivalTimestamp,
                         departureTimestamp = departureTimestamp,
-                        isTerminalStop = (parentId == tripTerminals[tripId]),
+                        isOriginStop = isOrigin,
                         isScheduled = false,
                         tripId = tripId,
                         fetchedAt = fetchedAt

@@ -17,6 +17,7 @@ object BartParser {
     private val tripRouteIds = mutableMapOf<String, String>()      // tripId → routeId
     private val routeColors = mutableMapOf<String, String>()       // routeId → color name
     private val tripTerminals = mutableMapOf<String, String>()     // tripId → terminal parentStationId
+    private val tripOrigins = mutableMapOf<String, String>()       // tripId → origin parentStationId
     private var staticLoaded = false
 
     private val TERMINAL_CLEANUP = mapOf(
@@ -137,9 +138,11 @@ object BartParser {
         val seqIdx = headers.indexOf("stop_sequence")
         if (tripIdx == -1 || stopIdx == -1 || seqIdx == -1) return
 
-        // Track max sequence per trip to find terminal
+        // Track max/min sequence per trip to find terminal/origin
         val tripMaxSeq = mutableMapOf<String, Int>()
-        val tripTerminalStop = mutableMapOf<String, String>()
+        val tripTerminalPlatform = mutableMapOf<String, String>()
+        val tripMinSeq = mutableMapOf<String, Int>()
+        val tripOriginPlatform = mutableMapOf<String, String>()
 
         for (line in lines.drop(1)) {
             if (line.isBlank()) continue
@@ -148,16 +151,25 @@ object BartParser {
             val tripId = cols[tripIdx].removeSurrounding("\"")
             val stopId = cols[stopIdx].removeSurrounding("\"")
             val seq = cols[seqIdx].removeSurrounding("\"").toIntOrNull() ?: continue
+            
             if (seq > (tripMaxSeq[tripId] ?: -1)) {
                 tripMaxSeq[tripId] = seq
-                tripTerminalStop[tripId] = stopId
+                tripTerminalPlatform[tripId] = stopId
+            }
+            if (seq < (tripMinSeq[tripId] ?: Int.MAX_VALUE)) {
+                tripMinSeq[tripId] = seq
+                tripOriginPlatform[tripId] = stopId
             }
         }
 
-        // Resolve terminal platform IDs to their parent station IDs
-        for ((tripId, terminalStopId) in tripTerminalStop) {
+        // Resolve terminal/origin platform IDs to their parent station IDs
+        for ((tripId, terminalStopId) in tripTerminalPlatform) {
             val baseId = if ("-" in terminalStopId) terminalStopId.substringBeforeLast("-") else terminalStopId
             tripTerminals[tripId] = platformToParent[baseId] ?: baseId
+        }
+        for ((tripId, originStopId) in tripOriginPlatform) {
+            val baseId = if ("-" in originStopId) originStopId.substringBeforeLast("-") else originStopId
+            tripOrigins[tripId] = platformToParent[baseId] ?: baseId
         }
     }
 
@@ -191,6 +203,7 @@ object BartParser {
             val colorName = routeColors[routeId] ?: continue
             val routeName = "$colorName Line"
             val terminalStationId = tripTerminals[tripId] ?: continue
+            val originStationId = tripOrigins[tripId] ?: ""
             val rawTerminalName = stopNames[terminalStationId] ?: continue
             val headsign = cleanTerminalName(rawTerminalName)
 
@@ -200,6 +213,9 @@ object BartParser {
                 ) continue
                 val baseId = if ("-" in stu.stopId) stu.stopId.substringBeforeLast("-") else stu.stopId
                 val stationId = platformToParent[baseId] ?: continue
+
+                // Robust filtering: skip if this stop is the terminal for this trip
+                if (stationId == terminalStationId) continue
 
                 val arrivalTimestamp: Long? = if (stu.hasArrival()) stu.arrival.time * 1000L else null
                 val departureTimestamp: Long? = if (stu.hasDeparture()) stu.departure.time * 1000L else null
@@ -214,7 +230,7 @@ object BartParser {
                         agency = Agency.BART,
                         arrivalTimestamp = arrivalTimestamp,
                         departureTimestamp = departureTimestamp,
-                        isTerminalStop = (stationId == terminalStationId),
+                        isOriginStop = (stationId == originStationId),
                         isScheduled = false,
                         tripId = null,
                         fetchedAt = fetchedAt
@@ -266,6 +282,9 @@ object BartParser {
                     val baseId = if ("-" in stu.stopId) stu.stopId.substringBeforeLast("-") else stu.stopId
                     val stationId = platformToParent[baseId] ?: continue
                     if (stationId == stopId) {
+                        // Skip if the vehicle is terminating at the requested stop
+                        if (stationId == terminalStationId) continue
+
                         result.getOrPut(routeName) { mutableSetOf() }.add(headsign)
                         break
                     }
