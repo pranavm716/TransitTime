@@ -185,7 +185,9 @@ class TransitWidget : AppWidgetProvider() {
             }
 
             val allTimes = grouped.map { departures ->
-                departures.map { departure -> departure.getDisplayTime(now) }
+                departures.map { departure ->
+                    departure.getDisplayTime(now, config.displayMode, config.hybridThresholdMinutes)
+                }
             }
             val globalMaxTimeLen = allTimes.maxOfOrNull { times ->
                 (0 until config.maxArrivals).maxOfOrNull { i ->

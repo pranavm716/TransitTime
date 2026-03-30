@@ -2,6 +2,9 @@ package io.github.pranavm716.transittime.data.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Entity(tableName = "departures")
 data class Departure(
@@ -17,7 +20,11 @@ data class Departure(
     val tripId: String?,
     val fetchedAt: Long
 ) {
-    fun getDisplayTime(now: Long): String {
+    fun getDisplayTime(
+        now: Long,
+        displayMode: DisplayMode = DisplayMode.RELATIVE,
+        hybridThresholdMinutes: Int = 60
+    ): String {
         val millisToArrival = arrivalTimestamp?.minus(now)
         val millisToDeparture = departureTimestamp?.minus(now)
         val millisToDisplay = millisToDeparture ?: millisToArrival ?: return ""
@@ -43,9 +50,16 @@ data class Departure(
             }
         }
 
-        // Xmin — round up to avoid 0min
+        // Xmin or absolute time depending on display mode
         val minutes = ((millisToDisplay + 59_999) / 60_000).toInt()
-        return "${minutes}min"
+        val relativeTime = "${minutes}min"
+        val absoluteTime = SimpleDateFormat("h:mma", Locale.getDefault())
+            .format(Date(departureTimestamp ?: arrivalTimestamp!!))
+        return when (displayMode) {
+            DisplayMode.RELATIVE -> relativeTime
+            DisplayMode.ABSOLUTE -> absoluteTime
+            DisplayMode.HYBRID -> if (minutes < hybridThresholdMinutes) relativeTime else absoluteTime
+        }
     }
 }
 
