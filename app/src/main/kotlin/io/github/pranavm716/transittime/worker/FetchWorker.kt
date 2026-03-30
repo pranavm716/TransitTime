@@ -31,12 +31,20 @@ class FetchWorker(
                 handler.loadStaticData(context)
                 val stopIds = agencyConfigs.map { it.stopId }.toSet()
                 val departures = handler.fetchArrivals(stopIds, fetchedAt)
-                departures.groupBy { it.stopId }.forEach { (stopId, stopDepartures) ->
+                val departuresByStop = departures.groupBy { it.stopId }
+
+                for (stopId in stopIds) {
+                    val stopDepartures = departuresByStop[stopId] ?: emptyList()
+                    // Delete stale scheduled entries before upsert
+                    departureDao.deleteScheduledDeparturesForStop(stopId)
+
                     if (stopDepartures.isNotEmpty()) {
+                        // Also clear all existing departures for this stop to ensure freshness
                         departureDao.deleteDeparturesForStop(stopId)
                         departureDao.upsertDepartures(stopDepartures)
                     }
                 }
+
                 for (config in agencyConfigs) {
                     configDao.upsertConfig(config.copy(lastFetchedAt = fetchedAt))
                 }
