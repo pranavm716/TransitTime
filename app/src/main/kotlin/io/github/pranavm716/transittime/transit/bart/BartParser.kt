@@ -215,6 +215,8 @@ object BartParser {
                         arrivalTimestamp = arrivalTimestamp,
                         departureTimestamp = departureTimestamp,
                         isTerminalStop = (stationId == terminalStationId),
+                        isScheduled = false,
+                        tripId = null,
                         fetchedAt = fetchedAt
                     )
                 )

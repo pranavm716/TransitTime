@@ -25,7 +25,7 @@ class Converters {
     fun toDisplayMode(value: String): DisplayMode = DisplayMode.valueOf(value)
 }
 
-@Database(entities = [Departure::class, WidgetConfig::class], version = 3, exportSchema = false)
+@Database(entities = [Departure::class, WidgetConfig::class], version = 4, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class TransitDatabase : RoomDatabase() {
     abstract fun departureDao(): DepartureDao

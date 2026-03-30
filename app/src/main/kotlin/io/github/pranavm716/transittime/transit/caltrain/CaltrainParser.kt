@@ -44,7 +44,7 @@ fun mergeWithTimetable(
         if (needed <= 0) continue
 
         val rtTripIds = rtByKey[key]
-            ?.map { it.id.substringAfterLast('|', "") }
+            ?.mapNotNull { it.tripId }
             ?.toSet()
             ?: emptySet()
 
@@ -55,7 +55,7 @@ fun mergeWithTimetable(
             if (!isDuplicate) {
                 result.add(
                     Departure(
-                        id = "${stopId}_${dep.routeName}_${dep.headsign}_${dep.departureTimestamp}_sched",
+                        id = "${stopId}_${dep.routeName}_${dep.headsign}_${dep.departureTimestamp}",
                         stopId = stopId,
                         routeName = dep.routeName,
                         headsign = dep.headsign,
@@ -63,6 +63,8 @@ fun mergeWithTimetable(
                         arrivalTimestamp = null,
                         departureTimestamp = dep.departureTimestamp,
                         isTerminalStop = (stopId == tripTerminals[dep.tripId]),
+                        isScheduled = true,
+                        tripId = dep.tripId,
                         fetchedAt = fetchedAt
                     )
                 )
@@ -450,7 +452,7 @@ object CaltrainParser {
 
                 departures.add(
                     Departure(
-                        id = "${parentId}_${routeName}_${headsign}_${arrivalTimestamp ?: departureTimestamp}|${tripId}",
+                        id = "${parentId}_${routeName}_${headsign}_${arrivalTimestamp ?: departureTimestamp}",
                         stopId = parentId,
                         routeName = routeName,
                         headsign = headsign,
@@ -458,6 +460,8 @@ object CaltrainParser {
                         arrivalTimestamp = arrivalTimestamp,
                         departureTimestamp = departureTimestamp,
                         isTerminalStop = (parentId == tripTerminals[tripId]),
+                        isScheduled = false,
+                        tripId = tripId,
                         fetchedAt = fetchedAt
                     )
                 )

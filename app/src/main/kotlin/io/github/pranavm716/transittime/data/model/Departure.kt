@@ -13,16 +13,17 @@ data class Departure(
     val arrivalTimestamp: Long?,      // null if not provided by API
     val departureTimestamp: Long?,    // null if not provided by API
     val isTerminalStop: Boolean,
+    val isScheduled: Boolean,
+    val tripId: String?,
     val fetchedAt: Long
 ) {
     fun getDisplayTime(now: Long): String {
-        val isSched = id.endsWith("_sched")
         val millisToArrival = arrivalTimestamp?.minus(now)
         val millisToDeparture = departureTimestamp?.minus(now)
         val millisToDisplay = millisToDeparture ?: millisToArrival ?: return ""
 
         // Scheduled departures always show Xmin — never Arriving or Leaving
-        if (!isSched) {
+        if (!isScheduled) {
             // Leaving — terminal stop about to depart
             if (isTerminalStop && millisToDeparture != null && millisToDeparture in 0..60_000) {
                 return "Leaving"

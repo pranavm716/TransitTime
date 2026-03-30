@@ -235,7 +235,7 @@ class TransitWidget : AppWidgetProvider() {
             }
             for (i in 0 until maxArrivals) {
                 val text = times.getOrNull(i) ?: "—"
-                val isScheduled = departures.getOrNull(i)?.id?.endsWith("_sched") == true
+                val isScheduled = departures.getOrNull(i)?.isScheduled == true
                 val color = when (text) {
                     "Leaving" -> 0xFFdc3545.toInt()
                     "Arriving" -> 0xFF28a745.toInt()
