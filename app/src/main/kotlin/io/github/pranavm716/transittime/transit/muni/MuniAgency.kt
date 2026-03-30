@@ -33,7 +33,6 @@ object MuniAgency : TransitAgency {
 
     override fun getIconText(routeName: String): String = routeName.uppercase()
 
-    override fun getDisplayTime(departure: Departure, now: Long): String = ""
 }
 
 private fun muniGetStyle(routeName: String): RouteStyle {

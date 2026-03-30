@@ -185,10 +185,7 @@ class TransitWidget : AppWidgetProvider() {
             }
 
             val allTimes = grouped.map { departures ->
-                val handler = AgencyRegistry.get(departures.first().agency)
-                departures.map { departure ->
-                    handler.getDisplayTime(departure, now)
-                }
+                departures.map { departure -> departure.getDisplayTime(now) }
             }
             val globalMaxTimeLen = allTimes.maxOfOrNull { times ->
                 (0 until config.maxArrivals).maxOfOrNull { i ->

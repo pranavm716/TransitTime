@@ -51,7 +51,6 @@ object CaltrainAgency : TransitAgency {
 
     override fun getIconText(routeName: String): String = caltrainGetIconText(routeName)
 
-    override fun getDisplayTime(departure: Departure, now: Long): String = ""
 }
 
 private val DARK_TEXT = "#222222".toColorInt()
