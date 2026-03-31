@@ -23,7 +23,8 @@ data class Departure(
     fun getDisplayTime(
         now: Long,
         displayMode: DisplayMode = DisplayMode.RELATIVE,
-        hybridThresholdMinutes: Int = 60
+        hybridThresholdMinutes: Int = 60,
+        arrivingWindowMillis: Long = 30_000
     ): String {
         val millisToArrival = arrivalTimestamp?.minus(now)
         val millisToDeparture = departureTimestamp?.minus(now)
@@ -44,14 +45,14 @@ data class Departure(
                 return "Leaving"
             }
 
-            // Arriving — train less than 1 minute away, has arrival data, not an origin stop
-            if (!isOriginStop && millisToArrival != null && millisToArrival in 1..59_999) {
+            // Arriving — train within arriving window, has arrival data, not an origin stop
+            if (!isOriginStop && millisToArrival != null && millisToArrival in 1..arrivingWindowMillis) {
                 return "Arriving"
             }
         }
 
         // Xmin or absolute time depending on display mode
-        val minutes = ((millisToDisplay + 59_999) / 60_000).toInt()
+        val minutes = maxOf(1, (millisToDisplay / 60_000).toInt())
         val relativeTime = "${minutes}min"
         val absoluteTime = SimpleDateFormat("h:mma", Locale.getDefault())
             .format(Date(departureTimestamp ?: arrivalTimestamp!!))
