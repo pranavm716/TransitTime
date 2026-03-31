@@ -516,7 +516,7 @@ object CaltrainParser {
                         departureTimestamp = departureTimestamp,
                         isOriginStop = isOrigin,
                         isScheduled = false,
-                        delaySeconds = null,
+                        delaySeconds = stu.departure.delay,
                         tripId = tripId,
                         fetchedAt = fetchedAt
                     )
