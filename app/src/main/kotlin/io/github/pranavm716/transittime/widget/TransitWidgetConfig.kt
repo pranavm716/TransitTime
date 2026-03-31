@@ -22,6 +22,8 @@ import android.widget.RadioGroup
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -116,6 +118,29 @@ class TransitWidgetConfig : AppCompatActivity() {
         findViewById<TextView>(R.id.tvAbsoluteDesc).setOnClickListener { rbAbsolute.isChecked = true }
         llHybridThresholdRow.setOnClickListener { rbHybrid.isChecked = true }
         etHybridThreshold.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) rbHybrid.isChecked = true }
+
+        val tvNoDelayDesc = findViewById<TextView>(R.id.tvNoDelayDesc)
+        val noDelayText = getString(R.string.display_no_delay_desc)
+        val spannable = SpannableString(noDelayText)
+        val colorWord = "same color"
+        val start = noDelayText.indexOf(colorWord)
+        if (start >= 0) {
+            spannable.setSpan(ForegroundColorSpan(TransitWidget.COLOR_ON_TIME), start, start + colorWord.length, 0)
+        }
+        tvNoDelayDesc.text = spannable
+        tvNoDelayDesc.setOnClickListener { rbNoDelay.isChecked = true }
+        val tvFlatDelayDesc = findViewById<TextView>(R.id.tvFlatDelayDesc)
+        val flatDelayText = getString(R.string.display_flat_delay_desc)
+        val flatSpannable = SpannableString(flatDelayText)
+        listOf("Early" to TransitWidget.COLOR_EARLY, "on time" to TransitWidget.COLOR_ON_TIME, "late" to TransitWidget.COLOR_LATE).forEach { (word, color) ->
+            val s = flatDelayText.indexOf(word)
+            if (s >= 0) flatSpannable.setSpan(ForegroundColorSpan(color), s, s + word.length, 0)
+        }
+        tvFlatDelayDesc.text = flatSpannable
+        tvFlatDelayDesc.setOnClickListener { rbFlatDelay.isChecked = true }
+        findViewById<TextView>(R.id.tvGradientDelayDesc).setOnClickListener {
+            findViewById<RadioButton>(R.id.rbGradientDelay).isChecked = true
+        }
 
         resultsAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
         lvResults.adapter = resultsAdapter

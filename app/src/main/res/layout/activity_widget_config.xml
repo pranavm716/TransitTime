@@ -315,6 +315,15 @@
                     android:paddingVertical="10dp"
                     android:buttonTint="@color/radio_button_tint" />
 
+                <TextView
+                    android:id="@+id/tvNoDelayDesc"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/display_no_delay_desc"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:paddingStart="32dp"
+                    android:paddingBottom="12dp" />
 
                 <RadioButton
                     android:id="@+id/rbFlatDelay"
@@ -325,6 +334,16 @@
                     android:paddingVertical="10dp"
                     android:buttonTint="@color/radio_button_tint" />
 
+                <TextView
+                    android:id="@+id/tvFlatDelayDesc"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/display_flat_delay_desc"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:paddingStart="32dp"
+                    android:paddingBottom="12dp" />
+
                 <RadioButton
                     android:id="@+id/rbGradientDelay"
                     android:layout_width="match_parent"
@@ -334,6 +353,16 @@
                     android:paddingVertical="10dp"
                     android:checked="true"
                     android:buttonTint="@color/radio_button_tint" />
+
+                <TextView
+                    android:id="@+id/tvGradientDelayDesc"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/display_gradient_delay_desc"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:paddingStart="32dp"
+                    android:paddingBottom="12dp" />
 
             </RadioGroup>
 
