@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 class TransitWidget : AppWidgetProvider() {
 
@@ -244,17 +245,48 @@ class TransitWidget : AppWidgetProvider() {
             }
             for (i in 0 until maxArrivals) {
                 val text = times.getOrNull(i) ?: "—"
-                val isScheduled = departures.getOrNull(i)?.isScheduled == true
-                val color = when (text) {
-                    "Leaving" -> 0xFFdc3545.toInt()
-                    "Arriving" -> 0xFF28a745.toInt()
-                    "", "—" -> 0xFFBDC1C7.toInt()
-                    else -> if (isScheduled) 0xFF9E8400.toInt() else 0xFFFFD700.toInt()
-                }
+                val departure = departures.getOrNull(i)
+                val color = if (departure != null) delayColor(departure) else 0xFFBDC1C7.toInt()
                 rowViews.setTextViewText(timeCells[i], text)
                 rowViews.setTextColor(timeCells[i], color)
             }
             return rowViews
+        }
+
+        private fun delayColor(
+            departure: Departure,
+            onTimeColor: Int = 0xFFFFC107.toInt(),
+            lateColor: Int = 0xFFdc3545.toInt(),
+            earlyColor: Int = 0xFF28a745.toInt(),
+            lateDeadZoneSeconds: Int = 60,
+            earlyDeadZoneSeconds: Int = 60,
+            lateCapSeconds: Int = 300,
+            earlyCapSeconds: Int = 180,
+        ): Int {
+            if (departure.isScheduled) {
+                val dim = 0.62f
+                val r = ((onTimeColor shr 16 and 0xFF) * dim).roundToInt()
+                val g = ((onTimeColor shr 8 and 0xFF) * dim).roundToInt()
+                val b = ((onTimeColor and 0xFF) * dim).roundToInt()
+                return 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
+            }
+            val delay = departure.delaySeconds
+            if (delay == null || delay in -earlyDeadZoneSeconds..lateDeadZoneSeconds) return onTimeColor
+
+            fun lerp(from: Int, to: Int, t: Float): Int {
+                val r = ((from shr 16 and 0xFF) + ((to shr 16 and 0xFF) - (from shr 16 and 0xFF)) * t).roundToInt()
+                val g = ((from shr 8 and 0xFF) + ((to shr 8 and 0xFF) - (from shr 8 and 0xFF)) * t).roundToInt()
+                val b = ((from and 0xFF) + ((to and 0xFF) - (from and 0xFF)) * t).roundToInt()
+                return 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
+            }
+
+            return if (delay > lateDeadZoneSeconds) {
+                val t = ((delay - lateDeadZoneSeconds).toFloat() / (lateCapSeconds - lateDeadZoneSeconds)).coerceIn(0f, 1f)
+                lerp(onTimeColor, lateColor, t)
+            } else {
+                val t = ((-delay - earlyDeadZoneSeconds).toFloat() / (earlyCapSeconds - earlyDeadZoneSeconds)).coerceIn(0f, 1f)
+                lerp(onTimeColor, earlyColor, t)
+            }
         }
 
         private fun applyOverflow(views: RemoteViews, overflow: Int) {
