@@ -217,6 +217,7 @@ object MuniParser {
                 if (platformIds.contains(destinationRef)) continue
 
                 val expectedArrivalStr = call.optString("ExpectedArrivalTime", "")
+                val aimedArrivalStr = call.optString("AimedArrivalTime", "")
                 val expectedDepartureStr = call.optString("ExpectedDepartureTime", "")
 
                 val arrivalTimestamp = if (expectedArrivalStr.isNotEmpty() && expectedArrivalStr != "null") {
@@ -229,6 +230,12 @@ object MuniParser {
 
                 if (arrivalTimestamp == null && departureTimestamp == null) continue
 
+                val delaySeconds = try {
+                    val aimed = isoFormat.parse(aimedArrivalStr)?.time
+                    val expected = isoFormat.parse(expectedArrivalStr)?.time
+                    if (aimed != null && expected != null) ((expected - aimed) / 1000).toInt() else null
+                } catch (_: Exception) { null }
+
                 val lineRef = journey.optString("LineRef", "")
                     .takeIf { it.isNotEmpty() } ?: continue
                 val headsign = call.optString("DestinationDisplay", "")
@@ -237,7 +244,7 @@ object MuniParser {
                 // Robust origin detection: check if the vehicle's origin matches any platform of our logical stop,
                 // or if it lacks an expected arrival time.
                 val originRef = journey.optString("OriginRef")
-                val isOrigin = platformIds.contains(originRef) || 
+                val isOrigin = platformIds.contains(originRef) ||
                         expectedArrivalStr.isEmpty() || expectedArrivalStr == "null"
 
                 departures.add(
@@ -251,7 +258,7 @@ object MuniParser {
                         departureTimestamp = departureTimestamp,
                         isOriginStop = isOrigin,
                         isScheduled = false,
-                        delaySeconds = null,
+                        delaySeconds = delaySeconds,
                         tripId = null,
                         fetchedAt = fetchedAt
                     )
