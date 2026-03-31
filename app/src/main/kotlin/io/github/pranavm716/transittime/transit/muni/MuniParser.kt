@@ -251,6 +251,7 @@ object MuniParser {
                         departureTimestamp = departureTimestamp,
                         isOriginStop = isOrigin,
                         isScheduled = false,
+                        delaySeconds = null,
                         tripId = null,
                         fetchedAt = fetchedAt
                     )

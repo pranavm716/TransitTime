@@ -232,6 +232,7 @@ object BartParser {
                         departureTimestamp = departureTimestamp,
                         isOriginStop = (stationId == originStationId),
                         isScheduled = false,
+                        delaySeconds = stu.departure.delay,
                         tripId = null,
                         fetchedAt = fetchedAt
                     )

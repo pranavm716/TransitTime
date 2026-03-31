@@ -17,6 +17,7 @@ data class Departure(
     val departureTimestamp: Long?,    // null if not provided by API
     val isOriginStop: Boolean = false,
     val isScheduled: Boolean,
+    val delaySeconds: Int? = null,
     val tripId: String?,
     val fetchedAt: Long
 ) {
