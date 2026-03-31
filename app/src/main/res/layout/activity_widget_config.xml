@@ -332,6 +332,7 @@
                     android:text="@string/display_flat_delay"
                     android:textColor="@color/text_radio"
                     android:paddingVertical="10dp"
+                    android:checked="true"
                     android:buttonTint="@color/radio_button_tint" />
 
                 <TextView
@@ -351,7 +352,6 @@
                     android:text="@string/display_gradient_delay"
                     android:textColor="@color/text_radio"
                     android:paddingVertical="10dp"
-                    android:checked="true"
                     android:buttonTint="@color/radio_button_tint" />
 
                 <TextView
@@ -362,7 +362,14 @@
                     android:textColor="@color/text_secondary"
                     android:textSize="12sp"
                     android:paddingStart="32dp"
-                    android:paddingBottom="12dp" />
+                    android:paddingBottom="10dp" />
+
+                <io.github.pranavm716.transittime.widget.DelayGradientBarView
+                    android:id="@+id/gradientBar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="32dp"
+                    android:layout_marginBottom="12dp" />
 
             </RadioGroup>
 

@@ -75,6 +75,13 @@ class TransitWidget : AppWidgetProvider() {
         val COLOR_LATE    = 0xFFdc3545.toInt()
         val COLOR_EARLY   = 0xFF28a745.toInt()
 
+        fun lerp(from: Int, to: Int, t: Float): Int {
+            val r = ((from shr 16 and 0xFF) + ((to shr 16 and 0xFF) - (from shr 16 and 0xFF)) * t).roundToInt()
+            val g = ((from shr 8 and 0xFF) + ((to shr 8 and 0xFF) - (from shr 8 and 0xFF)) * t).roundToInt()
+            val b = ((from and 0xFF) + ((to and 0xFF) - (from and 0xFF)) * t).roundToInt()
+            return 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
+        }
+
         private const val HEADER_DP = 44
         private const val ROW_DP = 40
         private const val PADDING_DP = 30
@@ -292,13 +299,6 @@ class TransitWidget : AppWidgetProvider() {
             }
 
             // GRADIENT
-            fun lerp(from: Int, to: Int, t: Float): Int {
-                val r = ((from shr 16 and 0xFF) + ((to shr 16 and 0xFF) - (from shr 16 and 0xFF)) * t).roundToInt()
-                val g = ((from shr 8 and 0xFF) + ((to shr 8 and 0xFF) - (from shr 8 and 0xFF)) * t).roundToInt()
-                val b = ((from and 0xFF) + ((to and 0xFF) - (from and 0xFF)) * t).roundToInt()
-                return 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
-            }
-
             return if (delay > lateDeadZoneSeconds) {
                 val t = ((delay - lateDeadZoneSeconds).toFloat() / (lateCapSeconds - lateDeadZoneSeconds)).coerceIn(0f, 1f)
                 lerp(onTimeColor, lateColor, t)

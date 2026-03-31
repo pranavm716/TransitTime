@@ -138,9 +138,9 @@ class TransitWidgetConfig : AppCompatActivity() {
         }
         tvFlatDelayDesc.text = flatSpannable
         tvFlatDelayDesc.setOnClickListener { rbFlatDelay.isChecked = true }
-        findViewById<TextView>(R.id.tvGradientDelayDesc).setOnClickListener {
-            findViewById<RadioButton>(R.id.rbGradientDelay).isChecked = true
-        }
+        val rbGradientDelay = findViewById<RadioButton>(R.id.rbGradientDelay)
+        findViewById<TextView>(R.id.tvGradientDelayDesc).setOnClickListener { rbGradientDelay.isChecked = true }
+        findViewById<View>(R.id.gradientBar).setOnClickListener { rbGradientDelay.isChecked = true }
 
         resultsAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
         lvResults.adapter = resultsAdapter
