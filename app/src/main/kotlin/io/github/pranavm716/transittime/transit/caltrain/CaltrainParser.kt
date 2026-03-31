@@ -5,7 +5,7 @@ import com.google.transit.realtime.GtfsRealtime
 import com.google.transit.realtime.GtfsRealtime.FeedMessage
 import io.github.pranavm716.transittime.BuildConfig
 import io.github.pranavm716.transittime.data.model.Agency
-import io.github.pranavm716.transittime.data.model.Arrival
+import io.github.pranavm716.transittime.data.model.Departure
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.InputStream
@@ -22,16 +22,19 @@ data class ScheduledDeparture(
 )
 
 fun mergeWithTimetable(
-    rtArrivals: List<Arrival>,
+    rtDepartures: List<Departure>,
     scheduledDepartures: List<ScheduledDeparture>,
     maxArrivals: Int,
     now: Long,
     stopId: String,
-    fetchedAt: Long
-): List<Arrival> {
-    val result = rtArrivals.toMutableList()
+    fetchedAt: Long,
+    tripTerminals: Map<String, String>,
+    tripOrigins: Map<String, String> = emptyMap(),
+    allRtTripIds: Set<String> = emptySet()
+): List<Departure> {
+    val result = rtDepartures.toMutableList()
 
-    val rtByKey = rtArrivals.groupBy { "${it.routeName}|${it.headsign}" }
+    val rtByKey = rtDepartures.groupBy { "${it.routeName}|${it.headsign}" }
 
     val schedByKey = scheduledDepartures
         .filter { it.departureTimestamp > now }
@@ -42,34 +45,56 @@ fun mergeWithTimetable(
         val needed = maxArrivals - rtCount
         if (needed <= 0) continue
 
-        val rtTripIds = rtByKey[key]
-            ?.map { it.id.substringAfterLast('|', "") }
-            ?.toSet()
-            ?: emptySet()
-
         var filled = 0
         for (dep in scheduled.sortedBy { it.departureTimestamp }) {
             if (filled >= needed) break
-            val isDuplicate = dep.tripId in rtTripIds
-            if (!isDuplicate) {
-                result.add(
-                    Arrival(
-                        id = "${stopId}_${dep.routeName}_${dep.headsign}_${dep.departureTimestamp}_sched",
-                        stopId = stopId,
-                        routeName = dep.routeName,
-                        headsign = dep.headsign,
-                        agency = Agency.CALTRAIN,
-                        arrivalTimestamp = dep.departureTimestamp,
-                        departureTimestamp = dep.departureTimestamp,
-                        fetchedAt = fetchedAt
-                    )
+            if (dep.tripId in allRtTripIds) continue
+            if (dep.departureTimestamp <= now) continue
+
+            // Robust filtering: skip if this stop is the terminal for the trip
+            if (stopId == tripTerminals[dep.tripId]) continue
+
+            val isOrigin = (stopId == tripOrigins[dep.tripId])
+
+            result.add(
+                Departure(
+                    id = "${stopId}_${dep.routeName}_${dep.headsign}_${dep.departureTimestamp}",
+                    stopId = stopId,
+                    routeName = dep.routeName,
+                    headsign = dep.headsign,
+                    agency = Agency.CALTRAIN,
+                    arrivalTimestamp = null,
+                    departureTimestamp = dep.departureTimestamp,
+                    isOriginStop = isOrigin,
+                    isScheduled = true,
+                    tripId = dep.tripId,
+                    fetchedAt = fetchedAt
                 )
-                filled++
-            }
+            )
+            filled++
         }
     }
 
+    // Discard scheduled entries that fall before the earliest RT entry for their group.
+    // Guards against ghosts from trains that departed early and dropped off the RT feed.
     return result
+        .groupBy { "${it.routeName}|${it.headsign}" }
+        .flatMap { (_, groupDepartures) ->
+            val firstRtTimestamp = groupDepartures
+                .filter { !it.isScheduled }
+                .mapNotNull { it.departureTimestamp }
+                .minOrNull()
+
+            if (firstRtTimestamp == null) {
+                groupDepartures
+            } else {
+                groupDepartures.filter { departure ->
+                    !departure.isScheduled ||
+                    (departure.departureTimestamp ?: Long.MAX_VALUE) >= firstRtTimestamp
+                }
+            }
+        }
+        .sortedBy { it.departureTimestamp ?: it.arrivalTimestamp ?: Long.MAX_VALUE }
 }
 
 object CaltrainParser {
@@ -88,6 +113,12 @@ object CaltrainParser {
 
     // tripId → serviceId
     private val tripServiceId = mutableMapOf<String, String>()
+
+    // tripId → terminal parentStationId
+    private val tripTerminals = mutableMapOf<String, String>()
+
+    // tripId → origin parentStationId
+    private val tripOrigins = mutableMapOf<String, String>()
 
     // parentStationId → routeName → Set<headsign>  (built from stop_times.txt)
     private val stationRoutes = mutableMapOf<String, MutableMap<String, MutableSet<String>>>()
@@ -237,11 +268,47 @@ object CaltrainParser {
         val tripIdx = headers.indexOf("trip_id")
         val stopIdx = headers.indexOf("stop_id")
         val depIdx = headers.indexOf("departure_time")
+        val seqIdx = headers.indexOf("stop_sequence")
         if (tripIdx == -1 || stopIdx == -1 || depIdx == -1) return
 
-        // Track recorded (parentId, tripId) pairs to avoid double-counting from multiple platforms
-        val recorded = mutableSetOf<String>()
+        // Pass 1: find terminal/origin platform IDs for each trip
+        val tripMaxSeq = mutableMapOf<String, Int>()
+        val tripTerminalPlatform = mutableMapOf<String, String>()
+        val tripMinSeq = mutableMapOf<String, Int>()
+        val tripOriginPlatform = mutableMapOf<String, String>()
 
+        for (line in lines.drop(1)) {
+            if (line.isBlank()) continue
+            val cols = parseCsvLine(line)
+            if (cols.size <= maxOf(tripIdx, stopIdx, depIdx)) continue
+            val tripId = cols[tripIdx]
+            val platformId = cols[stopIdx]
+            
+            if (seqIdx != -1 && cols.size > seqIdx) {
+                val seq = cols[seqIdx].toIntOrNull()
+                if (seq != null) {
+                    if (seq > (tripMaxSeq[tripId] ?: -1)) {
+                        tripMaxSeq[tripId] = seq
+                        tripTerminalPlatform[tripId] = platformId
+                    }
+                    if (seq < (tripMinSeq[tripId] ?: Int.MAX_VALUE)) {
+                        tripMinSeq[tripId] = seq
+                        tripOriginPlatform[tripId] = platformId
+                    }
+                }
+            }
+        }
+
+        // Resolve terminal/origin platform IDs to their parent station IDs
+        for ((tripId, platformId) in tripTerminalPlatform) {
+            tripTerminals[tripId] = platformToParent[platformId] ?: platformId
+        }
+        for ((tripId, platformId) in tripOriginPlatform) {
+            tripOrigins[tripId] = platformToParent[platformId] ?: platformId
+        }
+
+        // Pass 2: build stationRoutes and stationDepartures, skipping terminal stops
+        val recorded = mutableSetOf<String>()
         for (line in lines.drop(1)) {
             if (line.isBlank()) continue
             val cols = parseCsvLine(line)
@@ -252,10 +319,12 @@ object CaltrainParser {
 
             val parentId = platformToParent[platformId] ?: continue
             if (parentId in EXCLUDED_STATIONS) continue
+            
+            // SKIP if this stop is the terminal for the trip
+            if (parentId == tripTerminals[tripId]) continue
+
             val routeName = tripToRoute[tripId] ?: continue
             val headsign = tripToHeadsign[tripId] ?: continue
-            val stationDisplayName = parentStations[parentId] ?: continue
-            if (headsign == stationDisplayName) continue // skip self-terminating headsigns
 
             // Build the route filter map (deduplicated by route+headsign naturally via Set)
             stationRoutes
@@ -334,6 +403,10 @@ object CaltrainParser {
 
     fun getStopNames(): Map<String, String> = parentStations.toMap()
 
+    fun getTripTerminals(): Map<String, String> = tripTerminals.toMap()
+
+    fun getTripOrigins(): Map<String, String> = tripOrigins.toMap()
+
     fun getRoutesForStation(stationId: String): Map<String, List<String>> =
         stationRoutes[stationId]?.mapValues { it.value.toList().sorted() } ?: emptyMap()
 
@@ -372,7 +445,6 @@ object CaltrainParser {
         stationId: String,
         activeServices: Set<String>
     ): List<ScheduledDeparture> {
-        val stationDisplayName = parentStations[stationId] ?: return emptyList()
         val departures = stationDepartures[stationId] ?: return emptyList()
 
         val midnightToday = LocalDate.now(PT).atStartOfDay(PT).toEpochSecond()
@@ -383,7 +455,10 @@ object CaltrainParser {
             if (serviceId !in activeServices) continue
             val routeName = tripToRoute[tripId] ?: continue
             val headsign = tripToHeadsign[tripId] ?: continue
-            if (headsign == stationDisplayName) continue
+
+            // Robust filtering: skip if this stop is the terminal for the trip
+            if (stationId == tripTerminals[tripId]) continue
+
             val departureTimestamp = (midnightToday + departureSeconds) * 1000L
             result.add(ScheduledDeparture(routeName, headsign, departureTimestamp, tripId))
         }
@@ -391,9 +466,9 @@ object CaltrainParser {
         return result
     }
 
-    fun parseRtFeed(feedBytes: ByteArray, fetchedAt: Long): List<Arrival> {
+    fun parseRtFeed(feedBytes: ByteArray, fetchedAt: Long): List<Departure> {
         val feed = FeedMessage.parseFrom(feedBytes)
-        val arrivals = mutableListOf<Arrival>()
+        val departures = mutableListOf<Departure>()
 
         for (entity in feed.entityList) {
             if (!entity.hasTripUpdate()) continue
@@ -406,6 +481,8 @@ object CaltrainParser {
             val tripId = tu.trip.tripId
             val routeName = tripToRoute[tripId] ?: continue
             val headsign = tripToHeadsign[tripId] ?: continue
+            val terminalStationId = tripTerminals[tripId]
+            val originStationId = tripOrigins[tripId]
 
             for (stu in tu.stopTimeUpdateList) {
                 if (stu.scheduleRelationship ==
@@ -414,40 +491,52 @@ object CaltrainParser {
 
                 val parentId = platformToParent[stu.stopId] ?: continue
 
-                val arrivalTimestamp = when {
+                // Robust filtering: skip if this stop is the terminal for this trip
+                if (parentId == terminalStationId) continue
+
+                val arrivalTimestamp: Long? = when {
                     stu.hasArrival() -> stu.arrival.time * 1000L
                     stu.hasDeparture() -> stu.departure.time * 1000L
-                    else -> continue
+                    else -> null
                 }
-                val departureTimestamp = if (stu.hasDeparture()) stu.departure.time * 1000L
-                else arrivalTimestamp + 60_000L
+                val departureTimestamp: Long? = if (stu.hasDeparture()) stu.departure.time * 1000L else null
+                if (arrivalTimestamp == null && departureTimestamp == null) continue
 
-                arrivals.add(
-                    Arrival(
-                        id = "${parentId}_${routeName}_${headsign}_${arrivalTimestamp}|${tripId}",
+                val isOrigin = (parentId == originStationId)
+                
+                departures.add(
+                    Departure(
+                        id = "${parentId}_${routeName}_${headsign}_${arrivalTimestamp ?: departureTimestamp}",
                         stopId = parentId,
                         routeName = routeName,
                         headsign = headsign,
                         agency = Agency.CALTRAIN,
                         arrivalTimestamp = arrivalTimestamp,
                         departureTimestamp = departureTimestamp,
+                        isOriginStop = isOrigin,
+                        isScheduled = false,
+                        tripId = tripId,
                         fetchedAt = fetchedAt
                     )
                 )
             }
         }
 
-        // Deduplicate arrivals within 30 seconds for same stop+route+headsign
-        return arrivals
-            .sortedBy { it.arrivalTimestamp }
-            .fold(mutableListOf()) { acc, arrival ->
+        // Deduplicate departures within 30 seconds for same stop+route+headsign
+        return departures
+            .sortedBy { it.arrivalTimestamp ?: it.departureTimestamp ?: Long.MAX_VALUE }
+            .fold(mutableListOf()) { acc, departure ->
                 val duplicate = acc.any { existing ->
-                    existing.stopId == arrival.stopId &&
-                            existing.routeName == arrival.routeName &&
-                            existing.headsign == arrival.headsign &&
-                            kotlin.math.abs(existing.arrivalTimestamp - arrival.arrivalTimestamp) < 30_000L
+                    existing.stopId == departure.stopId &&
+                            existing.routeName == departure.routeName &&
+                            existing.headsign == departure.headsign &&
+                            run {
+                                val existingTs = existing.arrivalTimestamp ?: existing.departureTimestamp ?: Long.MIN_VALUE
+                                val currentTs = departure.arrivalTimestamp ?: departure.departureTimestamp ?: Long.MIN_VALUE
+                                kotlin.math.abs(existingTs - currentTs) < 30_000L
+                            }
                 }
-                if (!duplicate) acc.add(arrival)
+                if (!duplicate) acc.add(departure)
                 acc
             }
     }

@@ -280,9 +280,20 @@ class TransitWidgetConfig : AppCompatActivity() {
             )
 
             CoroutineScope(Dispatchers.IO).launch {
-                TransitDatabase.getInstance(applicationContext)
-                    .widgetConfigDao()
-                    .upsertConfig(config)
+                val db = TransitDatabase.getInstance(applicationContext)
+                val configDao = db.widgetConfigDao()
+                val departureDao = db.departureDao()
+
+                val oldStopId = configDao.getConfig(widgetId)?.stopId
+                if (oldStopId != null && oldStopId != stopId) {
+                    val remaining = configDao.getAllConfigs()
+                        .filter { it.stopId == oldStopId && it.widgetId != widgetId }
+                    if (remaining.isEmpty()) {
+                        departureDao.deleteDeparturesForStop(oldStopId)
+                    }
+                }
+
+                configDao.upsertConfig(config)
 
                 withContext(Dispatchers.Main) {
                     TransitWidget.triggerFetch(applicationContext)

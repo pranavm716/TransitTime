@@ -3,7 +3,7 @@ package io.github.pranavm716.transittime.transit.muni
 import android.content.Context
 import io.github.pranavm716.transittime.BuildConfig
 import io.github.pranavm716.transittime.data.model.Agency
-import io.github.pranavm716.transittime.data.model.Arrival
+import io.github.pranavm716.transittime.data.model.Departure
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
@@ -66,7 +66,7 @@ object MuniParser {
         }
         if (busStopDisplayNames.isEmpty()) {
             android.os.Handler(android.os.Looper.getMainLooper()).post {
-                android.widget.Toast.makeText(context, "Muni stop data loaded but empty — check 511 API key", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(context, "Muni data loaded but empty — check 511 API key", android.widget.Toast.LENGTH_LONG).show()
             }
             return
         }
@@ -161,9 +161,9 @@ object MuniParser {
     suspend fun fetchAndParseStop(
         stopId: String,
         fetchedAt: Long
-    ): List<Arrival> {
+    ): List<Departure> {
         val platformIds = getStopIdsForStop(stopId)
-        val allArrivals = mutableListOf<Arrival>()
+        val allDepartures = mutableListOf<Departure>()
 
         for (platformId in platformIds) {
             try {
@@ -171,28 +171,32 @@ object MuniParser {
                     apiKey = BuildConfig.MUNI_API_KEY,
                     stopCode = platformId
                 )
-                allArrivals.addAll(parseStopMonitoring(responseBody.string(), stopId, fetchedAt))
+                allDepartures.addAll(parseStopMonitoring(responseBody.string(), stopId, fetchedAt))
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
 
-        // Deduplicate arrivals within 30 seconds for same route+headsign
-        return allArrivals
-            .sortedBy { it.arrivalTimestamp }
-            .fold(mutableListOf()) { acc, arrival ->
+        // Deduplicate departures within 30 seconds for same route+headsign
+        return allDepartures
+            .sortedBy { it.arrivalTimestamp ?: Long.MAX_VALUE }
+            .fold(mutableListOf()) { acc, departure ->
                 val duplicate = acc.any { existing ->
-                    existing.routeName == arrival.routeName &&
-                            existing.headsign == arrival.headsign &&
-                            kotlin.math.abs(existing.arrivalTimestamp - arrival.arrivalTimestamp) < 30_000L
+                    existing.routeName == departure.routeName &&
+                            existing.headsign == departure.headsign &&
+                            run {
+                                val existingTs = existing.arrivalTimestamp ?: Long.MIN_VALUE
+                                val currentTs = departure.arrivalTimestamp ?: Long.MIN_VALUE
+                                kotlin.math.abs(existingTs - currentTs) < 30_000L
+                            }
                 }
-                if (!duplicate) acc.add(arrival)
+                if (!duplicate) acc.add(departure)
                 acc
             }
     }
 
-    fun parseStopMonitoring(json: String, stopId: String, fetchedAt: Long): List<Arrival> {
-        val arrivals = mutableListOf<Arrival>()
+    fun parseStopMonitoring(json: String, stopId: String, fetchedAt: Long): List<Departure> {
+        val departures = mutableListOf<Departure>()
         try {
             val root = JSONObject(json)
             val delivery = root
@@ -200,33 +204,54 @@ object MuniParser {
                 .getJSONObject("StopMonitoringDelivery")
             val visits = delivery.optJSONArray("MonitoredStopVisit") ?: return emptyList()
 
+            val platformIds = getStopIdsForStop(stopId).toSet()
+
             for (i in 0 until visits.length()) {
-                val journey = visits.getJSONObject(i).getJSONObject("MonitoredVehicleJourney")
+                val visit = visits.getJSONObject(i)
+                val journey = visit.getJSONObject("MonitoredVehicleJourney")
                 val call = journey.getJSONObject("MonitoredCall")
 
-                val expectedArrival = call.optString("ExpectedArrivalTime", "")
-                    .takeIf { it.isNotEmpty() && it != "null" } ?: continue
+                val destinationRef = journey.optString("DestinationRef")
+                
+                // Robust filtering: check if the vehicle's destination matches any platform of our logical stop
+                if (platformIds.contains(destinationRef)) continue
 
-                val arrivalTimestamp = try {
-                    isoFormat.parse(expectedArrival)?.time ?: continue
-                } catch (_: Exception) {
-                    continue
-                }
+                val expectedArrivalStr = call.optString("ExpectedArrivalTime", "")
+                val expectedDepartureStr = call.optString("ExpectedDepartureTime", "")
+
+                val arrivalTimestamp = if (expectedArrivalStr.isNotEmpty() && expectedArrivalStr != "null") {
+                    try { isoFormat.parse(expectedArrivalStr)?.time } catch (_: Exception) { null }
+                } else null
+
+                val departureTimestamp = if (expectedDepartureStr.isNotEmpty() && expectedDepartureStr != "null") {
+                    try { isoFormat.parse(expectedDepartureStr)?.time } catch (_: Exception) { null }
+                } else null
+
+                if (arrivalTimestamp == null && departureTimestamp == null) continue
 
                 val lineRef = journey.optString("LineRef", "")
                     .takeIf { it.isNotEmpty() } ?: continue
                 val headsign = call.optString("DestinationDisplay", "")
                     .takeIf { it.isNotEmpty() } ?: continue
 
-                arrivals.add(
-                    Arrival(
-                        id = "${stopId}_${lineRef}_${arrivalTimestamp}",
+                // Robust origin detection: check if the vehicle's origin matches any platform of our logical stop,
+                // or if it lacks an expected arrival time.
+                val originRef = journey.optString("OriginRef")
+                val isOrigin = platformIds.contains(originRef) || 
+                        expectedArrivalStr.isEmpty() || expectedArrivalStr == "null"
+
+                departures.add(
+                    Departure(
+                        id = "${stopId}_${lineRef}_${arrivalTimestamp ?: departureTimestamp}",
                         stopId = stopId,
                         routeName = lineRef,
                         headsign = headsign,
                         agency = Agency.MUNI,
                         arrivalTimestamp = arrivalTimestamp,
-                        departureTimestamp = arrivalTimestamp,  // 511 doesn't provide departure
+                        departureTimestamp = departureTimestamp,
+                        isOriginStop = isOrigin,
+                        isScheduled = false,
+                        tripId = null,
                         fetchedAt = fetchedAt
                     )
                 )
@@ -234,10 +259,10 @@ object MuniParser {
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        return arrivals
+        return departures
     }
 
-    fun parseRoutesFromResponse(json: String): Map<String, List<String>> {
+    fun parseRoutesFromResponse(json: String, platformIds: Set<String>): Map<String, List<String>> {
         val result = mutableMapOf<String, MutableSet<String>>()
         try {
             val root = JSONObject(json)
@@ -249,10 +274,14 @@ object MuniParser {
             for (i in 0 until visits.length()) {
                 val journey = visits.getJSONObject(i)
                     .getJSONObject("MonitoredVehicleJourney")
-                val call = journey.getJSONObject("MonitoredCall")
+                
+                // Robust filtering: check if the vehicle's destination matches any platform of our logical stop
+                val destinationRef = journey.optString("DestinationRef")
+                if (platformIds.contains(destinationRef)) continue
+                
                 val lineRef = journey.optString("LineRef", "")
                     .takeIf { it.isNotEmpty() } ?: continue
-                val headsign = call.optString("DestinationDisplay", "")
+                val headsign = journey.getJSONObject("MonitoredCall").optString("DestinationDisplay", "")
                     .takeIf { it.isNotEmpty() } ?: continue
                 result.getOrPut(lineRef) { mutableSetOf() }.add(headsign)
             }
@@ -264,6 +293,7 @@ object MuniParser {
 
     suspend fun fetchRoutesForStop(stopId: String): Map<String, List<String>> {
         val platformIds = getStopIdsForStop(stopId)
+        val platformIdSet = platformIds.toSet()
         val combined = mutableMapOf<String, MutableSet<String>>()
 
         for (platformId in platformIds) {
@@ -272,7 +302,7 @@ object MuniParser {
                     apiKey = BuildConfig.MUNI_API_KEY,
                     stopCode = platformId
                 )
-                val routes = parseRoutesFromResponse(responseBody.string())
+                val routes = parseRoutesFromResponse(responseBody.string(), platformIdSet)
                 routes.forEach { (line, headsigns) ->
                     combined.getOrPut(line) { mutableSetOf() }.addAll(headsigns)
                 }

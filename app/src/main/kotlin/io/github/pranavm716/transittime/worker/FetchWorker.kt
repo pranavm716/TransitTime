@@ -16,8 +16,24 @@ class FetchWorker(
 
     override suspend fun doWork(): Result {
         val db = TransitDatabase.getInstance(context)
-        val arrivalDao = db.arrivalDao()
+        val departureDao = db.departureDao()
         val configDao = db.widgetConfigDao()
+
+        val manager = AppWidgetManager.getInstance(context)
+        val activeIds = manager.getAppWidgetIds(
+            ComponentName(context, TransitWidget::class.java)
+        ).toSet()
+
+        val allConfigs = configDao.getAllConfigs()
+        val staleConfigs = allConfigs.filter { it.widgetId !in activeIds }
+        if (staleConfigs.isNotEmpty()) {
+            val removedStopIds = staleConfigs.map { it.stopId }.toSet()
+            staleConfigs.forEach { configDao.deleteConfig(it.widgetId) }
+            removedStopIds.forEach { stopId ->
+                val remaining = configDao.getAllConfigs().filter { it.stopId == stopId }
+                if (remaining.isEmpty()) departureDao.deleteDeparturesForStop(stopId)
+            }
+        }
 
         val configs = configDao.getAllConfigs()
         if (configs.isEmpty()) return Result.success()
@@ -30,13 +46,21 @@ class FetchWorker(
             try {
                 handler.loadStaticData(context)
                 val stopIds = agencyConfigs.map { it.stopId }.toSet()
-                val arrivals = handler.fetchArrivals(stopIds, fetchedAt)
-                arrivals.groupBy { it.stopId }.forEach { (stopId, stopArrivals) ->
-                    if (stopArrivals.isNotEmpty()) {
-                        arrivalDao.deleteArrivalsForStop(stopId)
-                        arrivalDao.upsertArrivals(stopArrivals)
+                val departures = handler.fetchArrivals(stopIds, fetchedAt)
+                val departuresByStop = departures.groupBy { it.stopId }
+
+                for (stopId in stopIds) {
+                    val stopDepartures = departuresByStop[stopId] ?: emptyList()
+                    // Delete stale scheduled entries before upsert
+                    departureDao.deleteScheduledDeparturesForStop(stopId)
+
+                    if (stopDepartures.isNotEmpty()) {
+                        // Also clear all existing departures for this stop to ensure freshness
+                        departureDao.deleteDeparturesForStop(stopId)
+                        departureDao.upsertDepartures(stopDepartures)
                     }
                 }
+
                 for (config in agencyConfigs) {
                     configDao.upsertConfig(config.copy(lastFetchedAt = fetchedAt))
                 }
@@ -46,7 +70,6 @@ class FetchWorker(
             }
         }
 
-        val manager = AppWidgetManager.getInstance(context)
         val ids = manager.getAppWidgetIds(
             ComponentName(context, TransitWidget::class.java)
         )

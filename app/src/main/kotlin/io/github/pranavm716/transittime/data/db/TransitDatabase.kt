@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
-import io.github.pranavm716.transittime.data.model.Arrival
+import io.github.pranavm716.transittime.data.model.Departure
 import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.data.model.WidgetConfig
 
@@ -25,10 +25,10 @@ class Converters {
     fun toDisplayMode(value: String): DisplayMode = DisplayMode.valueOf(value)
 }
 
-@Database(entities = [Arrival::class, WidgetConfig::class], version = 2, exportSchema = false)
+@Database(entities = [Departure::class, WidgetConfig::class], version = 4, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class TransitDatabase : RoomDatabase() {
-    abstract fun arrivalDao(): ArrivalDao
+    abstract fun departureDao(): DepartureDao
     abstract fun widgetConfigDao(): WidgetConfigDao
 
     companion object {
