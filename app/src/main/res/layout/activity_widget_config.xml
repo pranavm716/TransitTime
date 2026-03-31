@@ -291,6 +291,55 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:text="@string/delay_info"
+                android:textSize="12sp"
+                android:textAllCaps="true"
+                android:letterSpacing="0.1"
+                android:textStyle="bold"
+                android:textColor="@color/text_secondary"
+                android:paddingTop="24dp"
+                android:paddingBottom="12dp" />
+
+            <RadioGroup
+                android:id="@+id/rgDelayInfoMode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/rbNoDelay"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/display_no_delay"
+                    android:textColor="@color/text_radio"
+                    android:paddingVertical="10dp"
+                    android:buttonTint="@color/radio_button_tint" />
+
+
+                <RadioButton
+                    android:id="@+id/rbFlatDelay"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/display_flat_delay"
+                    android:textColor="@color/text_radio"
+                    android:paddingVertical="10dp"
+                    android:buttonTint="@color/radio_button_tint" />
+
+                <RadioButton
+                    android:id="@+id/rbGradientDelay"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/display_gradient_delay"
+                    android:textColor="@color/text_radio"
+                    android:paddingVertical="10dp"
+                    android:checked="true"
+                    android:buttonTint="@color/radio_button_tint" />
+
+            </RadioGroup>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:text="@string/max_arrivals"
                 android:textSize="12sp"
                 android:textAllCaps="true"

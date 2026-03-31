@@ -7,6 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import io.github.pranavm716.transittime.data.model.Departure
+import io.github.pranavm716.transittime.data.model.DelayColorMode
 import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.data.model.WidgetConfig
 
@@ -23,9 +24,15 @@ class Converters {
 
     @TypeConverter
     fun toDisplayMode(value: String): DisplayMode = DisplayMode.valueOf(value)
+
+    @TypeConverter
+    fun fromDelayColorMode(value: DelayColorMode): String = value.name
+
+    @TypeConverter
+    fun toDelayColorMode(value: String): DelayColorMode = DelayColorMode.valueOf(value)
 }
 
-@Database(entities = [Departure::class, WidgetConfig::class], version = 4, exportSchema = false)
+@Database(entities = [Departure::class, WidgetConfig::class], version = 5, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class TransitDatabase : RoomDatabase() {
     abstract fun departureDao(): DepartureDao
