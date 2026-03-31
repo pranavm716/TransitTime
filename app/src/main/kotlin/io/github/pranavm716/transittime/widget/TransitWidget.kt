@@ -43,8 +43,15 @@ class TransitWidget : AppWidgetProvider() {
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         val db = TransitDatabase.getInstance(context)
         CoroutineScope(Dispatchers.IO).launch {
+            val configDao = db.widgetConfigDao()
+            val departureDao = db.departureDao()
             for (widgetId in appWidgetIds) {
-                db.widgetConfigDao().deleteConfig(widgetId)
+                val config = configDao.getConfig(widgetId) ?: continue
+                configDao.deleteConfig(widgetId)
+                val remaining = configDao.getAllConfigs().filter { it.stopId == config.stopId }
+                if (remaining.isEmpty()) {
+                    departureDao.deleteDeparturesForStop(config.stopId)
+                }
             }
         }
     }

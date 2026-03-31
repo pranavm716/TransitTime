@@ -19,6 +19,22 @@ class FetchWorker(
         val departureDao = db.departureDao()
         val configDao = db.widgetConfigDao()
 
+        val manager = AppWidgetManager.getInstance(context)
+        val activeIds = manager.getAppWidgetIds(
+            ComponentName(context, TransitWidget::class.java)
+        ).toSet()
+
+        val allConfigs = configDao.getAllConfigs()
+        val staleConfigs = allConfigs.filter { it.widgetId !in activeIds }
+        if (staleConfigs.isNotEmpty()) {
+            val removedStopIds = staleConfigs.map { it.stopId }.toSet()
+            staleConfigs.forEach { configDao.deleteConfig(it.widgetId) }
+            removedStopIds.forEach { stopId ->
+                val remaining = configDao.getAllConfigs().filter { it.stopId == stopId }
+                if (remaining.isEmpty()) departureDao.deleteDeparturesForStop(stopId)
+            }
+        }
+
         val configs = configDao.getAllConfigs()
         if (configs.isEmpty()) return Result.success()
 
@@ -54,7 +70,6 @@ class FetchWorker(
             }
         }
 
-        val manager = AppWidgetManager.getInstance(context)
         val ids = manager.getAppWidgetIds(
             ComponentName(context, TransitWidget::class.java)
         )
