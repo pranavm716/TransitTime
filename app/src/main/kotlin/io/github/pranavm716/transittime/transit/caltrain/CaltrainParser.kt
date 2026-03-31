@@ -67,6 +67,7 @@ fun mergeWithTimetable(
                     departureTimestamp = dep.departureTimestamp,
                     isOriginStop = isOrigin,
                     isScheduled = true,
+                    delaySeconds = null,
                     tripId = dep.tripId,
                     fetchedAt = fetchedAt
                 )
@@ -515,6 +516,7 @@ object CaltrainParser {
                         departureTimestamp = departureTimestamp,
                         isOriginStop = isOrigin,
                         isScheduled = false,
+                        delaySeconds = stu.departure.delay,
                         tripId = tripId,
                         fetchedAt = fetchedAt
                     )

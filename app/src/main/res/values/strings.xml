@@ -21,4 +21,11 @@
     <string name="display_hybrid_sentence_prefix">Show relative under</string>
     <string name="display_hybrid_suffix">min, else show absolute</string>
     <string name="default_hybrid_threshold">60</string>
+    <string name="delay_info">Delay Information</string>
+    <string name="display_no_delay">None</string>
+    <string name="display_no_delay_desc">All times appear in the same color</string>
+    <string name="display_flat_delay">Flat</string>
+    <string name="display_flat_delay_desc">Early, on time, and late times each use a distinct color</string>
+    <string name="display_gradient_delay">Gradient</string>
+    <string name="display_gradient_delay_desc">Color shifts gradually based on delay amount</string>
 </resources>

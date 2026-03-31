@@ -15,6 +15,7 @@ import androidx.work.WorkManager
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
+import io.github.pranavm716.transittime.data.model.DelayColorMode
 import io.github.pranavm716.transittime.data.model.Departure
 import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
@@ -27,6 +28,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 class TransitWidget : AppWidgetProvider() {
 
@@ -68,6 +70,17 @@ class TransitWidget : AppWidgetProvider() {
     companion object {
         const val ACTION_REFRESH = "io.github.pranavm716.transittime.ACTION_REFRESH"
         const val EXTRA_WIDGET_ID = "extra_widget_id"
+
+        val COLOR_ON_TIME = 0xFFFFC107.toInt()
+        val COLOR_LATE    = 0xFFdc3545.toInt()
+        val COLOR_EARLY   = 0xFF28a745.toInt()
+
+        fun lerp(from: Int, to: Int, t: Float): Int {
+            val r = ((from shr 16 and 0xFF) + ((to shr 16 and 0xFF) - (from shr 16 and 0xFF)) * t).roundToInt()
+            val g = ((from shr 8 and 0xFF) + ((to shr 8 and 0xFF) - (from shr 8 and 0xFF)) * t).roundToInt()
+            val b = ((from and 0xFF) + ((to and 0xFF) - (from and 0xFF)) * t).roundToInt()
+            return 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
+        }
 
         private const val HEADER_DP = 44
         private const val ROW_DP = 40
@@ -209,7 +222,7 @@ class TransitWidget : AppWidgetProvider() {
             for ((departures, times) in grouped.zip(allTimes)) {
                 views.addView(
                     R.id.llArrivals,
-                    buildDepartureRow(context, departures, times, timeFontSizeSp, config.maxArrivals)
+                    buildDepartureRow(context, departures, times, timeFontSizeSp, config.maxArrivals, config.delayColorMode)
                 )
             }
         }
@@ -219,7 +232,8 @@ class TransitWidget : AppWidgetProvider() {
             departures: List<Departure>,
             times: List<String>,
             timeFontSizeSp: Float,
-            maxArrivals: Int
+            maxArrivals: Int,
+            delayColorMode: DelayColorMode
         ): RemoteViews {
             val first = departures.first()
             val handler = AgencyRegistry.get(first.agency)
@@ -244,17 +258,54 @@ class TransitWidget : AppWidgetProvider() {
             }
             for (i in 0 until maxArrivals) {
                 val text = times.getOrNull(i) ?: "—"
-                val isScheduled = departures.getOrNull(i)?.isScheduled == true
-                val color = when (text) {
-                    "Leaving" -> 0xFFdc3545.toInt()
-                    "Arriving" -> 0xFF28a745.toInt()
-                    "", "—" -> 0xFFBDC1C7.toInt()
-                    else -> if (isScheduled) 0xFF9E8400.toInt() else 0xFFFFD700.toInt()
-                }
+                val departure = departures.getOrNull(i)
+                val color = if (departure != null) delayColor(departure, delayColorMode) else 0xFFBDC1C7.toInt()
                 rowViews.setTextViewText(timeCells[i], text)
                 rowViews.setTextColor(timeCells[i], color)
             }
             return rowViews
+        }
+
+        private fun delayColor(
+            departure: Departure,
+            mode: DelayColorMode,
+            onTimeColor: Int = COLOR_ON_TIME,
+            lateColor: Int = COLOR_LATE,
+            earlyColor: Int = COLOR_EARLY,
+            lateDeadZoneSeconds: Int = 60,
+            earlyDeadZoneSeconds: Int = 60,
+            lateCapSeconds: Int = 300,
+            earlyCapSeconds: Int = 180,
+        ): Int {
+            fun dimmed(color: Int): Int {
+                val dim = 0.62f
+                val r = ((color shr 16 and 0xFF) * dim).roundToInt()
+                val g = ((color shr 8 and 0xFF) * dim).roundToInt()
+                val b = ((color and 0xFF) * dim).roundToInt()
+                return 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
+            }
+
+            if (mode == DelayColorMode.NONE) {
+                return if (departure.isScheduled) dimmed(onTimeColor) else onTimeColor
+            }
+
+            if (departure.isScheduled) return dimmed(onTimeColor)
+
+            val delay = departure.delaySeconds
+            if (delay == null || delay in -earlyDeadZoneSeconds..lateDeadZoneSeconds) return onTimeColor
+
+            if (mode == DelayColorMode.FLAT) {
+                return if (delay > lateDeadZoneSeconds) lateColor else earlyColor
+            }
+
+            // GRADIENT
+            return if (delay > lateDeadZoneSeconds) {
+                val t = ((delay - lateDeadZoneSeconds).toFloat() / (lateCapSeconds - lateDeadZoneSeconds)).coerceIn(0f, 1f)
+                lerp(onTimeColor, lateColor, t)
+            } else {
+                val t = ((-delay - earlyDeadZoneSeconds).toFloat() / (earlyCapSeconds - earlyDeadZoneSeconds)).coerceIn(0f, 1f)
+                lerp(onTimeColor, earlyColor, t)
+            }
         }
 
         private fun applyOverflow(views: RemoteViews, overflow: Int) {

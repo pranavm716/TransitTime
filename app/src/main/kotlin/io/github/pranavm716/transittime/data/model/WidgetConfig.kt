@@ -14,7 +14,8 @@ data class WidgetConfig(
     val maxArrivals: Int,
     val lastFetchedAt: Long = 0L,
     val displayMode: DisplayMode = DisplayMode.RELATIVE,
-    val hybridThresholdMinutes: Int = 60
+    val hybridThresholdMinutes: Int = 60,
+    val delayColorMode: DelayColorMode = DelayColorMode.GRADIENT
 ) {
     init {
         require(maxArrivals in 1..3) { "maxArrivals must be between 1 and 3." }

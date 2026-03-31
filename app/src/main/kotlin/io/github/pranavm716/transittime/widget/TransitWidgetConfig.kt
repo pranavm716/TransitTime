@@ -22,6 +22,8 @@ import android.widget.RadioGroup
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -30,6 +32,7 @@ import androidx.core.widget.NestedScrollView
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
+import io.github.pranavm716.transittime.data.model.DelayColorMode
 import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
@@ -107,11 +110,37 @@ class TransitWidgetConfig : AppCompatActivity() {
         val llHybridThresholdRow = findViewById<LinearLayout>(R.id.llHybridThresholdRow)
         val etHybridThreshold = findViewById<EditText>(R.id.etHybridThreshold)
         val etMaxArrivals = findViewById<EditText>(R.id.etMaxArrivals)
+        val rgDelayInfoMode = findViewById<RadioGroup>(R.id.rgDelayInfoMode)
+        val rbNoDelay = findViewById<RadioButton>(R.id.rbNoDelay)
+        val rbFlatDelay = findViewById<RadioButton>(R.id.rbFlatDelay)
 
         findViewById<TextView>(R.id.tvRelativeDesc).setOnClickListener { rbRelative.isChecked = true }
         findViewById<TextView>(R.id.tvAbsoluteDesc).setOnClickListener { rbAbsolute.isChecked = true }
         llHybridThresholdRow.setOnClickListener { rbHybrid.isChecked = true }
         etHybridThreshold.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) rbHybrid.isChecked = true }
+
+        val tvNoDelayDesc = findViewById<TextView>(R.id.tvNoDelayDesc)
+        val noDelayText = getString(R.string.display_no_delay_desc)
+        val spannable = SpannableString(noDelayText)
+        val colorWord = "same color"
+        val start = noDelayText.indexOf(colorWord)
+        if (start >= 0) {
+            spannable.setSpan(ForegroundColorSpan(TransitWidget.COLOR_ON_TIME), start, start + colorWord.length, 0)
+        }
+        tvNoDelayDesc.text = spannable
+        tvNoDelayDesc.setOnClickListener { rbNoDelay.isChecked = true }
+        val tvFlatDelayDesc = findViewById<TextView>(R.id.tvFlatDelayDesc)
+        val flatDelayText = getString(R.string.display_flat_delay_desc)
+        val flatSpannable = SpannableString(flatDelayText)
+        listOf("Early" to TransitWidget.COLOR_EARLY, "on time" to TransitWidget.COLOR_ON_TIME, "late" to TransitWidget.COLOR_LATE).forEach { (word, color) ->
+            val s = flatDelayText.indexOf(word)
+            if (s >= 0) flatSpannable.setSpan(ForegroundColorSpan(color), s, s + word.length, 0)
+        }
+        tvFlatDelayDesc.text = flatSpannable
+        tvFlatDelayDesc.setOnClickListener { rbFlatDelay.isChecked = true }
+        val rbGradientDelay = findViewById<RadioButton>(R.id.rbGradientDelay)
+        findViewById<TextView>(R.id.tvGradientDelayDesc).setOnClickListener { rbGradientDelay.isChecked = true }
+        findViewById<View>(R.id.gradientBar).setOnClickListener { rbGradientDelay.isChecked = true }
 
         resultsAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
         lvResults.adapter = resultsAdapter
@@ -230,6 +259,11 @@ class TransitWidgetConfig : AppCompatActivity() {
                         DisplayMode.HYBRID -> rbHybrid.isChecked = true
                         DisplayMode.RELATIVE -> rbRelative.isChecked = true
                     }
+                    when (config.delayColorMode) {
+                        DelayColorMode.NONE -> rbNoDelay.isChecked = true
+                        DelayColorMode.FLAT -> rbFlatDelay.isChecked = true
+                        DelayColorMode.GRADIENT -> { /* default checked in layout */ }
+                    }
                     btnSave.setText(R.string.save_changes)
                 }
             }
@@ -257,6 +291,11 @@ class TransitWidgetConfig : AppCompatActivity() {
                 else -> DisplayMode.RELATIVE
             }
             val hybridThresholdMinutes = etHybridThreshold.text.toString().trim().toIntOrNull() ?: 60
+            val delayColorMode = when (rgDelayInfoMode.checkedRadioButtonId) {
+                R.id.rbNoDelay -> DelayColorMode.NONE
+                R.id.rbFlatDelay -> DelayColorMode.FLAT
+                else -> DelayColorMode.GRADIENT
+            }
 
             if (displayMode == DisplayMode.HYBRID && hybridThresholdMinutes !in 1..1440) {
                 Toast.makeText(this, "Hybrid threshold must be between 1 and 1440 minutes", Toast.LENGTH_SHORT).show()
@@ -276,7 +315,8 @@ class TransitWidgetConfig : AppCompatActivity() {
                 filteredHeadsigns = filtered,
                 maxArrivals = maxArrivals,
                 displayMode = displayMode,
-                hybridThresholdMinutes = hybridThresholdMinutes
+                hybridThresholdMinutes = hybridThresholdMinutes,
+                delayColorMode = delayColorMode
             )
 
             CoroutineScope(Dispatchers.IO).launch {
