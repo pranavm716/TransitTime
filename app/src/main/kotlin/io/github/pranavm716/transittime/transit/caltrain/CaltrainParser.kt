@@ -75,7 +75,26 @@ fun mergeWithTimetable(
         }
     }
 
+    // Discard scheduled entries that fall before the earliest RT entry for their group.
+    // Guards against ghosts from trains that departed early and dropped off the RT feed.
     return result
+        .groupBy { "${it.routeName}|${it.headsign}" }
+        .flatMap { (_, groupDepartures) ->
+            val firstRtTimestamp = groupDepartures
+                .filter { !it.isScheduled }
+                .mapNotNull { it.departureTimestamp }
+                .minOrNull()
+
+            if (firstRtTimestamp == null) {
+                groupDepartures
+            } else {
+                groupDepartures.filter { departure ->
+                    !departure.isScheduled ||
+                    (departure.departureTimestamp ?: Long.MAX_VALUE) >= firstRtTimestamp
+                }
+            }
+        }
+        .sortedBy { it.departureTimestamp ?: it.arrivalTimestamp ?: Long.MAX_VALUE }
 }
 
 object CaltrainParser {
