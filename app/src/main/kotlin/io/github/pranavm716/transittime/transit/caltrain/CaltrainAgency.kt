@@ -23,6 +23,7 @@ object CaltrainAgency : TransitAgency {
         val bytes = CaltrainApiClient.api.getTripUpdates(apiKey = BuildConfig.MUNI_API_KEY).bytes()
         val rtDepartures = CaltrainParser.parseRtFeed(bytes, fetchedAt).filter { it.stopId in stopIds }
 
+        val allRtTripIds = rtDepartures.mapNotNull { it.tripId }.toSet()
         val activeServices = CaltrainParser.getActiveServices()
         val tripTerminals = CaltrainParser.getTripTerminals()
         val tripOrigins = CaltrainParser.getTripOrigins()
@@ -39,7 +40,8 @@ object CaltrainAgency : TransitAgency {
                     stopId = stopId,
                     fetchedAt = fetchedAt,
                     tripTerminals = tripTerminals,
-                    tripOrigins = tripOrigins
+                    tripOrigins = tripOrigins,
+                    allRtTripIds = allRtTripIds
                 )
             )
         }

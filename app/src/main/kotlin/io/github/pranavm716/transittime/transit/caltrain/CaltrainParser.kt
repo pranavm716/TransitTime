@@ -29,7 +29,8 @@ fun mergeWithTimetable(
     stopId: String,
     fetchedAt: Long,
     tripTerminals: Map<String, String>,
-    tripOrigins: Map<String, String> = emptyMap()
+    tripOrigins: Map<String, String> = emptyMap(),
+    allRtTripIds: Set<String> = emptySet()
 ): List<Departure> {
     val result = rtDepartures.toMutableList()
 
@@ -44,38 +45,33 @@ fun mergeWithTimetable(
         val needed = maxArrivals - rtCount
         if (needed <= 0) continue
 
-        val rtTripIds = rtByKey[key]
-            ?.mapNotNull { it.tripId }
-            ?.toSet()
-            ?: emptySet()
-
         var filled = 0
         for (dep in scheduled.sortedBy { it.departureTimestamp }) {
             if (filled >= needed) break
-            val isDuplicate = dep.tripId in rtTripIds
-            if (!isDuplicate) {
-                // Robust filtering: skip if this stop is the terminal for the trip
-                if (stopId == tripTerminals[dep.tripId]) continue
+            if (dep.tripId in allRtTripIds) continue
+            if (dep.departureTimestamp <= now) continue
 
-                val isOrigin = (stopId == tripOrigins[dep.tripId])
-                
-                result.add(
-                    Departure(
-                        id = "${stopId}_${dep.routeName}_${dep.headsign}_${dep.departureTimestamp}",
-                        stopId = stopId,
-                        routeName = dep.routeName,
-                        headsign = dep.headsign,
-                        agency = Agency.CALTRAIN,
-                        arrivalTimestamp = null,
-                        departureTimestamp = dep.departureTimestamp,
-                        isOriginStop = isOrigin,
-                        isScheduled = true,
-                        tripId = dep.tripId,
-                        fetchedAt = fetchedAt
-                    )
+            // Robust filtering: skip if this stop is the terminal for the trip
+            if (stopId == tripTerminals[dep.tripId]) continue
+
+            val isOrigin = (stopId == tripOrigins[dep.tripId])
+
+            result.add(
+                Departure(
+                    id = "${stopId}_${dep.routeName}_${dep.headsign}_${dep.departureTimestamp}",
+                    stopId = stopId,
+                    routeName = dep.routeName,
+                    headsign = dep.headsign,
+                    agency = Agency.CALTRAIN,
+                    arrivalTimestamp = null,
+                    departureTimestamp = dep.departureTimestamp,
+                    isOriginStop = isOrigin,
+                    isScheduled = true,
+                    tripId = dep.tripId,
+                    fetchedAt = fetchedAt
                 )
-                filled++
-            }
+            )
+            filled++
         }
     }
 
