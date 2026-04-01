@@ -200,6 +200,7 @@
                     android:text="@string/display_relative"
                     android:textColor="@color/text_radio"
                     android:paddingVertical="10dp"
+                    android:gravity="center_vertical"
                     android:checked="true"
                     android:buttonTint="@color/radio_button_tint" />
 
@@ -220,6 +221,7 @@
                     android:text="@string/display_absolute"
                     android:textColor="@color/text_radio"
                     android:paddingVertical="10dp"
+                    android:gravity="center_vertical"
                     android:buttonTint="@color/radio_button_tint" />
 
                 <TextView
@@ -239,6 +241,7 @@
                     android:text="@string/display_hybrid_prefix"
                     android:textColor="@color/text_radio"
                     android:paddingVertical="10dp"
+                    android:gravity="center_vertical"
                     android:buttonTint="@color/radio_button_tint" />
 
                 <LinearLayout
@@ -311,6 +314,7 @@
                     android:text="@string/display_no_delay"
                     android:textColor="@color/text_radio"
                     android:paddingVertical="10dp"
+                    android:gravity="center_vertical"
                     android:buttonTint="@color/radio_button_tint" />
 
                 <TextView
@@ -330,6 +334,7 @@
                     android:text="@string/display_flat_delay"
                     android:textColor="@color/text_radio"
                     android:paddingVertical="10dp"
+                    android:gravity="center_vertical"
                     android:checked="true"
                     android:buttonTint="@color/radio_button_tint" />
 
@@ -350,6 +355,7 @@
                     android:text="@string/display_gradient_delay"
                     android:textColor="@color/text_radio"
                     android:paddingVertical="10dp"
+                    android:gravity="center_vertical"
                     android:buttonTint="@color/radio_button_tint" />
 
                 <TextView
