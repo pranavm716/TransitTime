@@ -262,7 +262,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                     when (config.delayColorMode) {
                         DelayColorMode.NONE -> rbNoDelay.isChecked = true
                         DelayColorMode.FLAT -> rbFlatDelay.isChecked = true
-                        DelayColorMode.GRADIENT -> { /* default checked in layout */ }
+                        DelayColorMode.GRADIENT -> rbGradientDelay.isChecked = true
                     }
                     btnSave.setText(R.string.save_changes)
                 }
