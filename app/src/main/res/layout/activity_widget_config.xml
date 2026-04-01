@@ -1,15 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/bg_main">
 
     <androidx.core.widget.NestedScrollView
         android:id="@+id/nestedScrollView"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="match_parent"
         android:fillViewport="true"
         android:background="@color/bg_main"
         android:isScrollContainer="true"
@@ -22,7 +20,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingHorizontal="24dp"
-            android:paddingBottom="16dp">
+            android:paddingBottom="88dp">
 
             <TextView
                 android:layout_width="match_parent"
@@ -400,22 +398,18 @@
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@color/border_color" />
-
     <Button
         android:id="@+id/btnSave"
         android:layout_width="match_parent"
         android:layout_height="56dp"
-        android:text="@string/add_widget"
+        android:layout_gravity="bottom|center_horizontal"
         android:layout_marginHorizontal="24dp"
-        android:layout_marginVertical="12dp"
-        android:backgroundTint="@color/accent_color"
+        android:layout_marginBottom="20dp"
+        android:text="@string/add_widget"
+        android:background="@drawable/bg_button_island"
         android:textColor="#FFFFFF"
         android:textAllCaps="false"
         android:textSize="16sp"
         android:textStyle="bold" />
 
-</LinearLayout>
+</FrameLayout>
