@@ -209,15 +209,7 @@ class TransitWidget : AppWidgetProvider() {
                     departure.getDisplayTime(now, config.displayMode, config.hybridThresholdMinutes)
                 }
             }
-            val globalMaxTimeLen = allTimes.maxOfOrNull { times ->
-                (0 until config.maxArrivals).maxOfOrNull { i ->
-                    (times.getOrNull(i) ?: "—").length
-                } ?: 0
-            } ?: 0
-            val timeFontSizeSp = when {
-                globalMaxTimeLen >= 7 -> 14f  // e.g. "12:30PM", "Leaving"
-                else -> 16f
-            }
+            val timeFontSizeSp = calcTimeFontSizeSp(context, allTimes, config.maxArrivals)
 
             for ((departures, times) in grouped.zip(allTimes)) {
                 views.addView(
@@ -306,6 +298,29 @@ class TransitWidget : AppWidgetProvider() {
                 val t = ((-delay - earlyDeadZoneSeconds).toFloat() / (earlyCapSeconds - earlyDeadZoneSeconds)).coerceIn(0f, 1f)
                 lerp(onTimeColor, earlyColor, t)
             }
+        }
+
+        private fun calcTimeFontSizeSp(
+            context: Context,
+            allTimes: List<List<String>>,
+            maxArrivals: Int,
+            cellWidthDp: Float = 52f
+        ): Float {
+            val dm = context.resources.displayMetrics
+            val cellWidthPx = cellWidthDp * dm.density
+            val paint = android.graphics.Paint().apply {
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+            }
+            for (sp in floatArrayOf(16f, 15f, 14f)) {
+                paint.textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, dm)
+                val maxWidth = allTimes.maxOfOrNull { times ->
+                    (0 until maxArrivals).maxOfOrNull { i ->
+                        paint.measureText(times.getOrNull(i) ?: "—")
+                    } ?: 0f
+                } ?: 0f
+                if (maxWidth <= cellWidthPx) return sp
+            }
+            return 14f
         }
 
         private fun applyOverflow(views: RemoteViews, overflow: Int) {
