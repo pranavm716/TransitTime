@@ -11,4 +11,5 @@
     android:resizeMode="vertical"
     android:widgetCategory="home_screen"
     android:widgetFeatures="reconfigurable"
+    android:previewImage="@drawable/widget_preview"
     tools:ignore="UnusedAttribute" />

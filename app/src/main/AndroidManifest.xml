@@ -26,6 +26,7 @@
         <!-- Widget -->
         <receiver
             android:name=".widget.TransitWidget"
+            android:label="Real Time Departures"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
