@@ -54,7 +54,8 @@ class TransitWidget : AppWidgetProvider() {
             for (widgetId in appWidgetIds) {
                 val config = allConfigs.find { it.widgetId == widgetId } ?: continue
                 configDao.deleteConfig(widgetId)
-                val remaining = allConfigs.filter { it.widgetId !in deletedWidgetIds && it.stopId == config.stopId }
+                val remaining =
+                    allConfigs.filter { it.widgetId !in deletedWidgetIds && it.stopId == config.stopId }
                 if (remaining.isEmpty()) {
                     departureDao.deleteDeparturesForStop(config.stopId)
                 }
@@ -68,21 +69,24 @@ class TransitWidget : AppWidgetProvider() {
         appWidgetId: Int,
         newOptions: Bundle
     ) {
-        updateWidget(context, appWidgetManager, appWidgetId)
+        updateWidget(context, appWidgetManager, appWidgetId, resizeOnly = true)
     }
 
     companion object {
         const val ACTION_REFRESH = "io.github.pranavm716.transittime.ACTION_REFRESH"
-        const val ACTION_CYCLE_DISPLAY_MODE = "io.github.pranavm716.transittime.ACTION_CYCLE_DISPLAY_MODE"
+        const val ACTION_CYCLE_DISPLAY_MODE =
+            "io.github.pranavm716.transittime.ACTION_CYCLE_DISPLAY_MODE"
         const val EXTRA_WIDGET_ID = "extra_widget_id"
 
         val COLOR_ON_TIME = 0xFFFFC107.toInt()
-        val COLOR_LATE    = 0xFFdc3545.toInt()
-        val COLOR_EARLY   = 0xFF28a745.toInt()
+        val COLOR_LATE = 0xFFdc3545.toInt()
+        val COLOR_EARLY = 0xFF28a745.toInt()
 
         fun lerp(from: Int, to: Int, t: Float): Int {
-            val r = ((from shr 16 and 0xFF) + ((to shr 16 and 0xFF) - (from shr 16 and 0xFF)) * t).roundToInt()
-            val g = ((from shr 8 and 0xFF) + ((to shr 8 and 0xFF) - (from shr 8 and 0xFF)) * t).roundToInt()
+            val r =
+                ((from shr 16 and 0xFF) + ((to shr 16 and 0xFF) - (from shr 16 and 0xFF)) * t).roundToInt()
+            val g =
+                ((from shr 8 and 0xFF) + ((to shr 8 and 0xFF) - (from shr 8 and 0xFF)) * t).roundToInt()
             val b = ((from and 0xFF) + ((to and 0xFF) - (from and 0xFF)) * t).roundToInt()
             return 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
         }
@@ -91,11 +95,14 @@ class TransitWidget : AppWidgetProvider() {
         private const val ROW_DP = 40
         private const val PADDING_DP = 30
 
+        private val lastRenderNow = mutableMapOf<Int, Long>()
+
         fun updateWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,
             widgetId: Int,
-            fetchFailed: Boolean = false
+            fetchFailed: Boolean = false,
+            resizeOnly: Boolean = false
         ) {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
@@ -135,7 +142,8 @@ class TransitWidget : AppWidgetProvider() {
                     return@launch
                 }
 
-                val now = System.currentTimeMillis()
+                val now = if (resizeOnly) lastRenderNow[widgetId] ?: System.currentTimeMillis()
+                else System.currentTimeMillis().also { lastRenderNow[widgetId] = it }
                 val (grouped, overflow) = loadGroupedDepartures(db, config, now, maxRows)
 
                 applyHeader(views, config)
@@ -186,21 +194,33 @@ class TransitWidget : AppWidgetProvider() {
             val allGroups = db.departureDao()
                 .getDeparturesForStop(config.stopId)
                 .filter { departure ->
-                    (departure.departureTimestamp ?: departure.arrivalTimestamp ?: Long.MIN_VALUE) > now &&
+                    (departure.departureTimestamp ?: departure.arrivalTimestamp
+                    ?: Long.MIN_VALUE) > now &&
                             (config.filteredHeadsigns.isEmpty() ||
                                     "${departure.routeName}|${departure.headsign}" in config.filteredHeadsigns)
                 }
                 .groupBy { "${it.routeName}|${it.headsign}" }
                 .entries
                 .map { (_, departures) ->
-                    departures.sortedBy { it.arrivalTimestamp ?: it.departureTimestamp ?: Long.MAX_VALUE }
+                    departures.sortedBy {
+                        it.arrivalTimestamp ?: it.departureTimestamp ?: Long.MAX_VALUE
+                    }
                         .take(config.maxArrivals)
                 }
                 .sortedWith(
                     compareBy(
-                        { it.first().arrivalTimestamp ?: it.first().departureTimestamp ?: Long.MAX_VALUE },
-                        { it.getOrNull(1)?.let { d -> d.arrivalTimestamp ?: d.departureTimestamp } ?: Long.MAX_VALUE },
-                        { it.getOrNull(2)?.let { d -> d.arrivalTimestamp ?: d.departureTimestamp } ?: Long.MAX_VALUE },
+                        {
+                            it.first().arrivalTimestamp ?: it.first().departureTimestamp
+                            ?: Long.MAX_VALUE
+                        },
+                        {
+                            it.getOrNull(1)?.let { d -> d.arrivalTimestamp ?: d.departureTimestamp }
+                                ?: Long.MAX_VALUE
+                        },
+                        {
+                            it.getOrNull(2)?.let { d -> d.arrivalTimestamp ?: d.departureTimestamp }
+                                ?: Long.MAX_VALUE
+                        },
                         { it.first().routeName }
                     ))
             val overflow = (allGroups.size - maxRows).coerceAtLeast(0)
@@ -218,7 +238,10 @@ class TransitWidget : AppWidgetProvider() {
             views.removeAllViews(R.id.llEmptyContainer)
 
             if (grouped.isEmpty()) {
-                views.addView(R.id.llEmptyContainer, RemoteViews(context.packageName, R.layout.widget_empty))
+                views.addView(
+                    R.id.llEmptyContainer,
+                    RemoteViews(context.packageName, R.layout.widget_empty)
+                )
                 return
             }
 
@@ -232,7 +255,14 @@ class TransitWidget : AppWidgetProvider() {
             for ((departures, times) in grouped.zip(allTimes)) {
                 views.addView(
                     R.id.llArrivals,
-                    buildDepartureRow(context, departures, times, timeFontSizeSp, config.maxArrivals, config.delayColorMode)
+                    buildDepartureRow(
+                        context,
+                        departures,
+                        times,
+                        timeFontSizeSp,
+                        config.maxArrivals,
+                        config.delayColorMode
+                    )
                 )
             }
         }
@@ -261,7 +291,10 @@ class TransitWidget : AppWidgetProvider() {
             val timeCells = listOf(R.id.tvTime1, R.id.tvTime2, R.id.tvTime3)
 
             for (i in timeCells.indices) {
-                rowViews.setViewVisibility(timeCells[i], if (i < maxArrivals) View.VISIBLE else View.GONE)
+                rowViews.setViewVisibility(
+                    timeCells[i],
+                    if (i < maxArrivals) View.VISIBLE else View.GONE
+                )
             }
             for (cell in timeCells) {
                 rowViews.setTextViewTextSize(cell, TypedValue.COMPLEX_UNIT_SP, timeFontSizeSp)
@@ -269,7 +302,10 @@ class TransitWidget : AppWidgetProvider() {
             for (i in 0 until maxArrivals) {
                 val text = times.getOrNull(i) ?: "—"
                 val departure = departures.getOrNull(i)
-                val color = if (departure != null) delayColor(departure, delayColorMode) else 0xFFBDC1C7.toInt()
+                val color = if (departure != null) delayColor(
+                    departure,
+                    delayColorMode
+                ) else 0xFFBDC1C7.toInt()
                 rowViews.setTextViewText(timeCells[i], text)
                 rowViews.setTextColor(timeCells[i], color)
             }
@@ -310,10 +346,18 @@ class TransitWidget : AppWidgetProvider() {
 
             // GRADIENT
             return if (delay > lateDeadZoneSeconds) {
-                val t = ((delay - lateDeadZoneSeconds).toFloat() / (lateCapSeconds - lateDeadZoneSeconds)).coerceIn(0f, 1f)
+                val t =
+                    ((delay - lateDeadZoneSeconds).toFloat() / (lateCapSeconds - lateDeadZoneSeconds)).coerceIn(
+                        0f,
+                        1f
+                    )
                 lerp(onTimeColor, lateColor, t)
             } else {
-                val t = ((-delay - earlyDeadZoneSeconds).toFloat() / (earlyCapSeconds - earlyDeadZoneSeconds)).coerceIn(0f, 1f)
+                val t =
+                    ((-delay - earlyDeadZoneSeconds).toFloat() / (earlyCapSeconds - earlyDeadZoneSeconds)).coerceIn(
+                        0f,
+                        1f
+                    )
                 lerp(onTimeColor, earlyColor, t)
             }
         }
@@ -385,9 +429,12 @@ class TransitWidget : AppWidgetProvider() {
             )
             if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                 val appWidgetManager = AppWidgetManager.getInstance(context)
-                animateRefreshIcon(context, appWidgetManager, widgetId)
-                triggerFetch(context)
-                updateWidget(context, appWidgetManager, widgetId)
+                CoroutineScope(Dispatchers.IO).launch {
+                    val db = TransitDatabase.getInstance(context)
+                    db.widgetConfigDao().getConfig(widgetId) ?: return@launch
+                    animateRefreshIcon(context, appWidgetManager, widgetId)
+                    triggerFetch(context)
+                }
             }
         } else if (intent.action == ACTION_CYCLE_DISPLAY_MODE) {
             val widgetId = intent.getIntExtra(
@@ -403,7 +450,7 @@ class TransitWidget : AppWidgetProvider() {
                     val nextMode = when (config.displayMode) {
                         DisplayMode.RELATIVE -> DisplayMode.ABSOLUTE
                         DisplayMode.ABSOLUTE -> DisplayMode.HYBRID
-                        DisplayMode.HYBRID   -> DisplayMode.RELATIVE
+                        DisplayMode.HYBRID -> DisplayMode.RELATIVE
                     }
                     configDao.upsertConfig(config.copy(displayMode = nextMode))
                     updateWidget(context, appWidgetManager, widgetId)
