@@ -122,7 +122,7 @@ class TransitWidget : AppWidgetProvider() {
                 cycleModeIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            views.setOnClickPendingIntent(R.id.llHeaderInfo, cycleModePendingIntent)
+            views.setOnClickPendingIntent(R.id.llHeader, cycleModePendingIntent)
 
             CoroutineScope(Dispatchers.IO).launch {
                 val db = TransitDatabase.getInstance(context)
