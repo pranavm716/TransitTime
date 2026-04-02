@@ -17,6 +17,7 @@ import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.DelayColorMode
 import io.github.pranavm716.transittime.data.model.Departure
+import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.util.RouteIconDrawer
@@ -69,6 +70,7 @@ class TransitWidget : AppWidgetProvider() {
 
     companion object {
         const val ACTION_REFRESH = "io.github.pranavm716.transittime.ACTION_REFRESH"
+        const val ACTION_CYCLE_DISPLAY_MODE = "io.github.pranavm716.transittime.ACTION_CYCLE_DISPLAY_MODE"
         const val EXTRA_WIDGET_ID = "extra_widget_id"
 
         val COLOR_ON_TIME = 0xFFFFC107.toInt()
@@ -109,6 +111,18 @@ class TransitWidget : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widgetRoot, refreshPendingIntent)
+
+            val cycleModeIntent = Intent(context, TransitWidget::class.java).apply {
+                action = ACTION_CYCLE_DISPLAY_MODE
+                putExtra(EXTRA_WIDGET_ID, widgetId)
+            }
+            val cycleModePendingIntent = PendingIntent.getBroadcast(
+                context,
+                widgetId + 10_000,
+                cycleModeIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.llHeaderInfo, cycleModePendingIntent)
 
             CoroutineScope(Dispatchers.IO).launch {
                 val db = TransitDatabase.getInstance(context)
@@ -370,6 +384,26 @@ class TransitWidget : AppWidgetProvider() {
                 animateRefreshIcon(context, appWidgetManager, widgetId)
                 triggerFetch(context)
                 updateWidget(context, appWidgetManager, widgetId)
+            }
+        } else if (intent.action == ACTION_CYCLE_DISPLAY_MODE) {
+            val widgetId = intent.getIntExtra(
+                EXTRA_WIDGET_ID,
+                AppWidgetManager.INVALID_APPWIDGET_ID
+            )
+            if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                CoroutineScope(Dispatchers.IO).launch {
+                    val db = TransitDatabase.getInstance(context)
+                    val configDao = db.widgetConfigDao()
+                    val config = configDao.getConfig(widgetId) ?: return@launch
+                    val nextMode = when (config.displayMode) {
+                        DisplayMode.RELATIVE -> DisplayMode.ABSOLUTE
+                        DisplayMode.ABSOLUTE -> DisplayMode.HYBRID
+                        DisplayMode.HYBRID   -> DisplayMode.RELATIVE
+                    }
+                    configDao.upsertConfig(config.copy(displayMode = nextMode))
+                    updateWidget(context, appWidgetManager, widgetId)
+                }
             }
         }
     }
