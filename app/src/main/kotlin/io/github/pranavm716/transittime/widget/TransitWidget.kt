@@ -212,9 +212,10 @@ class TransitWidget : AppWidgetProvider() {
             now: Long
         ) {
             views.removeAllViews(R.id.llArrivals)
+            views.removeAllViews(R.id.llEmptyContainer)
 
             if (grouped.isEmpty()) {
-                views.addView(R.id.llArrivals, RemoteViews(context.packageName, R.layout.widget_empty))
+                views.addView(R.id.llEmptyContainer, RemoteViews(context.packageName, R.layout.widget_empty))
                 return
             }
 

@@ -98,6 +98,13 @@
             android:orientation="vertical"
             android:paddingTop="6dp" />
 
+        <LinearLayout
+            android:id="@+id/llEmptyContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center" />
+
         <TextView
             android:id="@+id/tvOverflowStatic"
             android:layout_width="match_parent"
