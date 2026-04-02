@@ -40,7 +40,7 @@ class TransitWidget : AppWidgetProvider() {
         appWidgetIds: IntArray
     ) {
         for (widgetId in appWidgetIds) {
-            updateWidget(context, appWidgetManager, widgetId)
+            updateWidget(context, appWidgetManager, widgetId, preserveNow = true)
         }
     }
 
