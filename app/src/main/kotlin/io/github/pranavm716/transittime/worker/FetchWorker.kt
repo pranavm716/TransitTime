@@ -28,18 +28,21 @@ class FetchWorker(
         val staleConfigs = allConfigs.filter { it.widgetId !in activeIds }
         if (staleConfigs.isNotEmpty()) {
             val removedStopIds = staleConfigs.map { it.stopId }.toSet()
+            val staleWidgetIds = staleConfigs.map { it.widgetId }.toSet()
             staleConfigs.forEach { configDao.deleteConfig(it.widgetId) }
+            val survivingConfigs = allConfigs.filter { it.widgetId !in staleWidgetIds }
             removedStopIds.forEach { stopId ->
-                val remaining = configDao.getAllConfigs().filter { it.stopId == stopId }
+                val remaining = survivingConfigs.filter { it.stopId == stopId }
                 if (remaining.isEmpty()) departureDao.deleteDeparturesForStop(stopId)
             }
         }
 
-        val configs = configDao.getAllConfigs()
+        val configs = if (staleConfigs.isNotEmpty()) configDao.getAllConfigs() else allConfigs
         if (configs.isEmpty()) return Result.success()
 
         val fetchedAt = System.currentTimeMillis()
         val failedAgencies = mutableSetOf<io.github.pranavm716.transittime.data.model.Agency>()
+        val changedStops = mutableSetOf<String>()
 
         configs.groupBy { it.agency }.forEach { (agency, agencyConfigs) ->
             val handler = AgencyRegistry.get(agency)
@@ -51,13 +54,15 @@ class FetchWorker(
 
                 for (stopId in stopIds) {
                     val stopDepartures = departuresByStop[stopId] ?: emptyList()
-                    // Delete stale scheduled entries before upsert
-                    departureDao.deleteScheduledDeparturesForStop(stopId)
-
                     if (stopDepartures.isNotEmpty()) {
-                        // Also clear all existing departures for this stop to ensure freshness
-                        departureDao.deleteDeparturesForStop(stopId)
-                        departureDao.upsertDepartures(stopDepartures)
+                        val existing = departureDao.getDeparturesForStop(stopId)
+                        val existingSignature = existing.map { it.id to it.departureTimestamp }.toSet()
+                        val newSignature = stopDepartures.map { it.id to it.departureTimestamp }.toSet()
+                        if (existingSignature != newSignature) {
+                            changedStops.add(stopId)
+                            departureDao.upsertDepartures(stopDepartures)
+                            departureDao.deleteStaleRowsForStop(stopId, stopDepartures.map { it.id })
+                        }
                     }
                 }
 
@@ -75,7 +80,8 @@ class FetchWorker(
         )
         val configByWidgetId = configs.associateBy { it.widgetId }
         for (id in ids) {
-            val fetchFailed = configByWidgetId[id]?.agency in failedAgencies
+            val config = configByWidgetId[id] ?: continue
+            val fetchFailed = config.agency in failedAgencies
             TransitWidget.updateWidget(context, manager, id, fetchFailed = fetchFailed)
         }
 

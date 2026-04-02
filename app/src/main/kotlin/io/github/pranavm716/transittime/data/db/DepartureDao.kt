@@ -19,4 +19,7 @@ interface DepartureDao {
 
     @Query("DELETE FROM departures WHERE stopId = :stopId AND isScheduled = 1")
     suspend fun deleteScheduledDeparturesForStop(stopId: String)
+
+    @Query("DELETE FROM departures WHERE stopId = :stopId AND id NOT IN (:ids)")
+    suspend fun deleteStaleRowsForStop(stopId: String, ids: List<String>)
 }

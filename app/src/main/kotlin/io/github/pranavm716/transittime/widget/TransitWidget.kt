@@ -13,6 +13,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import io.github.pranavm716.transittime.R
+import io.github.pranavm716.transittime.TransitApplication
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.DelayColorMode
@@ -48,10 +49,12 @@ class TransitWidget : AppWidgetProvider() {
         CoroutineScope(Dispatchers.IO).launch {
             val configDao = db.widgetConfigDao()
             val departureDao = db.departureDao()
+            val allConfigs = configDao.getAllConfigs()
+            val deletedWidgetIds = appWidgetIds.toSet()
             for (widgetId in appWidgetIds) {
-                val config = configDao.getConfig(widgetId) ?: continue
+                val config = allConfigs.find { it.widgetId == widgetId } ?: continue
                 configDao.deleteConfig(widgetId)
-                val remaining = configDao.getAllConfigs().filter { it.stopId == config.stopId }
+                val remaining = allConfigs.filter { it.widgetId !in deletedWidgetIds && it.stopId == config.stopId }
                 if (remaining.isEmpty()) {
                     departureDao.deleteDeparturesForStop(config.stopId)
                 }
@@ -366,7 +369,7 @@ class TransitWidget : AppWidgetProvider() {
         fun triggerFetch(context: Context) {
             val request = OneTimeWorkRequestBuilder<FetchWorker>().build()
             WorkManager.getInstance(context).enqueueUniqueWork(
-                "transit_fetch_manual",
+                TransitApplication.FETCH_WORK_NAME,
                 ExistingWorkPolicy.REPLACE,
                 request
             )
