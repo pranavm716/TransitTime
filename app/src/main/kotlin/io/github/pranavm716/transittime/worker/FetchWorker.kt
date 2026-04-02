@@ -82,7 +82,11 @@ class FetchWorker(
         for (id in ids) {
             val config = configByWidgetId[id] ?: continue
             val fetchFailed = config.agency in failedAgencies
-            TransitWidget.updateWidget(context, manager, id, fetchFailed = fetchFailed)
+            TransitWidget.updateWidget(
+                context, manager, id,
+                fetchFailed = fetchFailed,
+                fetchedAt = if (fetchFailed) null else fetchedAt
+            )
         }
 
         return Result.success()

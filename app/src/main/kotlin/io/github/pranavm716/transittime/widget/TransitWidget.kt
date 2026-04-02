@@ -102,7 +102,8 @@ class TransitWidget : AppWidgetProvider() {
             appWidgetManager: AppWidgetManager,
             widgetId: Int,
             fetchFailed: Boolean = false,
-            preserveNow: Boolean = false
+            preserveNow: Boolean = false,
+            fetchedAt: Long? = null
         ) {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
@@ -120,7 +121,7 @@ class TransitWidget : AppWidgetProvider() {
                 refreshIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            views.setOnClickPendingIntent(R.id.widgetRoot, refreshPendingIntent)
+            views.setOnClickPendingIntent(R.id.llBody, refreshPendingIntent)
 
             val cycleModeIntent = Intent(context, TransitWidget::class.java).apply {
                 action = ACTION_CYCLE_DISPLAY_MODE
@@ -147,7 +148,7 @@ class TransitWidget : AppWidgetProvider() {
                 val (grouped, overflow) = loadGroupedDepartures(db, config, now, maxRows)
 
                 applyHeader(views, config)
-                applyFreshness(views, db, config, fetchFailed)
+                applyFreshness(views, db, config, fetchFailed, fetchedAt)
                 applyDepartures(context, views, grouped, config, now)
                 applyOverflow(views, overflow)
 
@@ -169,13 +170,15 @@ class TransitWidget : AppWidgetProvider() {
             views: RemoteViews,
             db: TransitDatabase,
             config: WidgetConfig,
-            fetchFailed: Boolean
+            fetchFailed: Boolean,
+            freshFetchedAt: Long? = null
         ) {
             if (fetchFailed) {
                 views.setTextViewText(R.id.tvFreshnessText, "Failed")
                 views.setTextColor(R.id.tvFreshnessText, 0xFFFF6B6B.toInt())
             } else {
-                val lastFetchedAt = config.lastFetchedAt.takeIf { it > 0L }
+                val lastFetchedAt = freshFetchedAt
+                    ?: config.lastFetchedAt.takeIf { it > 0L }
                     ?: db.departureDao().getDeparturesForStop(config.stopId)
                         .maxOfOrNull { it.fetchedAt } ?: 0L
                 val freshnessText = if (lastFetchedAt == 0L) "—"
