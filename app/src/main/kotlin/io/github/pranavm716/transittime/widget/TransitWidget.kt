@@ -69,7 +69,7 @@ class TransitWidget : AppWidgetProvider() {
         appWidgetId: Int,
         newOptions: Bundle
     ) {
-        updateWidget(context, appWidgetManager, appWidgetId, resizeOnly = true)
+        updateWidget(context, appWidgetManager, appWidgetId, preserveNow = true)
     }
 
     companion object {
@@ -102,7 +102,7 @@ class TransitWidget : AppWidgetProvider() {
             appWidgetManager: AppWidgetManager,
             widgetId: Int,
             fetchFailed: Boolean = false,
-            resizeOnly: Boolean = false
+            preserveNow: Boolean = false
         ) {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
@@ -142,7 +142,7 @@ class TransitWidget : AppWidgetProvider() {
                     return@launch
                 }
 
-                val now = if (resizeOnly) lastRenderNow[widgetId] ?: System.currentTimeMillis()
+                val now = if (preserveNow) lastRenderNow[widgetId] ?: System.currentTimeMillis()
                 else System.currentTimeMillis().also { lastRenderNow[widgetId] = it }
                 val (grouped, overflow) = loadGroupedDepartures(db, config, now, maxRows)
 
@@ -453,7 +453,7 @@ class TransitWidget : AppWidgetProvider() {
                         DisplayMode.HYBRID -> DisplayMode.RELATIVE
                     }
                     configDao.upsertConfig(config.copy(displayMode = nextMode))
-                    updateWidget(context, appWidgetManager, widgetId)
+                    updateWidget(context, appWidgetManager, widgetId, preserveNow = true)
                 }
             }
         }
