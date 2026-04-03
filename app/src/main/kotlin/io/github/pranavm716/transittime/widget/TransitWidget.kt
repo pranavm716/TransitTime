@@ -11,6 +11,7 @@ import android.view.View
 import android.widget.RemoteViews
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.TransitApplication
@@ -27,6 +28,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -40,7 +42,9 @@ class TransitWidget : AppWidgetProvider() {
         appWidgetIds: IntArray
     ) {
         for (widgetId in appWidgetIds) {
-            updateWidget(context, appWidgetManager, widgetId, preserveNow = true)
+            CoroutineScope(Dispatchers.IO).launch {
+                updateWidget(context, appWidgetManager, widgetId)
+            }
         }
     }
 
@@ -69,7 +73,9 @@ class TransitWidget : AppWidgetProvider() {
         appWidgetId: Int,
         newOptions: Bundle
     ) {
-        updateWidget(context, appWidgetManager, appWidgetId, preserveNow = true)
+        CoroutineScope(Dispatchers.IO).launch {
+            updateWidget(context, appWidgetManager, appWidgetId, preserveNow = true)
+        }
     }
 
     companion object {
@@ -97,7 +103,7 @@ class TransitWidget : AppWidgetProvider() {
 
         private val lastRenderNow = mutableMapOf<Int, Long>()
 
-        fun updateWidget(
+        suspend fun updateWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,
             widgetId: Int,
@@ -135,12 +141,12 @@ class TransitWidget : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.llHeader, cycleModePendingIntent)
 
-            CoroutineScope(Dispatchers.IO).launch {
+            withContext(Dispatchers.IO) {
                 val db = TransitDatabase.getInstance(context)
                 val config = db.widgetConfigDao().getConfig(widgetId) ?: run {
                     views.setTextViewText(R.id.tvStopName, "Not configured")
                     appWidgetManager.updateAppWidget(widgetId, views)
-                    return@launch
+                    return@withContext
                 }
 
                 val now = if (preserveNow) lastRenderNow[widgetId] ?: System.currentTimeMillis()
@@ -414,9 +420,11 @@ class TransitWidget : AppWidgetProvider() {
         }
 
         fun triggerFetch(context: Context) {
-            val request = OneTimeWorkRequestBuilder<FetchWorker>().build()
+            val request = OneTimeWorkRequestBuilder<FetchWorker>()
+                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                .build()
             WorkManager.getInstance(context).enqueueUniqueWork(
-                TransitApplication.FETCH_WORK_NAME,
+                TransitApplication.FETCH_WORK_NAME_MANUAL,
                 ExistingWorkPolicy.REPLACE,
                 request
             )

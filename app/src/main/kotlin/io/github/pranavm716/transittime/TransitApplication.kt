@@ -30,12 +30,13 @@ class TransitApplication : Application() {
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             FETCH_WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.REPLACE,
             request
         )
     }
 
     companion object {
         const val FETCH_WORK_NAME = "transit_fetch"
+        const val FETCH_WORK_NAME_MANUAL = "transit_fetch_manual"
     }
 }

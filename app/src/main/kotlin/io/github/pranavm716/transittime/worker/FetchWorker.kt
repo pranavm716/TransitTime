@@ -56,12 +56,16 @@ class FetchWorker(
                     val stopDepartures = departuresByStop[stopId] ?: emptyList()
                     if (stopDepartures.isNotEmpty()) {
                         val existing = departureDao.getDeparturesForStop(stopId)
-                        val existingSignature = existing.map { it.id to it.departureTimestamp }.toSet()
-                        val newSignature = stopDepartures.map { it.id to it.departureTimestamp }.toSet()
+                        val existingSignature =
+                            existing.map { it.id to it.departureTimestamp }.toSet()
+                        val newSignature =
+                            stopDepartures.map { it.id to it.departureTimestamp }.toSet()
                         if (existingSignature != newSignature) {
                             changedStops.add(stopId)
                             departureDao.upsertDepartures(stopDepartures)
-                            departureDao.deleteStaleRowsForStop(stopId, stopDepartures.map { it.id })
+                            departureDao.deleteStaleRowsForStop(
+                                stopId,
+                                stopDepartures.map { it.id })
                         }
                     }
                 }
