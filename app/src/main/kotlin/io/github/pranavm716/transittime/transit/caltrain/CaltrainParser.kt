@@ -41,7 +41,10 @@ fun mergeWithTimetable(
         .groupBy { "${it.routeName}|${it.headsign}" }
 
     for ((key, scheduled) in schedByKey) {
-        val rtCount = rtByKey[key]?.size ?: 0
+        // Only count future RT departures — past ones will be filtered out by the widget,
+        // so counting them would under-fill the scheduled slots and show fewer than maxArrivals.
+        val rtCount = (rtByKey[key] ?: emptyList())
+            .count { (it.departureTimestamp ?: it.arrivalTimestamp ?: 0L) > now }
         val needed = maxArrivals - rtCount
         if (needed <= 0) continue
 
@@ -434,7 +437,9 @@ object CaltrainParser {
         stationId: String,
         activeServices: Set<String>
     ): List<ScheduledDeparture> {
-        val departures = stationDepartures[stationId] ?: return emptyList()
+        // Deduplicate by tripId — the GTFS can list multiple platform entries per trip at the
+        // same parent station, which would otherwise cause the same trip to appear twice.
+        val departures = stationDepartures[stationId]?.distinctBy { it.first } ?: return emptyList()
 
         val midnightToday = LocalDate.now(PT).atStartOfDay(PT).toEpochSecond()
 
