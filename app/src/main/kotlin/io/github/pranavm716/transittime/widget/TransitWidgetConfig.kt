@@ -328,7 +328,7 @@ class TransitWidgetConfig : AppCompatActivity() {
             }
 
             if (maxArrivals !in 1..3) {
-                Toast.makeText(this, "Max arrivals must be between 1 and 3", Toast.LENGTH_SHORT)
+                Toast.makeText(this, "Max departures must be between 1 and 3", Toast.LENGTH_SHORT)
                     .show()
                 return@setOnClickListener
             }
