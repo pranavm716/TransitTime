@@ -141,21 +141,9 @@ object CaltrainParser {
 
     fun loadStaticGtfs(context: Context) {
         if (staticLoaded) return
-        try {
-            val cached = getCachedGtfs(context)
-            parseStaticZip(cached)
-        } catch (e: Exception) {
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                android.widget.Toast.makeText(context, "Caltrain stop data failed to load: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
-            }
-            return
-        }
-        if (parentStations.isEmpty()) {
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                android.widget.Toast.makeText(context, "Caltrain stop data loaded but empty — check 511 API key", android.widget.Toast.LENGTH_LONG).show()
-            }
-            return
-        }
+        val cached = getCachedGtfs(context)
+        parseStaticZip(cached)
+        if (parentStations.isEmpty()) return
         staticLoaded = true
     }
 

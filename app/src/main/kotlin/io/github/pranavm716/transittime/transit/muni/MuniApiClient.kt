@@ -3,6 +3,7 @@ package io.github.pranavm716.transittime.transit.muni
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.http.GET
 import retrofit2.http.Query
@@ -14,7 +15,7 @@ internal interface MuniApi {
         @Query("agency") agency: String = "SF",
         @Query("stopcode") stopCode: String,
         @Query("format") format: String = "json"
-    ): ResponseBody
+    ): Response<ResponseBody>
 }
 
 object MuniApiClient {

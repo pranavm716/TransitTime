@@ -5,7 +5,9 @@ import android.content.Intent
 import android.graphics.Rect
 import android.os.Bundle
 import android.text.Editable
+import android.text.SpannableString
 import android.text.TextWatcher
+import android.text.style.ForegroundColorSpan
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.AdapterView
@@ -22,8 +24,6 @@ import android.widget.RadioGroup
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
-import android.text.SpannableString
-import android.text.style.ForegroundColorSpan
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -67,7 +67,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                 top = sysInsets.top,
                 bottom = maxOf(imeInsets.bottom, sysInsets.bottom)
             )
-            
+
             if (imeInsets.bottom > 0) {
                 val focusedView = currentFocus
                 if (focusedView != null) {
@@ -114,10 +114,16 @@ class TransitWidgetConfig : AppCompatActivity() {
         val rbNoDelay = findViewById<RadioButton>(R.id.rbNoDelay)
         val rbFlatDelay = findViewById<RadioButton>(R.id.rbFlatDelay)
 
-        findViewById<TextView>(R.id.tvRelativeDesc).setOnClickListener { rbRelative.isChecked = true }
-        findViewById<TextView>(R.id.tvAbsoluteDesc).setOnClickListener { rbAbsolute.isChecked = true }
+        findViewById<TextView>(R.id.tvRelativeDesc).setOnClickListener {
+            rbRelative.isChecked = true
+        }
+        findViewById<TextView>(R.id.tvAbsoluteDesc).setOnClickListener {
+            rbAbsolute.isChecked = true
+        }
         llHybridThresholdRow.setOnClickListener { rbHybrid.isChecked = true }
-        etHybridThreshold.setOnFocusChangeListener { _, hasFocus -> if (hasFocus) rbHybrid.isChecked = true }
+        etHybridThreshold.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) rbHybrid.isChecked = true
+        }
 
         val tvNoDelayDesc = findViewById<TextView>(R.id.tvNoDelayDesc)
         val noDelayText = getString(R.string.display_no_delay_desc)
@@ -125,21 +131,32 @@ class TransitWidgetConfig : AppCompatActivity() {
         val colorWord = "same color"
         val start = noDelayText.indexOf(colorWord)
         if (start >= 0) {
-            spannable.setSpan(ForegroundColorSpan(TransitWidget.COLOR_ON_TIME), start, start + colorWord.length, 0)
+            spannable.setSpan(
+                ForegroundColorSpan(TransitWidget.COLOR_ON_TIME),
+                start,
+                start + colorWord.length,
+                0
+            )
         }
         tvNoDelayDesc.text = spannable
         tvNoDelayDesc.setOnClickListener { rbNoDelay.isChecked = true }
         val tvFlatDelayDesc = findViewById<TextView>(R.id.tvFlatDelayDesc)
         val flatDelayText = getString(R.string.display_flat_delay_desc)
         val flatSpannable = SpannableString(flatDelayText)
-        listOf("Early" to TransitWidget.COLOR_EARLY, "on time" to TransitWidget.COLOR_ON_TIME, "late" to TransitWidget.COLOR_LATE).forEach { (word, color) ->
+        listOf(
+            "Early" to TransitWidget.COLOR_EARLY,
+            "on time" to TransitWidget.COLOR_ON_TIME,
+            "late" to TransitWidget.COLOR_LATE
+        ).forEach { (word, color) ->
             val s = flatDelayText.indexOf(word)
             if (s >= 0) flatSpannable.setSpan(ForegroundColorSpan(color), s, s + word.length, 0)
         }
         tvFlatDelayDesc.text = flatSpannable
         tvFlatDelayDesc.setOnClickListener { rbFlatDelay.isChecked = true }
         val rbGradientDelay = findViewById<RadioButton>(R.id.rbGradientDelay)
-        findViewById<TextView>(R.id.tvGradientDelayDesc).setOnClickListener { rbGradientDelay.isChecked = true }
+        findViewById<TextView>(R.id.tvGradientDelayDesc).setOnClickListener {
+            rbGradientDelay.isChecked = true
+        }
         findViewById<View>(R.id.gradientBar).setOnClickListener { rbGradientDelay.isChecked = true }
 
         resultsAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, mutableListOf())
@@ -151,7 +168,7 @@ class TransitWidgetConfig : AppCompatActivity() {
             override fun afterTextChanged(s: Editable?) {
                 val query = s.toString().trim().lowercase()
                 btnClearSearch.visibility = if (query.isEmpty()) View.GONE else View.VISIBLE
-                
+
                 val filtered = if (query.isEmpty()) allStops
                 else allStops.filter { it.second.lowercase().contains(query) }
                 resultsAdapter.clear()
@@ -159,8 +176,10 @@ class TransitWidgetConfig : AppCompatActivity() {
                 lvResults.tag = filtered
                 val hasStopsLoaded = allStops.isNotEmpty()
                 flStopResults.visibility = if (hasStopsLoaded) View.VISIBLE else View.GONE
-                lvResults.visibility = if (hasStopsLoaded && filtered.isNotEmpty()) View.VISIBLE else View.GONE
-                tvNoResults.visibility = if (hasStopsLoaded && filtered.isEmpty()) View.VISIBLE else View.GONE
+                lvResults.visibility =
+                    if (hasStopsLoaded && filtered.isNotEmpty()) View.VISIBLE else View.GONE
+                tvNoResults.visibility =
+                    if (hasStopsLoaded && filtered.isEmpty()) View.VISIBLE else View.GONE
                 if (hasStopsLoaded) {
                     flRoutes.visibility = View.GONE
                     tvRoutesLabel.visibility = View.GONE
@@ -175,7 +194,8 @@ class TransitWidgetConfig : AppCompatActivity() {
 
         lvResults.setOnItemClickListener { _, _, position, _ ->
             @Suppress("UNCHECKED_CAST")
-            val filtered = lvResults.tag as? List<Pair<String, String>> ?: return@setOnItemClickListener
+            val filtered =
+                lvResults.tag as? List<Pair<String, String>> ?: return@setOnItemClickListener
             val selected = filtered[position]
             selectedStopId = selected.first
             selectedStopName = selected.second
@@ -203,7 +223,12 @@ class TransitWidgetConfig : AppCompatActivity() {
                 )
 
                 spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                    override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
+                    override fun onItemSelected(
+                        parent: AdapterView<*>,
+                        view: View?,
+                        position: Int,
+                        id: Long
+                    ) {
                         val agency = Agency.entries[position]
                         selectedStopId = null
                         selectedStopName = null
@@ -219,7 +244,18 @@ class TransitWidgetConfig : AppCompatActivity() {
 
                         CoroutineScope(Dispatchers.IO).launch {
                             val handler = AgencyRegistry.get(agency)
-                            handler.loadStaticData(applicationContext)
+                            try {
+                                handler.loadStaticData(applicationContext)
+                            } catch (e: Exception) {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(
+                                        applicationContext,
+                                        "Failed to load stop data: ${e.message}",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                                return@launch
+                            }
                             val stops = handler.getStopNames()
                                 .entries
                                 .map { Pair(it.key, it.value) }
@@ -229,8 +265,10 @@ class TransitWidgetConfig : AppCompatActivity() {
                                 resultsAdapter.clear()
                                 resultsAdapter.addAll(stops.map { it.second })
                                 lvResults.tag = stops
-                                flStopResults.visibility = if (stops.isEmpty()) View.GONE else View.VISIBLE
-                                lvResults.visibility = if (stops.isEmpty()) View.GONE else View.VISIBLE
+                                flStopResults.visibility =
+                                    if (stops.isEmpty()) View.GONE else View.VISIBLE
+                                lvResults.visibility =
+                                    if (stops.isEmpty()) View.GONE else View.VISIBLE
                                 tvNoResults.visibility = View.GONE
 
                                 val config = existingConfig
@@ -239,9 +277,18 @@ class TransitWidgetConfig : AppCompatActivity() {
                                     selectedStopName = config.stopName
                                     etStopSearch.setText(config.stopName)
                                     flStopResults.visibility = View.GONE
-                                    tvSelectedStop.text = "Selected: ${config.stopName} (${config.stopId})"
+                                    tvSelectedStop.text =
+                                        "Selected: ${config.stopName} (${config.stopId})"
                                     tvSelectedStop.visibility = View.VISIBLE
-                                    fetchRoutes(config.stopId, spinner, flRoutes, elvRoutes, tvRoutesLabel, etStopSearch, config)
+                                    fetchRoutes(
+                                        config.stopId,
+                                        spinner,
+                                        flRoutes,
+                                        elvRoutes,
+                                        tvRoutesLabel,
+                                        etStopSearch,
+                                        config
+                                    )
                                 }
                             }
                         }
@@ -281,7 +328,8 @@ class TransitWidgetConfig : AppCompatActivity() {
             }
 
             if (maxArrivals !in 1..3) {
-                Toast.makeText(this, "Max arrivals must be between 1 and 3", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Max arrivals must be between 1 and 3", Toast.LENGTH_SHORT)
+                    .show()
                 return@setOnClickListener
             }
 
@@ -290,7 +338,8 @@ class TransitWidgetConfig : AppCompatActivity() {
                 R.id.rbHybrid -> DisplayMode.HYBRID
                 else -> DisplayMode.RELATIVE
             }
-            val hybridThresholdMinutes = etHybridThreshold.text.toString().trim().toIntOrNull() ?: 60
+            val hybridThresholdMinutes =
+                etHybridThreshold.text.toString().trim().toIntOrNull() ?: 60
             val delayColorMode = when (rgDelayInfoMode.checkedRadioButtonId) {
                 R.id.rbNoDelay -> DelayColorMode.NONE
                 R.id.rbFlatDelay -> DelayColorMode.FLAT
@@ -298,7 +347,11 @@ class TransitWidgetConfig : AppCompatActivity() {
             }
 
             if (displayMode == DisplayMode.HYBRID && hybridThresholdMinutes !in 1..1440) {
-                Toast.makeText(this, "Hybrid threshold must be between 1 and 1440 minutes", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    "Hybrid threshold must be between 1 and 1440 minutes",
+                    Toast.LENGTH_SHORT
+                ).show()
                 return@setOnClickListener
             }
 

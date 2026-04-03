@@ -56,12 +56,16 @@ class FetchWorker(
                     val stopDepartures = departuresByStop[stopId] ?: emptyList()
                     if (stopDepartures.isNotEmpty()) {
                         val existing = departureDao.getDeparturesForStop(stopId)
-                        val existingSignature = existing.map { it.id to it.departureTimestamp }.toSet()
-                        val newSignature = stopDepartures.map { it.id to it.departureTimestamp }.toSet()
+                        val existingSignature =
+                            existing.map { it.id to it.departureTimestamp }.toSet()
+                        val newSignature =
+                            stopDepartures.map { it.id to it.departureTimestamp }.toSet()
                         if (existingSignature != newSignature) {
                             changedStops.add(stopId)
                             departureDao.upsertDepartures(stopDepartures)
-                            departureDao.deleteStaleRowsForStop(stopId, stopDepartures.map { it.id })
+                            departureDao.deleteStaleRowsForStop(
+                                stopId,
+                                stopDepartures.map { it.id })
                         }
                     }
                 }
@@ -82,7 +86,11 @@ class FetchWorker(
         for (id in ids) {
             val config = configByWidgetId[id] ?: continue
             val fetchFailed = config.agency in failedAgencies
-            TransitWidget.updateWidget(context, manager, id, fetchFailed = fetchFailed)
+            TransitWidget.updateWidget(
+                context, manager, id,
+                fetchFailed = fetchFailed,
+                fetchedAt = if (fetchFailed) null else fetchedAt
+            )
         }
 
         return Result.success()

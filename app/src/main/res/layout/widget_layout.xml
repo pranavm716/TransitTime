@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@drawable/widget_ripple_background">
+    android:background="@android:color/black">
 
     <!-- Header row -->
     <LinearLayout
@@ -74,47 +74,59 @@
 
     </LinearLayout>
 
-    <ImageView
-        android:layout_width="match_parent"
-        android:layout_height="1px"
-        android:layout_marginStart="20dp"
-        android:layout_marginEnd="20dp"
-        android:layout_marginBottom="4dp"
-        android:src="@android:color/transparent"
-        android:background="#bdc1c7" />
-
-    <!-- Arrivals + overflow -->
-    <FrameLayout
+    <!-- Body: separator + arrivals. Refresh tap target lives here, not on widgetRoot,
+         to avoid RemoteViews parent+child double-fire with the header's tap target. -->
+    <LinearLayout
+        android:id="@+id/llBody"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:paddingHorizontal="16dp"
-        android:paddingBottom="12dp">
+        android:orientation="vertical"
+        android:background="@drawable/widget_ripple_background">
 
-        <LinearLayout
-            android:id="@+id/llArrivals"
+        <ImageView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingTop="6dp" />
+            android:layout_height="1px"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="4dp"
+            android:src="@android:color/transparent"
+            android:background="#bdc1c7" />
 
-        <LinearLayout
-            android:id="@+id/llEmptyContainer"
+        <!-- Arrivals + overflow -->
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:gravity="center" />
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="12dp">
 
-        <TextView
-            android:id="@+id/tvOverflowStatic"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom|center_horizontal"
-            android:gravity="center_horizontal"
-            android:textColor="#AAAAAA"
-            android:textSize="13sp"
-            android:text="" />
+            <LinearLayout
+                android:id="@+id/llArrivals"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingTop="6dp" />
 
-    </FrameLayout>
+            <LinearLayout
+                android:id="@+id/llEmptyContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/tvOverflowStatic"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|center_horizontal"
+                android:gravity="center_horizontal"
+                android:textColor="#AAAAAA"
+                android:textSize="13sp"
+                android:text="" />
+
+        </FrameLayout>
+
+    </LinearLayout>
 
 </LinearLayout>
