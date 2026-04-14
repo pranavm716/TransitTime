@@ -1,6 +1,24 @@
 # TransitTime
 
-![Sample 1](screenshots/sample_1.jpg)
+<div align="center">
+  <div>
+    <img src="screenshots/sample_1.jpg" width="400"/>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    <img src="screenshots/sample_2.jpg" width="400"/>
+  </div>
+  <div>
+    <em>Widgets on the home screen</em>
+  </div>
+  <br/>
+  <div>
+    <img src="screenshots/config_1.jpg" width="400"/>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    <img src="screenshots/config_2.jpg" width="400"/>
+  </div>
+  <div>
+    <em>Configuration process</em>
+  </div>
+</div>
 
 ## Overview
 
