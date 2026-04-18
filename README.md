@@ -71,7 +71,12 @@ muni.api.key=YOUR_511_KEY
 - Open the project in Android Studio
 - Connect your device and run the app
 
-**5. Add a widget**
+**5. Disable battery optimization for TransitTime**
+
+- Battery optimization should be disabled to ensure the background refresh process can run uninterrupted
+- Go to Settings → Apps → TransitTime → Battery → Unrestricted (This may be slightly different depending on your phone's manufacturer)
+
+**6. Add a widget**
 
 - Long press your home screen → Widgets → TransitTime → Real Time Departures
 - Configure your stop, agency, routes, and display options
