@@ -74,8 +74,8 @@ object BartParser {
         val typeIdx = headers.indexOf("location_type")
         val parentIdx = headers.indexOf("parent_station")
         if (idIdx == -1 || nameIdx == -1 || typeIdx == -1 || parentIdx == -1) return
-        for (line in lines.drop(1)) {
-            if (line.isBlank()) continue
+        val dataLines = lines.drop(1).filter { it.isNotBlank() }
+        for (line in dataLines) {
             val cols = line.split(",")
             if (cols.size < maxOf(idIdx, nameIdx, typeIdx, parentIdx) + 1) continue
             val stopId = cols[idIdx].removeSurrounding("\"")
@@ -263,38 +263,33 @@ object BartParser {
 
     suspend fun fetchRoutesForStop(stopId: String): Map<String, List<String>> {
         // Use live RT feed to get currently running routes at this stop
-        return try {
-            val bytes = BartApiClient.api.getTripUpdates().bytes()
-            val feed = FeedMessage.parseFrom(bytes)
-            val result = mutableMapOf<String, MutableSet<String>>()
+        val bytes = BartApiClient.api.getTripUpdates().bytes()
+        val feed = FeedMessage.parseFrom(bytes)
+        val result = mutableMapOf<String, MutableSet<String>>()
 
-            for (entity in feed.entityList) {
-                if (!entity.hasTripUpdate()) continue
-                val tu = entity.tripUpdate
-                val tripId = tu.trip.tripId
-                val routeId = tripRouteIds[tripId] ?: continue
-                val colorName = routeColors[routeId] ?: continue
-                val routeName = "$colorName Line"
-                val terminalStationId = tripTerminals[tripId] ?: continue
-                val rawTerminalName = stopNames[terminalStationId] ?: continue
-                val headsign = cleanTerminalName(rawTerminalName)
+        for (entity in feed.entityList) {
+            if (!entity.hasTripUpdate()) continue
+            val tu = entity.tripUpdate
+            val tripId = tu.trip.tripId
+            val routeId = tripRouteIds[tripId] ?: continue
+            val colorName = routeColors[routeId] ?: continue
+            val routeName = "$colorName Line"
+            val terminalStationId = tripTerminals[tripId] ?: continue
+            val rawTerminalName = stopNames[terminalStationId] ?: continue
+            val headsign = cleanTerminalName(rawTerminalName)
 
-                for (stu in tu.stopTimeUpdateList) {
-                    val baseId = if ("-" in stu.stopId) stu.stopId.substringBeforeLast("-") else stu.stopId
-                    val stationId = platformToParent[baseId] ?: continue
-                    if (stationId == stopId) {
-                        // Skip if the vehicle is terminating at the requested stop
-                        if (stationId == terminalStationId) continue
+            for (stu in tu.stopTimeUpdateList) {
+                val baseId = if ("-" in stu.stopId) stu.stopId.substringBeforeLast("-") else stu.stopId
+                val stationId = platformToParent[baseId] ?: continue
+                if (stationId == stopId) {
+                    // Skip if the vehicle is terminating at the requested stop
+                    if (stationId == terminalStationId) continue
 
-                        result.getOrPut(routeName) { mutableSetOf() }.add(headsign)
-                        break
-                    }
+                    result.getOrPut(routeName) { mutableSetOf() }.add(headsign)
+                    break
                 }
             }
-            val routes = result.mapValues { it.value.toList().sorted() }
-            routes
-        } catch (_: Exception) {
-            emptyMap()
         }
+        return result.mapValues { it.value.toList().sorted() }
     }
 }

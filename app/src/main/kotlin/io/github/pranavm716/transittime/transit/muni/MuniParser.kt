@@ -288,19 +288,15 @@ object MuniParser {
         val combined = mutableMapOf<String, MutableSet<String>>()
 
         for (platformId in platformIds) {
-            try {
-                val response = MuniApiClient.api.getStopMonitoring(
-                    apiKey = BuildConfig.MUNI_API_KEY,
-                    stopCode = platformId
-                )
-                if (response.isSuccessful) {
-                    val routes = parseRoutesFromResponse(response.body()?.string() ?: "", platformIdSet)
-                    routes.forEach { (line, headsigns) ->
-                        combined.getOrPut(line) { mutableSetOf() }.addAll(headsigns)
-                    }
+            val response = MuniApiClient.api.getStopMonitoring(
+                apiKey = BuildConfig.MUNI_API_KEY,
+                stopCode = platformId
+            )
+            if (response.isSuccessful) {
+                val routes = parseRoutesFromResponse(response.body()?.string() ?: "", platformIdSet)
+                routes.forEach { (line, headsigns) ->
+                    combined.getOrPut(line) { mutableSetOf() }.addAll(headsigns)
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
 
