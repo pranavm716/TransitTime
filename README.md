@@ -1,6 +1,24 @@
 # TransitTime
 
-![Sample 1](screenshots/sample_1.jpg)
+<div align="center">
+  <div>
+    <img src="screenshots/sample_1.jpg" width="400"/>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    <img src="screenshots/sample_2.jpg" width="400"/>
+  </div>
+  <div>
+    <em>Widgets on the home screen</em>
+  </div>
+  <br/>
+  <div>
+    <img src="screenshots/config_1.jpg" width="400"/>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    <img src="screenshots/config_2.jpg" width="400"/>
+  </div>
+  <div>
+    <em>Configuration process</em>
+  </div>
+</div>
 
 ## Overview
 
@@ -53,7 +71,12 @@ muni.api.key=YOUR_511_KEY
 - Open the project in Android Studio
 - Connect your device and run the app
 
-**5. Add a widget**
+**5. Disable battery optimization for TransitTime**
+
+- Battery optimization should be disabled to ensure the background refresh process can run uninterrupted
+- Go to Settings → Apps → TransitTime → Battery → Unrestricted (This may be slightly different depending on your phone's manufacturer)
+
+**6. Add a widget**
 
 - Long press your home screen → Widgets → TransitTime → Real Time Departures
 - Configure your stop, agency, routes, and display options
