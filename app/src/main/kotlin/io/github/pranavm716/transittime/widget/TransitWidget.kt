@@ -26,7 +26,9 @@ import io.github.pranavm716.transittime.util.RouteIconDrawer
 import io.github.pranavm716.transittime.worker.FetchWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -102,6 +104,8 @@ class TransitWidget : AppWidgetProvider() {
         private const val PADDING_DP = 30
 
         private val lastRenderNow = mutableMapOf<Int, Long>()
+        private val spinningJobs = mutableMapOf<Int, Job>()
+        private val spinStep = mutableMapOf<Int, Int>()
 
         suspend fun updateWidget(
             context: Context,
@@ -145,6 +149,7 @@ class TransitWidget : AppWidgetProvider() {
                 val db = TransitDatabase.getInstance(context)
                 val config = db.widgetConfigDao().getConfig(widgetId) ?: run {
                     views.setTextViewText(R.id.tvStopName, "Not configured")
+                    completeRevolution(context, appWidgetManager, widgetId)
                     appWidgetManager.updateAppWidget(widgetId, views)
                     return@withContext
                 }
@@ -158,6 +163,7 @@ class TransitWidget : AppWidgetProvider() {
                 applyDepartures(context, views, grouped, config, now)
                 applyOverflow(views, overflow)
 
+                completeRevolution(context, appWidgetManager, widgetId)
                 appWidgetManager.updateAppWidget(widgetId, views)
             }
         }
@@ -406,14 +412,35 @@ class TransitWidget : AppWidgetProvider() {
             appWidgetManager: AppWidgetManager,
             widgetId: Int
         ) {
-            CoroutineScope(Dispatchers.IO).launch {
+            spinningJobs[widgetId]?.cancel()
+            spinningJobs[widgetId] = CoroutineScope(Dispatchers.IO).launch {
                 val steps = 12
                 val stepAngle = 360f / steps
-                repeat(steps) { i ->
-                    val angle = stepAngle * (i + 1)
+                while (isActive) {
+                    val next = ((spinStep[widgetId] ?: 0) % steps) + 1
+                    spinStep[widgetId] = next
                     val views = RemoteViews(context.packageName, R.layout.widget_layout)
-                    views.setFloat(R.id.ivRefreshIcon, "setRotation", angle)
+                    views.setFloat(R.id.ivRefreshIcon, "setRotation", stepAngle * next)
                     appWidgetManager.partiallyUpdateAppWidget(widgetId, views)
+                    delay(40)
+                }
+            }
+        }
+
+        private suspend fun completeRevolution(
+            context: Context,
+            appWidgetManager: AppWidgetManager,
+            widgetId: Int
+        ) {
+            spinningJobs.remove(widgetId)?.cancel()
+            val current = spinStep.remove(widgetId) ?: 0
+            if (current in 1 until 24) {
+                val steps = 12
+                val stepAngle = 360f / steps
+                for (s in (current + 1)..steps) {
+                    val v = RemoteViews(context.packageName, R.layout.widget_layout)
+                    v.setFloat(R.id.ivRefreshIcon, "setRotation", stepAngle * s)
+                    appWidgetManager.partiallyUpdateAppWidget(widgetId, v)
                     delay(40)
                 }
             }

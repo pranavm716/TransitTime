@@ -417,7 +417,23 @@ class TransitWidgetConfig : AppCompatActivity() {
         checkedHeadsigns.clear()
         CoroutineScope(Dispatchers.IO).launch {
             val agency = Agency.entries[spinner.selectedItemPosition]
-            val routes = AgencyRegistry.get(agency).fetchRoutesForStop(stopId)
+            val routes = try {
+                AgencyRegistry.get(agency).fetchRoutesForStop(stopId)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(etStopSearch.windowToken, 0)
+                    flRoutes.visibility = View.GONE
+                    tvRoutesLabel.visibility = View.GONE
+                    Toast.makeText(
+                        this@TransitWidgetConfig,
+                        "Could not load routes. Check your connection and try again.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+                return@launch
+            }
 
             withContext(Dispatchers.Main) {
                 val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
@@ -429,7 +445,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                     tvRoutesLabel.visibility = View.GONE
                     Toast.makeText(
                         this@TransitWidgetConfig,
-                        "⚠ No routes available right now. Try configuring at a different time.",
+                        "No routes found for this stop.",
                         Toast.LENGTH_LONG
                     ).show()
                 } else {
