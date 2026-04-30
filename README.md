@@ -38,7 +38,11 @@ for filtering by specific headsigns, multiple display modes, and color-coded del
 
 - Tap anywhere below the header to manually refresh the widget. The widget will still auto-refresh
   every 15 minutes.
-- Tap on the header to cycle between relative → absolute → hybrid display modes.
+- Tap the agency logo or station name to cycle between relative → absolute → hybrid display modes.
+- Tap the last refreshed timestamp or the refresh icon to activate **Go Mode**.
+    - Go Mode will automatically refresh all widgets frequently for 20 minutes.
+    - This is useful when you are on the way to a station - you can see the status of your bus/train
+      in real time without needing to manually refresh.
 
 ## How to install
 
@@ -73,8 +77,10 @@ muni.api.key=YOUR_511_KEY
 
 **5. Disable battery optimization for TransitTime**
 
-- Battery optimization should be disabled to ensure the background refresh process can run uninterrupted
-- Go to Settings → Apps → TransitTime → Battery → Unrestricted (This may be slightly different depending on your phone's manufacturer)
+- Battery optimization should be disabled to ensure the background refresh process can run
+  uninterrupted
+- Go to Settings → Apps → TransitTime → Battery → Unrestricted (This may be slightly different
+  depending on your phone's manufacturer)
 
 **6. Add a widget**
 
