@@ -3,9 +3,11 @@ package io.github.pranavm716.transittime.widget
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
@@ -13,6 +15,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
+import io.github.pranavm716.transittime.GoModeManager
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.TransitApplication
 import io.github.pranavm716.transittime.data.db.TransitDatabase
@@ -34,7 +37,9 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 class TransitWidget : AppWidgetProvider() {
 
@@ -84,7 +89,11 @@ class TransitWidget : AppWidgetProvider() {
         const val ACTION_REFRESH = "io.github.pranavm716.transittime.ACTION_REFRESH"
         const val ACTION_CYCLE_DISPLAY_MODE =
             "io.github.pranavm716.transittime.ACTION_CYCLE_DISPLAY_MODE"
+        const val ACTION_TOGGLE_GO_MODE =
+            "io.github.pranavm716.transittime.ACTION_TOGGLE_GO_MODE"
         const val EXTRA_WIDGET_ID = "extra_widget_id"
+        const val GO_MODE_FETCH_WORK_NAME = "transit_go_mode_fetch"
+        const val GO_MODE_EXPIRY_WORK_NAME = "transit_go_mode_expiry"
 
         val COLOR_ON_TIME = 0xFFFFC107.toInt()
         val COLOR_LATE = 0xFFdc3545.toInt()
@@ -106,6 +115,7 @@ class TransitWidget : AppWidgetProvider() {
         private val lastRenderNow = mutableMapOf<Int, Long>()
         private val spinningJobs = mutableMapOf<Int, Job>()
         private val spinStep = mutableMapOf<Int, Int>()
+        private val pulsingJobs = mutableMapOf<Int, Job>()
 
         suspend fun updateWidget(
             context: Context,
@@ -113,7 +123,8 @@ class TransitWidget : AppWidgetProvider() {
             widgetId: Int,
             fetchFailed: Boolean = false,
             preserveNow: Boolean = false,
-            fetchedAt: Long? = null
+            fetchedAt: Long? = null,
+            pulseDot: Boolean = false
         ) {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
@@ -143,7 +154,19 @@ class TransitWidget : AppWidgetProvider() {
                 cycleModeIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            views.setOnClickPendingIntent(R.id.llHeader, cycleModePendingIntent)
+            views.setOnClickPendingIntent(R.id.llHeaderInfo, cycleModePendingIntent)
+
+            val toggleGoModeIntent = Intent(context, TransitWidget::class.java).apply {
+                action = ACTION_TOGGLE_GO_MODE
+                putExtra(EXTRA_WIDGET_ID, widgetId)
+            }
+            val toggleGoModePendingIntent = PendingIntent.getBroadcast(
+                context,
+                widgetId + 20_000,
+                toggleGoModeIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.llGoMode, toggleGoModePendingIntent)
 
             withContext(Dispatchers.IO) {
                 val db = TransitDatabase.getInstance(context)
@@ -159,12 +182,17 @@ class TransitWidget : AppWidgetProvider() {
                 val (grouped, overflow) = loadGroupedDepartures(db, config, now, maxRows)
 
                 applyHeader(views, config)
-                applyFreshness(views, db, config, fetchFailed, fetchedAt)
+                applyFreshness(context, views, db, config, fetchFailed, fetchedAt)
                 applyDepartures(context, views, grouped, config, now)
                 applyOverflow(views, overflow)
 
                 completeRevolution(context, appWidgetManager, widgetId)
                 appWidgetManager.updateAppWidget(widgetId, views)
+                if (pulseDot) {
+                    animateGoModeDot(context, appWidgetManager, widgetId)
+                } else {
+                    pulsingJobs.remove(widgetId)?.cancel()
+                }
             }
         }
 
@@ -179,15 +207,22 @@ class TransitWidget : AppWidgetProvider() {
         }
 
         private suspend fun applyFreshness(
+            context: Context,
             views: RemoteViews,
             db: TransitDatabase,
             config: WidgetConfig,
             fetchFailed: Boolean,
             freshFetchedAt: Long? = null
         ) {
+            val isGoModeActive = GoModeManager(context).isGoModeActive
+
+            views.setViewVisibility(R.id.ivGoModeDot, if (isGoModeActive) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.ivRefreshIcon, if (isGoModeActive) View.GONE else View.VISIBLE)
+
+            views.setViewVisibility(R.id.tvFreshnessText, View.VISIBLE)
             if (fetchFailed) {
                 views.setTextViewText(R.id.tvFreshnessText, "Failed")
-                views.setTextColor(R.id.tvFreshnessText, 0xFFFF6B6B.toInt())
+                views.setTextColor(R.id.tvFreshnessText, 0xFFdc3545.toInt())
             } else {
                 val lastFetchedAt = freshFetchedAt
                     ?: config.lastFetchedAt.takeIf { it > 0L }
@@ -196,7 +231,10 @@ class TransitWidget : AppWidgetProvider() {
                 val freshnessText = if (lastFetchedAt == 0L) "—"
                 else SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(lastFetchedAt))
                 views.setTextViewText(R.id.tvFreshnessText, freshnessText)
-                views.setTextColor(R.id.tvFreshnessText, 0xFFAAAAAA.toInt())
+                views.setTextColor(
+                    R.id.tvFreshnessText,
+                    if (isGoModeActive) 0xFF238636.toInt() else 0xFFAAAAAA.toInt()
+                )
             }
         }
 
@@ -427,6 +465,27 @@ class TransitWidget : AppWidgetProvider() {
             }
         }
 
+        fun animateGoModeDot(
+            context: Context,
+            appWidgetManager: AppWidgetManager,
+            widgetId: Int
+        ) {
+            pulsingJobs[widgetId]?.cancel()
+            pulsingJobs[widgetId] = CoroutineScope(Dispatchers.IO).launch {
+                val steps = 25
+                for (i in 0..steps) {
+                    val t = i.toFloat() / steps
+                    val scale = 1f + 0.5f * sin(Math.PI * t).toFloat()
+                    val views = RemoteViews(context.packageName, R.layout.widget_layout)
+                    views.setFloat(R.id.ivGoModeDot, "setScaleX", scale)
+                    views.setFloat(R.id.ivGoModeDot, "setScaleY", scale)
+                    appWidgetManager.partiallyUpdateAppWidget(widgetId, views)
+                    delay(25)
+                }
+                pulsingJobs.remove(widgetId)
+            }
+        }
+
         private suspend fun completeRevolution(
             context: Context,
             appWidgetManager: AppWidgetManager,
@@ -466,6 +525,7 @@ class TransitWidget : AppWidgetProvider() {
                 AppWidgetManager.INVALID_APPWIDGET_ID
             )
             if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                if (GoModeManager(context).isGoModeActive) return
                 val appWidgetManager = AppWidgetManager.getInstance(context)
                 CoroutineScope(Dispatchers.IO).launch {
                     val db = TransitDatabase.getInstance(context)
@@ -492,6 +552,56 @@ class TransitWidget : AppWidgetProvider() {
                     }
                     configDao.upsertConfig(config.copy(displayMode = nextMode))
                     updateWidget(context, appWidgetManager, widgetId, preserveNow = true)
+                }
+            }
+        } else if (intent.action == ACTION_TOGGLE_GO_MODE) {
+            val goModeManager = GoModeManager(context)
+            if (goModeManager.isGoModeActive) {
+                goModeManager.goModeExpiresAt = 0
+            } else {
+                goModeManager.goModeExpiresAt =
+                    System.currentTimeMillis() + GoModeManager.GO_MODE_DURATION_MS
+            }
+            Log.d(
+                "GoMode",
+                "toggled: active=${goModeManager.isGoModeActive}, expiresAt=${goModeManager.goModeExpiresAt}"
+            )
+            if (goModeManager.isGoModeActive) {
+                triggerFetch(context)
+                Log.d(
+                    "GoMode",
+                    "activated, scheduling next fetch in ${GoModeManager.GO_MODE_INTERVAL_MS}ms"
+                )
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    GO_MODE_FETCH_WORK_NAME,
+                    ExistingWorkPolicy.REPLACE,
+                    OneTimeWorkRequestBuilder<FetchWorker>()
+                        .setInitialDelay(GoModeManager.GO_MODE_INTERVAL_MS, TimeUnit.MILLISECONDS)
+                        .build()
+                )
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    GO_MODE_EXPIRY_WORK_NAME,
+                    ExistingWorkPolicy.REPLACE,
+                    OneTimeWorkRequestBuilder<FetchWorker>()
+                        .setInitialDelay(GoModeManager.GO_MODE_DURATION_MS, TimeUnit.MILLISECONDS)
+                        .build()
+                )
+            } else {
+                WorkManager.getInstance(context).cancelUniqueWork(GO_MODE_FETCH_WORK_NAME)
+                WorkManager.getInstance(context).cancelUniqueWork(GO_MODE_EXPIRY_WORK_NAME)
+            }
+            val deactivated = !goModeManager.isGoModeActive
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val ids = appWidgetManager.getAppWidgetIds(
+                ComponentName(context, TransitWidget::class.java)
+            )
+            for (widgetId in ids) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    updateWidget(
+                        context, appWidgetManager, widgetId,
+                        preserveNow = true,
+                        fetchedAt = if (deactivated) System.currentTimeMillis() else null
+                    )
                 }
             }
         }

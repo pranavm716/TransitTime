@@ -109,7 +109,29 @@ class TransitWidgetConfig : AppCompatActivity() {
         val rbHybrid = findViewById<RadioButton>(R.id.rbHybrid)
         val llHybridThresholdRow = findViewById<LinearLayout>(R.id.llHybridThresholdRow)
         val etHybridThreshold = findViewById<EditText>(R.id.etHybridThreshold)
-        val etMaxArrivals = findViewById<EditText>(R.id.etMaxArrivals)
+        val btnMaxArrivals1 = findViewById<Button>(R.id.btnMaxArrivals1)
+        val btnMaxArrivals2 = findViewById<Button>(R.id.btnMaxArrivals2)
+        val btnMaxArrivals3 = findViewById<Button>(R.id.btnMaxArrivals3)
+        var selectedMaxArrivals = 3
+
+        fun selectMaxArrivalsBtn(count: Int) {
+            selectedMaxArrivals = count
+            val btns = listOf(btnMaxArrivals1, btnMaxArrivals2, btnMaxArrivals3)
+            btns.forEachIndexed { i, btn ->
+                val selected = (i + 1) == count
+                btn.setBackgroundResource(
+                    if (selected) R.drawable.bg_btn_count_selected
+                    else R.drawable.bg_btn_count_unselected
+                )
+                btn.setTextColor(
+                    getColor(if (selected) R.color.text_primary else R.color.text_secondary)
+                )
+            }
+        }
+
+        btnMaxArrivals1.setOnClickListener { selectMaxArrivalsBtn(1) }
+        btnMaxArrivals2.setOnClickListener { selectMaxArrivalsBtn(2) }
+        btnMaxArrivals3.setOnClickListener { selectMaxArrivalsBtn(3) }
         val rgDelayInfoMode = findViewById<RadioGroup>(R.id.rgDelayInfoMode)
         val rbNoDelay = findViewById<RadioButton>(R.id.rbNoDelay)
         val rbFlatDelay = findViewById<RadioButton>(R.id.rbFlatDelay)
@@ -299,7 +321,7 @@ class TransitWidgetConfig : AppCompatActivity() {
 
                 existingConfig?.let { config ->
                     spinner.setSelection(config.agency.ordinal)
-                    etMaxArrivals.setText(config.maxArrivals.toString())
+                    selectMaxArrivalsBtn(config.maxArrivals.coerceIn(1, 3))
                     etHybridThreshold.setText(config.hybridThresholdMinutes.toString())
                     when (config.displayMode) {
                         DisplayMode.ABSOLUTE -> rbAbsolute.isChecked = true
@@ -319,7 +341,7 @@ class TransitWidgetConfig : AppCompatActivity() {
         btnSave.setOnClickListener {
             val stopId = selectedStopId
             val stopName = selectedStopName
-            val maxArrivals = etMaxArrivals.text.toString().trim().toIntOrNull() ?: 2
+            val maxArrivals = selectedMaxArrivals
             val agency = Agency.entries[spinner.selectedItemPosition]
 
             if (stopId == null || stopName == null) {
@@ -327,11 +349,6 @@ class TransitWidgetConfig : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            if (maxArrivals !in 1..3) {
-                Toast.makeText(this, "Max departures must be between 1 and 3", Toast.LENGTH_SHORT)
-                    .show()
-                return@setOnClickListener
-            }
 
             val displayMode = when (rgDisplayMode.checkedRadioButtonId) {
                 R.id.rbAbsolute -> DisplayMode.ABSOLUTE

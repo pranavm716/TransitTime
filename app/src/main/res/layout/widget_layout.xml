@@ -12,12 +12,7 @@
         android:id="@+id/llHeader"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingHorizontal="16dp"
-        android:paddingTop="12dp"
-        android:paddingBottom="6dp"
-        android:background="@drawable/widget_ripple_overlay">
+        android:orientation="horizontal">
 
         <LinearLayout
             android:id="@+id/llHeaderInfo"
@@ -25,7 +20,11 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="6dp"
+            android:background="@drawable/widget_ripple_overlay">
 
             <ImageView
                 android:id="@+id/ivAgencyLogo"
@@ -53,24 +52,48 @@
 
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvFreshnessText"
+        <LinearLayout
+            android:id="@+id/llGoMode"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:layout_gravity="center_vertical"
+            android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:textColor="#AAAAAA"
-            android:textSize="13sp"
-            android:layout_marginEnd="4dp" />
+            android:paddingTop="12dp"
+            android:paddingBottom="6dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:background="@drawable/widget_ripple_overlay">
 
-        <ImageView
-            android:id="@+id/ivRefreshIcon"
-            android:layout_width="14dp"
-            android:layout_height="14dp"
-            android:layout_gravity="center_vertical"
-            android:layout_marginEnd="2dp"
-            android:src="@drawable/ic_refresh"
-            app:tint="#AAAAAA" />
+            <TextView
+                android:id="@+id/tvFreshnessText"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_gravity="center_vertical"
+                android:gravity="center_vertical"
+                android:textColor="#AAAAAA"
+                android:textSize="13sp"
+                android:layout_marginEnd="4dp" />
+
+
+            <ImageView
+                android:id="@+id/ivRefreshIcon"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:layout_gravity="center_vertical"
+                android:layout_marginEnd="2dp"
+                android:src="@drawable/ic_refresh"
+                app:tint="#AAAAAA" />
+
+            <ImageView
+                android:id="@+id/ivGoModeDot"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:layout_gravity="center_vertical"
+                android:layout_marginEnd="2dp"
+                android:src="@drawable/ic_go_mode_dot"
+                android:visibility="gone" />
+
+        </LinearLayout>
 
     </LinearLayout>
 

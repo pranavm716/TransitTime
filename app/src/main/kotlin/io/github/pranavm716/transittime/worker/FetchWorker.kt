@@ -3,11 +3,17 @@ package io.github.pranavm716.transittime.worker
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import io.github.pranavm716.transittime.GoModeManager
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.widget.TransitWidget
+import java.util.concurrent.TimeUnit
 
 class FetchWorker(
     private val context: Context,
@@ -83,14 +89,28 @@ class FetchWorker(
             ComponentName(context, TransitWidget::class.java)
         )
         val configByWidgetId = configs.associateBy { it.widgetId }
+        val goModeManager = GoModeManager(context)
         for (id in ids) {
             val config = configByWidgetId[id] ?: continue
             val fetchFailed = config.agency in failedAgencies
             TransitWidget.updateWidget(
                 context, manager, id,
                 fetchFailed = fetchFailed,
-                fetchedAt = if (fetchFailed) null else fetchedAt
+                fetchedAt = if (fetchFailed) null else fetchedAt,
+                pulseDot = goModeManager.isGoModeActive
             )
+        }
+        if (goModeManager.isGoModeActive) {
+            Log.d("GoMode", "go mode active, scheduling next fetch in ${GoModeManager.GO_MODE_INTERVAL_MS}ms")
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                TransitWidget.GO_MODE_FETCH_WORK_NAME,
+                ExistingWorkPolicy.REPLACE,
+                OneTimeWorkRequestBuilder<FetchWorker>()
+                    .setInitialDelay(GoModeManager.GO_MODE_INTERVAL_MS, TimeUnit.MILLISECONDS)
+                    .build()
+            )
+        } else if (goModeManager.goModeExpiresAt > 0L) {
+            goModeManager.goModeExpiresAt = 0L
         }
 
         return Result.success()
