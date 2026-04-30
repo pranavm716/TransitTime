@@ -44,11 +44,8 @@
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:maxLines="1"
-                android:gravity="center_vertical"
-                android:autoSizeTextType="uniform"
-                android:autoSizeMinTextSize="11sp"
-                android:autoSizeMaxTextSize="22sp"
-                android:autoSizeStepGranularity="1sp" />
+                android:ellipsize="end"
+                android:gravity="center_vertical" />
 
         </LinearLayout>
 

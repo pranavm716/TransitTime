@@ -128,6 +128,7 @@ class TransitWidget : AppWidgetProvider() {
         ) {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+            val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
             val maxRows = ((minHeight - HEADER_DP - PADDING_DP) / ROW_DP).coerceAtLeast(1)
 
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
@@ -181,7 +182,7 @@ class TransitWidget : AppWidgetProvider() {
                 else System.currentTimeMillis().also { lastRenderNow[widgetId] = it }
                 val (grouped, overflow) = loadGroupedDepartures(db, config, now, maxRows)
 
-                applyHeader(views, config)
+                applyHeader(views, config, context, minWidth)
                 applyFreshness(context, views, db, config, fetchFailed, fetchedAt)
                 applyDepartures(context, views, grouped, config, now)
                 applyOverflow(views, overflow)
@@ -192,14 +193,40 @@ class TransitWidget : AppWidgetProvider() {
             }
         }
 
-        private fun applyHeader(views: RemoteViews, config: WidgetConfig) {
+        private fun applyHeader(
+            views: RemoteViews,
+            config: WidgetConfig,
+            context: Context,
+            minWidthDp: Int
+        ) {
             views.setTextViewText(R.id.tvStopName, config.stopName)
+            val sp = calcStopNameTextSizeSp(context, config.stopName, minWidthDp)
+            views.setTextViewTextSize(R.id.tvStopName, TypedValue.COMPLEX_UNIT_SP, sp)
             val logoRes = when (config.agency) {
                 Agency.BART -> R.drawable.ic_bart
                 Agency.MUNI -> R.drawable.ic_muni
                 Agency.CALTRAIN -> R.drawable.ic_caltrain
             }
             views.setImageViewResource(R.id.ivAgencyLogo, logoRes)
+        }
+
+        private fun calcStopNameTextSizeSp(
+            context: Context,
+            stopName: String,
+            widgetMinWidthDp: Int
+        ): Float {
+            val dm = context.resources.displayMetrics
+            // paddingStart(16) + logo(42) + logoMarginEnd(10) + nameMarginEnd(5) + goModeArea(~90)
+            val overheadDp = 163f
+            val availableWidthPx = (widgetMinWidthDp - overheadDp) * dm.density
+            val paint = android.graphics.Paint().apply {
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+            }
+            for (sp in floatArrayOf(21f, 20f, 19f, 18f, 17f, 16f, 15f, 14f, 13f)) {
+                paint.textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, dm)
+                if (paint.measureText(stopName) <= availableWidthPx) return sp
+            }
+            return 13f
         }
 
         private suspend fun applyFreshness(
@@ -212,8 +239,14 @@ class TransitWidget : AppWidgetProvider() {
         ) {
             val isGoModeActive = GoModeManager(context).isGoModeActive
 
-            views.setViewVisibility(R.id.ivGoModeDot, if (isGoModeActive) View.VISIBLE else View.GONE)
-            views.setViewVisibility(R.id.ivRefreshIcon, if (isGoModeActive) View.GONE else View.VISIBLE)
+            views.setViewVisibility(
+                R.id.ivGoModeDot,
+                if (isGoModeActive) View.VISIBLE else View.GONE
+            )
+            views.setViewVisibility(
+                R.id.ivRefreshIcon,
+                if (isGoModeActive) View.GONE else View.VISIBLE
+            )
 
             views.setViewVisibility(R.id.tvFreshnessText, View.VISIBLE)
             if (fetchFailed) {
