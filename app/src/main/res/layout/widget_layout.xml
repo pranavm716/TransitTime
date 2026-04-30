@@ -60,8 +60,8 @@
             android:gravity="center_vertical"
             android:paddingTop="12dp"
             android:paddingBottom="6dp"
-            android:paddingEnd="16dp"
             android:paddingStart="16dp"
+            android:paddingEnd="16dp"
             android:background="@drawable/widget_ripple_overlay">
 
             <TextView
@@ -74,6 +74,17 @@
                 android:textSize="13sp"
                 android:layout_marginEnd="4dp" />
 
+            <Chronometer
+                android:id="@+id/chronoGoMode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:textColor="#238636"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="4dp"
+                android:visibility="gone" />
+
             <ImageView
                 android:id="@+id/ivRefreshIcon"
                 android:layout_width="14dp"
@@ -82,6 +93,15 @@
                 android:layout_marginEnd="2dp"
                 android:src="@drawable/ic_refresh"
                 app:tint="#AAAAAA" />
+
+            <ImageView
+                android:id="@+id/ivGoModeDot"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:layout_gravity="center_vertical"
+                android:layout_marginEnd="2dp"
+                android:src="@drawable/ic_go_mode_dot"
+                android:visibility="gone" />
 
         </LinearLayout>
 

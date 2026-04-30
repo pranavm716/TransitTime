@@ -3,9 +3,11 @@ package io.github.pranavm716.transittime.widget
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
 import android.util.TypedValue
 import android.view.View
@@ -175,7 +177,7 @@ class TransitWidget : AppWidgetProvider() {
                 val (grouped, overflow) = loadGroupedDepartures(db, config, now, maxRows)
 
                 applyHeader(views, config)
-                applyFreshness(views, db, config, fetchFailed, fetchedAt)
+                applyFreshness(context, views, db, config, fetchFailed, fetchedAt)
                 applyDepartures(context, views, grouped, config, now)
                 applyOverflow(views, overflow)
 
@@ -195,24 +197,41 @@ class TransitWidget : AppWidgetProvider() {
         }
 
         private suspend fun applyFreshness(
+            context: Context,
             views: RemoteViews,
             db: TransitDatabase,
             config: WidgetConfig,
             fetchFailed: Boolean,
             freshFetchedAt: Long? = null
         ) {
-            if (fetchFailed) {
-                views.setTextViewText(R.id.tvFreshnessText, "Failed")
-                views.setTextColor(R.id.tvFreshnessText, 0xFFFF6B6B.toInt())
+            val goModeManager = GoModeManager(context)
+            if (goModeManager.isGoModeActive) {
+                views.setViewVisibility(R.id.tvFreshnessText, View.GONE)
+                views.setViewVisibility(R.id.ivRefreshIcon, View.GONE)
+                views.setViewVisibility(R.id.chronoGoMode, View.VISIBLE)
+                views.setViewVisibility(R.id.ivGoModeDot, View.VISIBLE)
+                val base = SystemClock.elapsedRealtime() -
+                    (System.currentTimeMillis() - goModeManager.goModeExpiresAt)
+                views.setBoolean(R.id.chronoGoMode, "setCountDown", true)
+                views.setChronometer(R.id.chronoGoMode, base, "%s", true)
             } else {
-                val lastFetchedAt = freshFetchedAt
-                    ?: config.lastFetchedAt.takeIf { it > 0L }
-                    ?: db.departureDao().getDeparturesForStop(config.stopId)
-                        .maxOfOrNull { it.fetchedAt } ?: 0L
-                val freshnessText = if (lastFetchedAt == 0L) "—"
-                else SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(lastFetchedAt))
-                views.setTextViewText(R.id.tvFreshnessText, freshnessText)
-                views.setTextColor(R.id.tvFreshnessText, 0xFFAAAAAA.toInt())
+                views.setViewVisibility(R.id.tvFreshnessText, View.VISIBLE)
+                views.setViewVisibility(R.id.ivRefreshIcon, View.VISIBLE)
+                views.setViewVisibility(R.id.chronoGoMode, View.GONE)
+                views.setViewVisibility(R.id.ivGoModeDot, View.GONE)
+                if (fetchFailed) {
+                    views.setTextViewText(R.id.tvFreshnessText, "Failed")
+                    views.setTextColor(R.id.tvFreshnessText, 0xFFFF6B6B.toInt())
+                } else {
+                    val lastFetchedAt = freshFetchedAt
+                        ?: config.lastFetchedAt.takeIf { it > 0L }
+                        ?: db.departureDao().getDeparturesForStop(config.stopId)
+                            .maxOfOrNull { it.fetchedAt } ?: 0L
+                    val freshnessText = if (lastFetchedAt == 0L) "—"
+                    else SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(lastFetchedAt))
+                    views.setTextViewText(R.id.tvFreshnessText, freshnessText)
+                    views.setTextColor(R.id.tvFreshnessText, 0xFFAAAAAA.toInt())
+                }
             }
         }
 
@@ -522,6 +541,15 @@ class TransitWidget : AppWidgetProvider() {
                 "GoMode",
                 "toggled: active=${goModeManager.isGoModeActive}, expiresAt=${goModeManager.goModeExpiresAt}"
             )
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val ids = appWidgetManager.getAppWidgetIds(
+                ComponentName(context, TransitWidget::class.java)
+            )
+            for (widgetId in ids) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    updateWidget(context, appWidgetManager, widgetId, preserveNow = true)
+                }
+            }
         }
     }
 }
