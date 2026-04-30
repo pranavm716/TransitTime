@@ -32,6 +32,7 @@
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="io.github.pranavm716.transittime.ACTION_REFRESH" />
                 <action android:name="io.github.pranavm716.transittime.ACTION_CYCLE_DISPLAY_MODE" />
+                <action android:name="io.github.pranavm716.transittime.ACTION_TOGGLE_GO_MODE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

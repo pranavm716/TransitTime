@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
@@ -13,6 +14,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
+import io.github.pranavm716.transittime.GoModeManager
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.TransitApplication
 import io.github.pranavm716.transittime.data.db.TransitDatabase
@@ -84,6 +86,8 @@ class TransitWidget : AppWidgetProvider() {
         const val ACTION_REFRESH = "io.github.pranavm716.transittime.ACTION_REFRESH"
         const val ACTION_CYCLE_DISPLAY_MODE =
             "io.github.pranavm716.transittime.ACTION_CYCLE_DISPLAY_MODE"
+        const val ACTION_TOGGLE_GO_MODE =
+            "io.github.pranavm716.transittime.ACTION_TOGGLE_GO_MODE"
         const val EXTRA_WIDGET_ID = "extra_widget_id"
 
         val COLOR_ON_TIME = 0xFFFFC107.toInt()
@@ -143,7 +147,19 @@ class TransitWidget : AppWidgetProvider() {
                 cycleModeIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            views.setOnClickPendingIntent(R.id.llHeader, cycleModePendingIntent)
+            views.setOnClickPendingIntent(R.id.llHeaderInfo, cycleModePendingIntent)
+
+            val toggleGoModeIntent = Intent(context, TransitWidget::class.java).apply {
+                action = ACTION_TOGGLE_GO_MODE
+                putExtra(EXTRA_WIDGET_ID, widgetId)
+            }
+            val toggleGoModePendingIntent = PendingIntent.getBroadcast(
+                context,
+                widgetId + 20_000,
+                toggleGoModeIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.llGoMode, toggleGoModePendingIntent)
 
             withContext(Dispatchers.IO) {
                 val db = TransitDatabase.getInstance(context)
@@ -494,6 +510,18 @@ class TransitWidget : AppWidgetProvider() {
                     updateWidget(context, appWidgetManager, widgetId, preserveNow = true)
                 }
             }
+        } else if (intent.action == ACTION_TOGGLE_GO_MODE) {
+            val goModeManager = GoModeManager(context)
+            if (goModeManager.isGoModeActive) {
+                goModeManager.goModeExpiresAt = 0
+            } else {
+                goModeManager.goModeExpiresAt =
+                    System.currentTimeMillis() + GoModeManager.GO_MODE_DURATION_MS
+            }
+            Log.d(
+                "GoMode",
+                "toggled: active=${goModeManager.isGoModeActive}, expiresAt=${goModeManager.goModeExpiresAt}"
+            )
         }
     }
 }
