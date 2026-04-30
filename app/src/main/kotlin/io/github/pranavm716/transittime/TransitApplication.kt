@@ -30,7 +30,7 @@ class TransitApplication : Application() {
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             FETCH_WORK_NAME,
-            ExistingPeriodicWorkPolicy.REPLACE,
+            ExistingPeriodicWorkPolicy.KEEP,
             request
         )
     }
