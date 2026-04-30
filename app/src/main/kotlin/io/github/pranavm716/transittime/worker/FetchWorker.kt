@@ -30,6 +30,13 @@ class FetchWorker(
             ComponentName(context, TransitWidget::class.java)
         ).toSet()
 
+        val goModeManager = GoModeManager(context)
+        if (goModeManager.isGoModeActive) {
+            for (id in activeIds) {
+                TransitWidget.animateGoModeDot(context, manager, id)
+            }
+        }
+
         val allConfigs = configDao.getAllConfigs()
         val staleConfigs = allConfigs.filter { it.widgetId !in activeIds }
         if (staleConfigs.isNotEmpty()) {
@@ -89,15 +96,13 @@ class FetchWorker(
             ComponentName(context, TransitWidget::class.java)
         )
         val configByWidgetId = configs.associateBy { it.widgetId }
-        val goModeManager = GoModeManager(context)
         for (id in ids) {
             val config = configByWidgetId[id] ?: continue
             val fetchFailed = config.agency in failedAgencies
             TransitWidget.updateWidget(
                 context, manager, id,
                 fetchFailed = fetchFailed,
-                fetchedAt = if (fetchFailed) null else fetchedAt,
-                pulseDot = goModeManager.isGoModeActive
+                fetchedAt = if (fetchFailed) null else fetchedAt
             )
         }
         if (goModeManager.isGoModeActive) {

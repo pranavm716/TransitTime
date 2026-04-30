@@ -116,6 +116,7 @@ class TransitWidget : AppWidgetProvider() {
         private val spinningJobs = mutableMapOf<Int, Job>()
         private val spinStep = mutableMapOf<Int, Int>()
         private val pulsingJobs = mutableMapOf<Int, Job>()
+        private val pulseStep = mutableMapOf<Int, Int>()
 
         suspend fun updateWidget(
             context: Context,
@@ -123,8 +124,7 @@ class TransitWidget : AppWidgetProvider() {
             widgetId: Int,
             fetchFailed: Boolean = false,
             preserveNow: Boolean = false,
-            fetchedAt: Long? = null,
-            pulseDot: Boolean = false
+            fetchedAt: Long? = null
         ) {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
@@ -187,12 +187,8 @@ class TransitWidget : AppWidgetProvider() {
                 applyOverflow(views, overflow)
 
                 completeRevolution(context, appWidgetManager, widgetId)
+                completePulse(context, appWidgetManager, widgetId)
                 appWidgetManager.updateAppWidget(widgetId, views)
-                if (pulseDot) {
-                    animateGoModeDot(context, appWidgetManager, widgetId)
-                } else {
-                    pulsingJobs.remove(widgetId)?.cancel()
-                }
             }
         }
 
@@ -472,17 +468,20 @@ class TransitWidget : AppWidgetProvider() {
         ) {
             pulsingJobs[widgetId]?.cancel()
             pulsingJobs[widgetId] = CoroutineScope(Dispatchers.IO).launch {
-                val steps = 25
-                for (i in 0..steps) {
-                    val t = i.toFloat() / steps
-                    val scale = 1f + 0.5f * sin(Math.PI * t).toFloat()
-                    val views = RemoteViews(context.packageName, R.layout.widget_layout)
-                    views.setFloat(R.id.ivGoModeDot, "setScaleX", scale)
-                    views.setFloat(R.id.ivGoModeDot, "setScaleY", scale)
-                    appWidgetManager.partiallyUpdateAppWidget(widgetId, views)
-                    delay(25)
+                val steps = 11
+                while (isActive) {
+                    for (i in 0..steps) {
+                        if (!isActive) break
+                        pulseStep[widgetId] = i
+                        val t = i.toFloat() / steps
+                        val scale = 1f + 0.5f * sin(Math.PI * t).toFloat()
+                        val views = RemoteViews(context.packageName, R.layout.widget_layout)
+                        views.setFloat(R.id.ivGoModeDot, "setScaleX", scale)
+                        views.setFloat(R.id.ivGoModeDot, "setScaleY", scale)
+                        appWidgetManager.partiallyUpdateAppWidget(widgetId, views)
+                        delay(40)
+                    }
                 }
-                pulsingJobs.remove(widgetId)
             }
         }
 
@@ -499,6 +498,27 @@ class TransitWidget : AppWidgetProvider() {
                 for (s in (current + 1)..steps) {
                     val v = RemoteViews(context.packageName, R.layout.widget_layout)
                     v.setFloat(R.id.ivRefreshIcon, "setRotation", stepAngle * s)
+                    appWidgetManager.partiallyUpdateAppWidget(widgetId, v)
+                    delay(40)
+                }
+            }
+        }
+
+        private suspend fun completePulse(
+            context: Context,
+            appWidgetManager: AppWidgetManager,
+            widgetId: Int
+        ) {
+            pulsingJobs.remove(widgetId)?.cancel()
+            val current = pulseStep.remove(widgetId) ?: return
+            if (current > 0) {
+                val steps = 11
+                for (i in (current + 1)..steps) {
+                    val t = i.toFloat() / steps
+                    val scale = 1f + 0.5f * sin(Math.PI * t).toFloat()
+                    val v = RemoteViews(context.packageName, R.layout.widget_layout)
+                    v.setFloat(R.id.ivGoModeDot, "setScaleX", scale)
+                    v.setFloat(R.id.ivGoModeDot, "setScaleY", scale)
                     appWidgetManager.partiallyUpdateAppWidget(widgetId, v)
                     delay(40)
                 }
