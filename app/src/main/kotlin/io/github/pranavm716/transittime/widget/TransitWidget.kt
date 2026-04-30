@@ -38,6 +38,7 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 
 class TransitWidget : AppWidgetProvider() {
@@ -91,6 +92,8 @@ class TransitWidget : AppWidgetProvider() {
         const val ACTION_TOGGLE_GO_MODE =
             "io.github.pranavm716.transittime.ACTION_TOGGLE_GO_MODE"
         const val EXTRA_WIDGET_ID = "extra_widget_id"
+        const val GO_MODE_FETCH_WORK_NAME = "transit_go_mode_fetch"
+        const val GO_MODE_EXPIRY_WORK_NAME = "transit_go_mode_expiry"
 
         val COLOR_ON_TIME = 0xFFFFC107.toInt()
         val COLOR_LATE = 0xFFdc3545.toInt()
@@ -219,7 +222,8 @@ class TransitWidget : AppWidgetProvider() {
                 views.setViewVisibility(R.id.ivRefreshIcon, View.VISIBLE)
                 views.setViewVisibility(R.id.chronoGoMode, View.GONE)
                 views.setViewVisibility(R.id.ivGoModeDot, View.GONE)
-                if (fetchFailed) {
+                val goModeNaturallyExpired = goModeManager.goModeExpiresAt > 0L
+                if (fetchFailed && !goModeNaturallyExpired) {
                     views.setTextViewText(R.id.tvFreshnessText, "Failed")
                     views.setTextColor(R.id.tvFreshnessText, 0xFFFF6B6B.toInt())
                 } else {
@@ -501,6 +505,7 @@ class TransitWidget : AppWidgetProvider() {
                 AppWidgetManager.INVALID_APPWIDGET_ID
             )
             if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                if (GoModeManager(context).isGoModeActive) return
                 val appWidgetManager = AppWidgetManager.getInstance(context)
                 CoroutineScope(Dispatchers.IO).launch {
                     val db = TransitDatabase.getInstance(context)
@@ -541,13 +546,39 @@ class TransitWidget : AppWidgetProvider() {
                 "GoMode",
                 "toggled: active=${goModeManager.isGoModeActive}, expiresAt=${goModeManager.goModeExpiresAt}"
             )
+            if (goModeManager.isGoModeActive) {
+                triggerFetch(context)
+                Log.d("GoMode", "activated, scheduling next fetch in ${GoModeManager.GO_MODE_INTERVAL_MS}ms")
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    GO_MODE_FETCH_WORK_NAME,
+                    ExistingWorkPolicy.REPLACE,
+                    OneTimeWorkRequestBuilder<FetchWorker>()
+                        .setInitialDelay(GoModeManager.GO_MODE_INTERVAL_MS, TimeUnit.MILLISECONDS)
+                        .build()
+                )
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    GO_MODE_EXPIRY_WORK_NAME,
+                    ExistingWorkPolicy.REPLACE,
+                    OneTimeWorkRequestBuilder<FetchWorker>()
+                        .setInitialDelay(GoModeManager.GO_MODE_DURATION_MS, TimeUnit.MILLISECONDS)
+                        .build()
+                )
+            } else {
+                WorkManager.getInstance(context).cancelUniqueWork(GO_MODE_FETCH_WORK_NAME)
+                WorkManager.getInstance(context).cancelUniqueWork(GO_MODE_EXPIRY_WORK_NAME)
+            }
+            val deactivated = !goModeManager.isGoModeActive
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val ids = appWidgetManager.getAppWidgetIds(
                 ComponentName(context, TransitWidget::class.java)
             )
             for (widgetId in ids) {
                 CoroutineScope(Dispatchers.IO).launch {
-                    updateWidget(context, appWidgetManager, widgetId, preserveNow = true)
+                    updateWidget(
+                        context, appWidgetManager, widgetId,
+                        preserveNow = true,
+                        fetchedAt = if (deactivated) System.currentTimeMillis() else null
+                    )
                 }
             }
         }
