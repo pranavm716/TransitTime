@@ -89,17 +89,17 @@ class FetchWorker(
             ComponentName(context, TransitWidget::class.java)
         )
         val configByWidgetId = configs.associateBy { it.widgetId }
+        val goModeManager = GoModeManager(context)
         for (id in ids) {
             val config = configByWidgetId[id] ?: continue
             val fetchFailed = config.agency in failedAgencies
             TransitWidget.updateWidget(
                 context, manager, id,
                 fetchFailed = fetchFailed,
-                fetchedAt = if (fetchFailed) null else fetchedAt
+                fetchedAt = if (fetchFailed) null else fetchedAt,
+                pulseDot = goModeManager.isGoModeActive
             )
         }
-
-        val goModeManager = GoModeManager(context)
         if (goModeManager.isGoModeActive) {
             Log.d("GoMode", "go mode active, scheduling next fetch in ${GoModeManager.GO_MODE_INTERVAL_MS}ms")
             WorkManager.getInstance(context).enqueueUniqueWork(
