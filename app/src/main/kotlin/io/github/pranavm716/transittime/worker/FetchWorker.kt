@@ -3,7 +3,6 @@ package io.github.pranavm716.transittime.worker
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
-import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -97,18 +96,19 @@ class FetchWorker(
         val ids = manager.getAppWidgetIds(
             ComponentName(context, TransitWidget::class.java)
         )
-        val configByWidgetId = configs.associateBy { it.widgetId }
+        val latestConfigs = configDao.getAllConfigs().associateBy { it.widgetId }
+        val now = System.currentTimeMillis()
         for (id in ids) {
-            val config = configByWidgetId[id] ?: continue
+            val config = latestConfigs[id] ?: continue
             val error = agencyErrors[config.agency]
             TransitWidget.updateWidget(
                 context, manager, id,
                 errorLabel = error?.label,
+                now = now,
                 fetchedAt = if (error != null) null else fetchedAt
             )
         }
         if (goModeManager.isGoModeActive) {
-            Log.d("GoMode", "go mode active, scheduling next fetch in ${GoModeManager.GO_MODE_INTERVAL_MS}ms")
             WorkManager.getInstance(context).enqueueUniqueWork(
                 TransitWidget.GO_MODE_FETCH_WORK_NAME,
                 ExistingWorkPolicy.REPLACE,
