@@ -36,6 +36,7 @@ import io.github.pranavm716.transittime.data.model.DelayColorMode
 import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
+import io.github.pranavm716.transittime.transit.TransitError
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -270,9 +271,10 @@ class TransitWidgetConfig : AppCompatActivity() {
                                 handler.loadStaticData(applicationContext)
                             } catch (e: Exception) {
                                 withContext(Dispatchers.Main) {
+                                    val error = TransitError.fromException(e)
                                     Toast.makeText(
                                         applicationContext,
-                                        "Failed to load stop data: ${e.message}",
+                                        error.userMessage,
                                         Toast.LENGTH_LONG
                                     ).show()
                                 }
@@ -443,9 +445,10 @@ class TransitWidgetConfig : AppCompatActivity() {
                     imm.hideSoftInputFromWindow(etStopSearch.windowToken, 0)
                     flRoutes.visibility = View.GONE
                     tvRoutesLabel.visibility = View.GONE
+                    val error = TransitError.fromException(e)
                     Toast.makeText(
                         this@TransitWidgetConfig,
-                        "Could not load routes. Check your connection and try again.",
+                        error.userMessage,
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -460,9 +463,10 @@ class TransitWidgetConfig : AppCompatActivity() {
                 if (routes.isEmpty()) {
                     flRoutes.visibility = View.GONE
                     tvRoutesLabel.visibility = View.GONE
+                    val error = TransitError.EMPTY
                     Toast.makeText(
                         this@TransitWidgetConfig,
-                        "No routes found for this stop.",
+                        error.userMessage,
                         Toast.LENGTH_LONG
                     ).show()
                 } else {

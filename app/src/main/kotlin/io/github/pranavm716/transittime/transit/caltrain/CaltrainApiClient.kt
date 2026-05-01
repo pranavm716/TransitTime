@@ -3,6 +3,7 @@ package io.github.pranavm716.transittime.transit.caltrain
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.http.GET
 import retrofit2.http.Query
@@ -12,7 +13,7 @@ internal interface CaltrainApi {
     suspend fun getTripUpdates(
         @Query("agency") agency: String = "CT",
         @Query("api_key") apiKey: String
-    ): ResponseBody
+    ): Response<ResponseBody>
 }
 
 object CaltrainApiClient {

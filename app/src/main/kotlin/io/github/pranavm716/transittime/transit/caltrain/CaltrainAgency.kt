@@ -10,6 +10,11 @@ import io.github.pranavm716.transittime.transit.TransitAgency
 import io.github.pranavm716.transittime.util.RouteShape
 import io.github.pranavm716.transittime.util.RouteStyle
 
+import io.github.pranavm716.transittime.transit.AuthenticationException
+import io.github.pranavm716.transittime.transit.RateLimitException
+import io.github.pranavm716.transittime.transit.TransitServerException
+import java.io.IOException
+
 object CaltrainAgency : TransitAgency {
     override val agency = Agency.CALTRAIN
 
@@ -20,7 +25,18 @@ object CaltrainAgency : TransitAgency {
     override fun getStopNames(): Map<String, String> = CaltrainParser.getStopNames()
 
     override suspend fun fetchArrivals(stopIds: Set<String>, fetchedAt: Long): List<Departure> {
-        val bytes = CaltrainApiClient.api.getTripUpdates(apiKey = BuildConfig.MUNI_API_KEY).bytes()
+        val response = CaltrainApiClient.api.getTripUpdates(apiKey = BuildConfig.MUNI_API_KEY)
+        if (!response.isSuccessful) {
+            val code = response.code()
+            val msg = response.message()
+            throw when (code) {
+                401, 403 -> AuthenticationException("Caltrain API Auth error: $code $msg")
+                429 -> RateLimitException("Caltrain API Rate limit error")
+                in 500..599 -> TransitServerException("Caltrain API Server error: $code $msg")
+                else -> IOException("Caltrain API error: $code $msg")
+            }
+        }
+        val bytes = response.body()?.bytes() ?: throw IOException("Empty response body")
         val rtDepartures = CaltrainParser.parseRtFeed(bytes, fetchedAt).filter { it.stopId in stopIds }
 
         val allRtTripIds = rtDepartures.mapNotNull { it.tripId }.toSet()

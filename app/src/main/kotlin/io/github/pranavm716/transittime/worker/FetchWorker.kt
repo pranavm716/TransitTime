@@ -54,7 +54,7 @@ class FetchWorker(
         if (configs.isEmpty()) return Result.success()
 
         val fetchedAt = System.currentTimeMillis()
-        val failedAgencies = mutableSetOf<io.github.pranavm716.transittime.data.model.Agency>()
+        val agencyErrors = mutableMapOf<io.github.pranavm716.transittime.data.model.Agency, io.github.pranavm716.transittime.transit.TransitError>()
         val changedStops = mutableSetOf<String>()
 
         configs.groupBy { it.agency }.forEach { (agency, agencyConfigs) ->
@@ -67,18 +67,20 @@ class FetchWorker(
 
                 for (stopId in stopIds) {
                     val stopDepartures = departuresByStop[stopId] ?: emptyList()
-                    if (stopDepartures.isNotEmpty()) {
-                        val existing = departureDao.getDeparturesForStop(stopId)
-                        val existingSignature =
-                            existing.map { it.id to it.departureTimestamp }.toSet()
-                        val newSignature =
-                            stopDepartures.map { it.id to it.departureTimestamp }.toSet()
+                    val existing = departureDao.getDeparturesForStop(stopId)
+                    
+                    if (stopDepartures.isEmpty()) {
+                        if (existing.isNotEmpty()) {
+                            changedStops.add(stopId)
+                            departureDao.deleteDeparturesForStop(stopId)
+                        }
+                    } else {
+                        val existingSignature = existing.map { it.id to it.departureTimestamp }.toSet()
+                        val newSignature = stopDepartures.map { it.id to it.departureTimestamp }.toSet()
                         if (existingSignature != newSignature) {
                             changedStops.add(stopId)
                             departureDao.upsertDepartures(stopDepartures)
-                            departureDao.deleteStaleRowsForStop(
-                                stopId,
-                                stopDepartures.map { it.id })
+                            departureDao.deleteStaleRowsForStop(stopId, stopDepartures.map { it.id })
                         }
                     }
                 }
@@ -88,7 +90,7 @@ class FetchWorker(
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                failedAgencies.add(agency)
+                agencyErrors[agency] = io.github.pranavm716.transittime.transit.TransitError.fromException(e)
             }
         }
 
@@ -98,11 +100,11 @@ class FetchWorker(
         val configByWidgetId = configs.associateBy { it.widgetId }
         for (id in ids) {
             val config = configByWidgetId[id] ?: continue
-            val fetchFailed = config.agency in failedAgencies
+            val error = agencyErrors[config.agency]
             TransitWidget.updateWidget(
                 context, manager, id,
-                fetchFailed = fetchFailed,
-                fetchedAt = if (fetchFailed) null else fetchedAt
+                errorLabel = error?.label,
+                fetchedAt = if (error != null) null else fetchedAt
             )
         }
         if (goModeManager.isGoModeActive) {

@@ -7,8 +7,12 @@ import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.Departure
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.IOException
 import java.io.InputStream
 import java.util.zip.ZipInputStream
+import io.github.pranavm716.transittime.transit.AuthenticationException
+import io.github.pranavm716.transittime.transit.RateLimitException
+import io.github.pranavm716.transittime.transit.TransitServerException
 
 object BartParser {
 
@@ -263,7 +267,18 @@ object BartParser {
 
     suspend fun fetchRoutesForStop(stopId: String): Map<String, List<String>> {
         // Use live RT feed to get currently running routes at this stop
-        val bytes = BartApiClient.api.getTripUpdates().bytes()
+        val response = BartApiClient.api.getTripUpdates()
+        if (!response.isSuccessful) {
+            val code = response.code()
+            val msg = response.message()
+            throw when (code) {
+                401, 403 -> AuthenticationException("BART API Auth error: $code $msg")
+                429 -> RateLimitException("BART API Rate limit error")
+                in 500..599 -> TransitServerException("BART API Server error: $code $msg")
+                else -> IOException("BART API error: $code $msg")
+            }
+        }
+        val bytes = response.body()?.bytes() ?: throw IOException("Empty response body")
         val feed = FeedMessage.parseFrom(bytes)
         val result = mutableMapOf<String, MutableSet<String>>()
 

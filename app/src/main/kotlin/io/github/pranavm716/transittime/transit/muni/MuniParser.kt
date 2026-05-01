@@ -6,6 +6,9 @@ import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.Departure
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import io.github.pranavm716.transittime.transit.AuthenticationException
+import io.github.pranavm716.transittime.transit.RateLimitException
+import io.github.pranavm716.transittime.transit.TransitServerException
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.IOException
@@ -152,11 +155,22 @@ object MuniParser {
                     stopCode = platformId
                 )
                 if (!response.isSuccessful) {
-                    throw IOException("511 API error: ${response.code()} ${response.message()}")
+                    val code = response.code()
+                    val msg = response.message()
+                    throw when (code) {
+                        401, 403 -> AuthenticationException("511 API Auth error: $code $msg")
+                        429 -> RateLimitException("511 API Rate limit error")
+                        in 500..599 -> TransitServerException("511 API Server error: $code $msg")
+                        else -> IOException("511 API error: $code $msg")
+                    }
                 }
                 val body = response.body()?.string() ?: ""
-                allDepartures.addAll(parseStopMonitoring(body, stopId, fetchedAt))
+                val departures = parseStopMonitoring(body, stopId, fetchedAt)
+                allDepartures.addAll(departures)
             } catch (e: Exception) {
+                if (e is AuthenticationException || e is RateLimitException || e is TransitServerException) {
+                    throw e
+                }
                 failureCount++
                 lastException = e
                 e.printStackTrace()
@@ -292,11 +306,19 @@ object MuniParser {
                 apiKey = BuildConfig.MUNI_API_KEY,
                 stopCode = platformId
             )
-            if (response.isSuccessful) {
-                val routes = parseRoutesFromResponse(response.body()?.string() ?: "", platformIdSet)
-                routes.forEach { (line, headsigns) ->
-                    combined.getOrPut(line) { mutableSetOf() }.addAll(headsigns)
+            if (!response.isSuccessful) {
+                val code = response.code()
+                val msg = response.message()
+                throw when (code) {
+                    401, 403 -> AuthenticationException("511 API Auth error: $code $msg")
+                    429 -> RateLimitException("511 API Rate limit error")
+                    in 500..599 -> TransitServerException("511 API Server error: $code $msg")
+                    else -> IOException("511 API error: $code $msg")
                 }
+            }
+            val routes = parseRoutesFromResponse(response.body()?.string() ?: "", platformIdSet)
+            routes.forEach { (line, headsigns) ->
+                combined.getOrPut(line) { mutableSetOf() }.addAll(headsigns)
             }
         }
 

@@ -30,6 +30,7 @@ import io.github.pranavm716.transittime.worker.FetchWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -122,7 +123,7 @@ class TransitWidget : AppWidgetProvider() {
             context: Context,
             appWidgetManager: AppWidgetManager,
             widgetId: Int,
-            fetchFailed: Boolean = false,
+            errorLabel: String? = null,
             preserveNow: Boolean = false,
             fetchedAt: Long? = null
         ) {
@@ -183,7 +184,7 @@ class TransitWidget : AppWidgetProvider() {
                 val (grouped, overflow) = loadGroupedDepartures(db, config, now, maxRows)
 
                 applyHeader(views, config, context, minWidth)
-                applyFreshness(context, views, db, config, fetchFailed, fetchedAt)
+                applyFreshness(context, views, db, config, errorLabel, fetchedAt)
                 applyDepartures(context, views, grouped, config, now)
                 applyOverflow(views, overflow)
 
@@ -234,7 +235,7 @@ class TransitWidget : AppWidgetProvider() {
             views: RemoteViews,
             db: TransitDatabase,
             config: WidgetConfig,
-            fetchFailed: Boolean,
+            errorLabel: String?,
             freshFetchedAt: Long? = null
         ) {
             val isGoModeActive = GoModeManager(context).isGoModeActive
@@ -249,8 +250,8 @@ class TransitWidget : AppWidgetProvider() {
             )
 
             views.setViewVisibility(R.id.tvFreshnessText, View.VISIBLE)
-            if (fetchFailed) {
-                views.setTextViewText(R.id.tvFreshnessText, "Failed")
+            if (errorLabel != null) {
+                views.setTextViewText(R.id.tvFreshnessText, errorLabel)
                 views.setTextColor(R.id.tvFreshnessText, 0xFFdc3545.toInt())
             } else {
                 val lastFetchedAt = freshFetchedAt
@@ -523,7 +524,7 @@ class TransitWidget : AppWidgetProvider() {
             appWidgetManager: AppWidgetManager,
             widgetId: Int
         ) {
-            spinningJobs.remove(widgetId)?.cancel()
+            spinningJobs.remove(widgetId)?.cancelAndJoin()
             val current = spinStep.remove(widgetId) ?: 0
             if (current in 1 until 24) {
                 val steps = 12
@@ -542,7 +543,7 @@ class TransitWidget : AppWidgetProvider() {
             appWidgetManager: AppWidgetManager,
             widgetId: Int
         ) {
-            pulsingJobs.remove(widgetId)?.cancel()
+            pulsingJobs.remove(widgetId)?.cancelAndJoin()
             val current = pulseStep.remove(widgetId) ?: return
             if (current > 0) {
                 val steps = 11

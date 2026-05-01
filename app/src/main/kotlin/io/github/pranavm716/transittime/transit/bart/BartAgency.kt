@@ -9,6 +9,12 @@ import io.github.pranavm716.transittime.transit.TransitAgency
 import io.github.pranavm716.transittime.util.RouteShape
 import io.github.pranavm716.transittime.util.RouteStyle
 
+import io.github.pranavm716.transittime.transit.AuthenticationException
+import io.github.pranavm716.transittime.transit.RateLimitException
+import io.github.pranavm716.transittime.transit.TransitServerException
+import retrofit2.HttpException
+import java.io.IOException
+
 object BartAgency : TransitAgency {
     override val agency = Agency.BART
 
@@ -19,7 +25,19 @@ object BartAgency : TransitAgency {
     override fun getStopNames(): Map<String, String> = BartParser.getStopNames()
 
     override suspend fun fetchArrivals(stopIds: Set<String>, fetchedAt: Long): List<Departure> {
-        val bytes = BartApiClient.api.getTripUpdates().bytes()
+        val response = BartApiClient.api.getTripUpdates()
+        if (!response.isSuccessful) {
+            val code = response.code()
+            val msg = response.message()
+            throw when (code) {
+                401, 403 -> AuthenticationException("BART API Auth error: $code $msg")
+                429 -> RateLimitException("BART API Rate limit error")
+                in 500..599 -> TransitServerException("BART API Server error: $code $msg")
+                else -> IOException("BART API error: $code $msg")
+            }
+        }
+        
+        val bytes = response.body()?.bytes() ?: throw IOException("Empty response body")
         return BartParser.parseRtFeed(bytes, fetchedAt).filter { it.stopId in stopIds }
     }
 
