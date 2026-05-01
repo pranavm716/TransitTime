@@ -25,7 +25,7 @@ data class Departure(
         now: Long,
         displayMode: DisplayMode = DisplayMode.RELATIVE,
         hybridThresholdMinutes: Int = 60,
-        arrivingWindowMillis: Long = 30_000
+        departingWindowMillis: Long = 30_000
     ): String {
         val millisToArrival = arrivalTimestamp?.minus(now)
         val millisToDeparture = departureTimestamp?.minus(now)
@@ -47,7 +47,7 @@ data class Departure(
             }
 
             // Arriving — train within arriving window, has arrival data, not an origin stop
-            if (!isOriginStop && millisToArrival != null && millisToArrival in 1..arrivingWindowMillis) {
+            if (!isOriginStop && millisToArrival != null && millisToArrival in 1..departingWindowMillis) {
                 return "Arriving"
             }
         }

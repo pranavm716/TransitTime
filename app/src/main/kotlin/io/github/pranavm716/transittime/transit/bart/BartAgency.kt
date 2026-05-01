@@ -24,7 +24,7 @@ object BartAgency : TransitAgency {
 
     override fun getStopNames(): Map<String, String> = BartParser.getStopNames()
 
-    override suspend fun fetchArrivals(stopIds: Set<String>, fetchedAt: Long): List<Departure> {
+    override suspend fun fetchDepartures(stopIds: Set<String>, fetchedAt: Long): List<Departure> {
         val response = BartApiClient.api.getTripUpdates()
         if (!response.isSuccessful) {
             val code = response.code()

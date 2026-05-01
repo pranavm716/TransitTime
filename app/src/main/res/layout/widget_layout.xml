@@ -94,7 +94,7 @@
 
     </LinearLayout>
 
-    <!-- Body: separator + arrivals. Refresh tap target lives here, not on widgetRoot,
+    <!-- Body: separator + departures. Refresh tap target lives here, not on widgetRoot,
          to avoid RemoteViews parent+child double-fire with the header's tap target. -->
     <LinearLayout
         android:id="@+id/llBody"
@@ -113,7 +113,7 @@
             android:src="@android:color/transparent"
             android:background="#bdc1c7" />
 
-        <!-- Arrivals + overflow -->
+        <!-- Departures + overflow -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
@@ -122,7 +122,7 @@
             android:paddingBottom="12dp">
 
             <LinearLayout
-                android:id="@+id/llArrivals"
+                android:id="@+id/llDepartures"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"

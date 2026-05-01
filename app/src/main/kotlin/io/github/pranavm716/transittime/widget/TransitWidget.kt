@@ -284,7 +284,7 @@ class TransitWidget : AppWidgetProvider() {
                     departures.sortedBy {
                         it.arrivalTimestamp ?: it.departureTimestamp ?: Long.MAX_VALUE
                     }
-                        .take(config.maxArrivals)
+                        .take(config.maxDepartures)
                 }
                 .sortedWith(
                     compareBy(
@@ -313,7 +313,7 @@ class TransitWidget : AppWidgetProvider() {
             config: WidgetConfig,
             now: Long
         ) {
-            views.removeAllViews(R.id.llArrivals)
+            views.removeAllViews(R.id.llDepartures)
             views.removeAllViews(R.id.llEmptyContainer)
 
             if (grouped.isEmpty()) {
@@ -329,17 +329,17 @@ class TransitWidget : AppWidgetProvider() {
                     departure.getDisplayTime(now, config.displayMode, config.hybridThresholdMinutes)
                 }
             }
-            val timeFontSizeSp = calcTimeFontSizeSp(context, allTimes, config.maxArrivals)
+            val timeFontSizeSp = calcTimeFontSizeSp(context, allTimes, config.maxDepartures)
 
             for ((departures, times) in grouped.zip(allTimes)) {
                 views.addView(
-                    R.id.llArrivals,
+                    R.id.llDepartures,
                     buildDepartureRow(
                         context,
                         departures,
                         times,
                         timeFontSizeSp,
-                        config.maxArrivals,
+                        config.maxDepartures,
                         config.delayColorMode
                     )
                 )
@@ -351,12 +351,12 @@ class TransitWidget : AppWidgetProvider() {
             departures: List<Departure>,
             times: List<String>,
             timeFontSizeSp: Float,
-            maxArrivals: Int,
+            maxDepartures: Int,
             delayColorMode: DelayColorMode
         ): RemoteViews {
             val first = departures.first()
             val handler = AgencyRegistry.get(first.agency)
-            val rowViews = RemoteViews(context.packageName, R.layout.widget_arrival_row)
+            val rowViews = RemoteViews(context.packageName, R.layout.widget_departure_row)
 
             val iconSizePx = (36 * context.resources.displayMetrics.density).toInt()
             val bitmap = RouteIconDrawer.draw(
@@ -372,13 +372,13 @@ class TransitWidget : AppWidgetProvider() {
             for (i in timeCells.indices) {
                 rowViews.setViewVisibility(
                     timeCells[i],
-                    if (i < maxArrivals) View.VISIBLE else View.GONE
+                    if (i < maxDepartures) View.VISIBLE else View.GONE
                 )
             }
             for (cell in timeCells) {
                 rowViews.setTextViewTextSize(cell, TypedValue.COMPLEX_UNIT_SP, timeFontSizeSp)
             }
-            for (i in 0 until maxArrivals) {
+            for (i in 0 until maxDepartures) {
                 val text = times.getOrNull(i) ?: "—"
                 val departure = departures.getOrNull(i)
                 val color = if (departure != null) delayColor(
@@ -444,7 +444,7 @@ class TransitWidget : AppWidgetProvider() {
         private fun calcTimeFontSizeSp(
             context: Context,
             allTimes: List<List<String>>,
-            maxArrivals: Int,
+            maxDepartures: Int,
             cellWidthDp: Float = 52f
         ): Float {
             val dm = context.resources.displayMetrics
@@ -455,7 +455,7 @@ class TransitWidget : AppWidgetProvider() {
             for (sp in floatArrayOf(16f, 15f, 14f)) {
                 paint.textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, dm)
                 val maxWidth = allTimes.maxOfOrNull { times ->
-                    (0 until maxArrivals).maxOfOrNull { i ->
+                    (0 until maxDepartures).maxOfOrNull { i ->
                         paint.measureText(times.getOrNull(i) ?: "—")
                     } ?: 0f
                 } ?: 0f

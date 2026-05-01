@@ -380,7 +380,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/max_arrivals"
+                android:text="@string/max_departures"
                 android:textSize="12sp"
                 android:textAllCaps="true"
                 android:letterSpacing="0.1"
@@ -395,7 +395,7 @@
                 android:orientation="horizontal">
 
                 <Button
-                    android:id="@+id/btnMaxArrivals1"
+                    android:id="@+id/btnMaxDepartures1"
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
                     android:layout_weight="1"
@@ -408,7 +408,7 @@
                     android:stateListAnimator="@null" />
 
                 <Button
-                    android:id="@+id/btnMaxArrivals2"
+                    android:id="@+id/btnMaxDepartures2"
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
                     android:layout_weight="1"
@@ -422,7 +422,7 @@
                     android:stateListAnimator="@null" />
 
                 <Button
-                    android:id="@+id/btnMaxArrivals3"
+                    android:id="@+id/btnMaxDepartures3"
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
                     android:layout_weight="1"

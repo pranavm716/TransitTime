@@ -24,7 +24,7 @@ data class ScheduledDeparture(
 fun mergeWithTimetable(
     rtDepartures: List<Departure>,
     scheduledDepartures: List<ScheduledDeparture>,
-    maxArrivals: Int,
+    maxDepartures: Int,
     now: Long,
     stopId: String,
     fetchedAt: Long,
@@ -42,10 +42,10 @@ fun mergeWithTimetable(
 
     for ((key, scheduled) in schedByKey) {
         // Only count future RT departures — past ones will be filtered out by the widget,
-        // so counting them would under-fill the scheduled slots and show fewer than maxArrivals.
+        // so counting them would under-fill the scheduled slots and show fewer than maxDepartures.
         val rtCount = (rtByKey[key] ?: emptyList())
             .count { (it.departureTimestamp ?: it.arrivalTimestamp ?: 0L) > now }
-        val needed = maxArrivals - rtCount
+        val needed = maxDepartures - rtCount
         if (needed <= 0) continue
 
         var filled = 0

@@ -10,7 +10,7 @@ interface TransitAgency {
 
     suspend fun loadStaticData(context: Context)
     fun getStopNames(): Map<String, String>
-    suspend fun fetchArrivals(stopIds: Set<String>, fetchedAt: Long): List<Departure>
+    suspend fun fetchDepartures(stopIds: Set<String>, fetchedAt: Long): List<Departure>
     suspend fun fetchRoutesForStop(stopId: String): Map<String, List<String>>
     fun getRouteStyle(routeName: String): RouteStyle
     fun getIconText(routeName: String): String

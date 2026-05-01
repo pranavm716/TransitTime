@@ -24,7 +24,7 @@ object CaltrainAgency : TransitAgency {
 
     override fun getStopNames(): Map<String, String> = CaltrainParser.getStopNames()
 
-    override suspend fun fetchArrivals(stopIds: Set<String>, fetchedAt: Long): List<Departure> {
+    override suspend fun fetchDepartures(stopIds: Set<String>, fetchedAt: Long): List<Departure> {
         val response = CaltrainApiClient.api.getTripUpdates(apiKey = BuildConfig.TRANSIT511_API_KEY)
         if (!response.isSuccessful) {
             val code = response.code()
@@ -51,7 +51,7 @@ object CaltrainAgency : TransitAgency {
                 mergeWithTimetable(
                     rtDepartures = rtForStop,
                     scheduledDepartures = scheduled,
-                    maxArrivals = 3,
+                    maxDepartures = 3,
                     now = fetchedAt,
                     stopId = stopId,
                     fetchedAt = fetchedAt,

@@ -4,10 +4,10 @@
     <string name="agency">Agency</string>
     <string name="search_for_a_stop">Search for a stop</string>
     <string name="stop_search_hint">e.g. Embarcadero</string>
-    <string name="max_arrivals">Max departures per line</string>
+    <string name="max_departures">Max departures per line</string>
     <string name="add_widget">Add Widget</string>
     <string name="save_changes">Save Changes</string>
-    <string name="default_max_arrivals">3</string>
+    <string name="default_max_departures">3</string>
     <string name="station">Station</string>
     <string name="destination">Destination</string>
     <string name="minutes">5 min</string>

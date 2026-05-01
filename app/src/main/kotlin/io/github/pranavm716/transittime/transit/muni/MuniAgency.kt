@@ -18,7 +18,7 @@ object MuniAgency : TransitAgency {
 
     override fun getStopNames(): Map<String, String> = MuniParser.getStopNames()
 
-    override suspend fun fetchArrivals(stopIds: Set<String>, fetchedAt: Long): List<Departure> {
+    override suspend fun fetchDepartures(stopIds: Set<String>, fetchedAt: Long): List<Departure> {
         val departures = mutableListOf<Departure>()
         for (stopId in stopIds) {
             departures.addAll(MuniParser.fetchAndParseStop(stopId, fetchedAt))

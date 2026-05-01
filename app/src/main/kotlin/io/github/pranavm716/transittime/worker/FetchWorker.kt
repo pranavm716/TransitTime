@@ -61,7 +61,7 @@ class FetchWorker(
             try {
                 handler.loadStaticData(context)
                 val stopIds = agencyConfigs.map { it.stopId }.toSet()
-                val departures = handler.fetchArrivals(stopIds, fetchedAt)
+                val departures = handler.fetchDepartures(stopIds, fetchedAt)
                 val departuresByStop = departures.groupBy { it.stopId }
 
                 for (stopId in stopIds) {
