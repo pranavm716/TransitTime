@@ -32,7 +32,7 @@ class Converters {
     fun toDelayColorMode(value: String): DelayColorMode = DelayColorMode.valueOf(value)
 }
 
-@Database(entities = [Departure::class, WidgetConfig::class], version = 5, exportSchema = false)
+@Database(entities = [Departure::class, WidgetConfig::class], version = 6, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class TransitDatabase : RoomDatabase() {
     abstract fun departureDao(): DepartureDao

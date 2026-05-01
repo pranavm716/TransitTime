@@ -123,9 +123,7 @@ class TransitWidget : AppWidgetProvider() {
             context: Context,
             appWidgetManager: AppWidgetManager,
             widgetId: Int,
-            errorLabel: String? = null,
-            now: Long? = null,
-            fetchedAt: Long? = null
+            now: Long? = null
         ) {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
@@ -183,7 +181,7 @@ class TransitWidget : AppWidgetProvider() {
                 val (grouped, overflow) = loadGroupedDepartures(db, config, nowVal, maxRows)
 
                 applyHeader(views, config, context, minWidth)
-                applyFreshness(context, views, db, config, errorLabel, fetchedAt)
+                applyFreshness(context, views, db, config)
                 applyDepartures(context, views, grouped, config, nowVal)
                 applyOverflow(views, overflow)
 
@@ -233,9 +231,7 @@ class TransitWidget : AppWidgetProvider() {
             context: Context,
             views: RemoteViews,
             db: TransitDatabase,
-            config: WidgetConfig,
-            errorLabel: String?,
-            freshFetchedAt: Long? = null
+            config: WidgetConfig
         ) {
             val isGoModeActive = GoModeManager(context).isGoModeActive
 
@@ -249,12 +245,11 @@ class TransitWidget : AppWidgetProvider() {
             )
 
             views.setViewVisibility(R.id.tvFreshnessText, View.VISIBLE)
-            if (errorLabel != null) {
-                views.setTextViewText(R.id.tvFreshnessText, errorLabel)
+            if (config.lastErrorLabel != null) {
+                views.setTextViewText(R.id.tvFreshnessText, config.lastErrorLabel)
                 views.setTextColor(R.id.tvFreshnessText, 0xFFdc3545.toInt()) // Red
             } else {
-                val lastFetchedAt = freshFetchedAt
-                    ?: config.lastFetchedAt.takeIf { it > 0L }
+                val lastFetchedAt = config.lastFetchedAt.takeIf { it > 0L }
                     ?: db.departureDao().getDeparturesForStop(config.stopId)
                         .maxOfOrNull { it.fetchedAt } ?: 0L
                 
@@ -637,7 +632,6 @@ class TransitWidget : AppWidgetProvider() {
                 WorkManager.getInstance(context).cancelUniqueWork(GO_MODE_FETCH_WORK_NAME)
                 WorkManager.getInstance(context).cancelUniqueWork(GO_MODE_EXPIRY_WORK_NAME)
             }
-            val deactivated = !goModeManager.isGoModeActive
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val ids = appWidgetManager.getAppWidgetIds(
                 ComponentName(context, TransitWidget::class.java)
@@ -647,8 +641,7 @@ class TransitWidget : AppWidgetProvider() {
                 CoroutineScope(Dispatchers.IO).launch {
                     updateWidget(
                         context, appWidgetManager, widgetId,
-                        now = now,
-                        fetchedAt = if (deactivated) now else null
+                        now = now
                     )
                 }
             }

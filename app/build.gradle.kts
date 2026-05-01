@@ -26,7 +26,7 @@ android {
         versionCode = 1
         versionName = "1.0"
         buildConfigField("String", "BART_API_KEY", "\"${localProperties["bart.api.key"]}\"")
-        buildConfigField("String", "MUNI_API_KEY", "\"${localProperties["muni.api.key"]}\"")
+        buildConfigField("String", "TRANSIT511_API_KEY", "\"${localProperties["transit511.api.key"]}\"")
     }
 
     buildTypes {

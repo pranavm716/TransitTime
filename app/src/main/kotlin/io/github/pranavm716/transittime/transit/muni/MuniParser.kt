@@ -74,7 +74,7 @@ object MuniParser {
         if (!cacheFile.exists() || ageMs > thirtyDaysMs || !isValidZip(cacheFile)) {
             val client = OkHttpClient()
             val request = Request.Builder()
-                .url("https://api.511.org/transit/datafeeds?api_key=${BuildConfig.MUNI_API_KEY}&operator_id=SF")
+                .url("https://api.511.org/transit/datafeeds?api_key=${BuildConfig.TRANSIT511_API_KEY}&operator_id=SF")
                 .build()
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) throw IOException("511 API returned HTTP ${response.code}")
@@ -151,7 +151,7 @@ object MuniParser {
         for (platformId in platformIds) {
             try {
                 val response = MuniApiClient.api.getStopMonitoring(
-                    apiKey = BuildConfig.MUNI_API_KEY,
+                    apiKey = BuildConfig.TRANSIT511_API_KEY,
                     stopCode = platformId
                 )
                 if (!response.isSuccessful) {
@@ -303,7 +303,7 @@ object MuniParser {
 
         for (platformId in platformIds) {
             val response = MuniApiClient.api.getStopMonitoring(
-                apiKey = BuildConfig.MUNI_API_KEY,
+                apiKey = BuildConfig.TRANSIT511_API_KEY,
                 stopCode = platformId
             )
             if (!response.isSuccessful) {

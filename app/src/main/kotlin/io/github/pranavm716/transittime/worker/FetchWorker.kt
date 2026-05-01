@@ -85,29 +85,25 @@ class FetchWorker(
                 }
 
                 for (config in agencyConfigs) {
-                    configDao.upsertConfig(config.copy(lastFetchedAt = fetchedAt))
+                    configDao.upsertConfig(config.copy(
+                        lastFetchedAt = fetchedAt,
+                        lastErrorLabel = null
+                    ))
+                    // Update widget immediately after successful agency fetch
+                    TransitWidget.updateWidget(context, manager, config.widgetId, now = fetchedAt)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                agencyErrors[agency] = io.github.pranavm716.transittime.transit.TransitError.fromException(e)
+                val error = io.github.pranavm716.transittime.transit.TransitError.fromException(e)
+                agencyErrors[agency] = error
+                for (config in agencyConfigs) {
+                    configDao.upsertConfig(config.copy(lastErrorLabel = error.label))
+                    // Update widget immediately to show the error
+                    TransitWidget.updateWidget(context, manager, config.widgetId, now = fetchedAt)
+                }
             }
         }
 
-        val ids = manager.getAppWidgetIds(
-            ComponentName(context, TransitWidget::class.java)
-        )
-        val latestConfigs = configDao.getAllConfigs().associateBy { it.widgetId }
-        val now = System.currentTimeMillis()
-        for (id in ids) {
-            val config = latestConfigs[id] ?: continue
-            val error = agencyErrors[config.agency]
-            TransitWidget.updateWidget(
-                context, manager, id,
-                errorLabel = error?.label,
-                now = now,
-                fetchedAt = if (error != null) null else fetchedAt
-            )
-        }
         if (goModeManager.isGoModeActive) {
             WorkManager.getInstance(context).enqueueUniqueWork(
                 TransitWidget.GO_MODE_FETCH_WORK_NAME,

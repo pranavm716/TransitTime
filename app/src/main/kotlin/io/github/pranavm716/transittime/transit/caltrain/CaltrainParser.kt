@@ -164,7 +164,7 @@ object CaltrainParser {
         if (!cacheFile.exists() || ageMs > thirtyDaysMs || !isValidZip(cacheFile)) {
             val client = OkHttpClient()
             val request = Request.Builder()
-                .url("https://api.511.org/transit/datafeeds?api_key=${BuildConfig.MUNI_API_KEY}&operator_id=CT")
+                .url("https://api.511.org/transit/datafeeds?api_key=${BuildConfig.TRANSIT511_API_KEY}&operator_id=CT")
                 .build()
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) throw java.io.IOException("511 API returned HTTP ${response.code}")

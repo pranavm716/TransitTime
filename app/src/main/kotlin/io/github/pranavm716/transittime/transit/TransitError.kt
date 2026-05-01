@@ -3,6 +3,9 @@ package io.github.pranavm716.transittime.transit
 import org.json.JSONException
 import retrofit2.HttpException
 import java.io.IOException
+import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 
@@ -18,9 +21,25 @@ enum class TransitError(val label: String, val userMessage: String) {
 
     companion object {
         fun fromException(e: Throwable): TransitError {
+            val rootCause = generateSequence(e) { it.cause }.last()
+            if (rootCause != e) {
+                val result = fromException(rootCause)
+                if (result != FAILED) return result
+            }
+
             return when (e) {
-                is UnknownHostException -> OFFLINE
+                is UnknownHostException,
+                is ConnectException,
+                is NoRouteToHostException -> OFFLINE
                 is SocketTimeoutException -> TIMEOUT
+                is SocketException -> {
+                    val msg = e.message?.lowercase() ?: ""
+                    if (msg.contains("enonet") || msg.contains("unreachable") || msg.contains("network is down") || msg.contains("address family")) {
+                        OFFLINE
+                    } else {
+                        FAILED
+                    }
+                }
                 is RateLimitException -> RATE_LIMIT
                 is AuthenticationException -> AUTH
                 is TransitServerException -> SERVER
@@ -43,8 +62,8 @@ enum class TransitError(val label: String, val userMessage: String) {
                         message.contains("401") || message.contains("403") -> AUTH
                         message.contains("500") || message.contains("511 api error") || message.contains(
                             "api returned http"
-                        ) -> SERVER
-
+                        ) || message.contains("502") || message.contains("503") || message.contains("504") -> SERVER
+                        message.contains("offline") || message.contains("unreachable") || message.contains("connectivity") -> OFFLINE
                         else -> FAILED
                     }
                 }

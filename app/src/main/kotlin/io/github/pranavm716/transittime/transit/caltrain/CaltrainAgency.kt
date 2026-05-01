@@ -25,7 +25,7 @@ object CaltrainAgency : TransitAgency {
     override fun getStopNames(): Map<String, String> = CaltrainParser.getStopNames()
 
     override suspend fun fetchArrivals(stopIds: Set<String>, fetchedAt: Long): List<Departure> {
-        val response = CaltrainApiClient.api.getTripUpdates(apiKey = BuildConfig.MUNI_API_KEY)
+        val response = CaltrainApiClient.api.getTripUpdates(apiKey = BuildConfig.TRANSIT511_API_KEY)
         if (!response.isSuccessful) {
             val code = response.code()
             val msg = response.message()

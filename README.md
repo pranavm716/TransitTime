@@ -66,7 +66,7 @@ In the root of the project, create a `local.properties` file if it doesn't exist
 
 ```properties
 bart.api.key=YOUR_BART_KEY
-muni.api.key=YOUR_511_KEY
+transit511.api.key=YOUR_511_KEY
 ```
 
 **4. Build and install**

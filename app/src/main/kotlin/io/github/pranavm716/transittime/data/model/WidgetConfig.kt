@@ -13,6 +13,7 @@ data class WidgetConfig(
     val filteredHeadsigns: List<String>,
     val maxArrivals: Int,
     val lastFetchedAt: Long = 0L,
+    val lastErrorLabel: String? = null,
     val displayMode: DisplayMode = DisplayMode.RELATIVE,
     val hybridThresholdMinutes: Int = 60,
     val delayColorMode: DelayColorMode = DelayColorMode.GRADIENT
