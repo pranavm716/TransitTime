@@ -61,13 +61,14 @@ class FetchWorker(
             try {
                 handler.loadStaticData(context)
                 val stopIds = agencyConfigs.map { it.stopId }.toSet()
-                val departures = handler.fetchDepartures(stopIds, fetchedAt)
-                val departuresByStop = departures.groupBy { it.stopId }
+                val result = handler.fetchDepartures(stopIds, fetchedAt)
+                val departuresByStop = result.departures.groupBy { it.stopId }
 
                 for (stopId in stopIds) {
+                    if (stopId in result.stopErrors) continue
                     val stopDepartures = departuresByStop[stopId] ?: emptyList()
                     val existing = departureDao.getDeparturesForStop(stopId)
-                    
+
                     if (stopDepartures.isEmpty()) {
                         if (existing.isNotEmpty()) {
                             changedStops.add(stopId)
@@ -85,11 +86,18 @@ class FetchWorker(
                 }
 
                 for (config in agencyConfigs) {
-                    configDao.upsertConfig(config.copy(
-                        lastFetchedAt = fetchedAt,
-                        lastErrorLabel = null
-                    ))
-                    // Update widget immediately after successful agency fetch
+                    val stopException = result.stopErrors[config.stopId]
+                    if (stopException != null) {
+                        val error = io.github.pranavm716.transittime.transit.TransitError.fromException(stopException)
+                        val current = configDao.getConfig(config.widgetId) ?: continue
+                        if (current.lastFetchedAt > config.lastFetchedAt) continue
+                        configDao.upsertConfig(current.copy(lastErrorLabel = error.label))
+                    } else {
+                        configDao.upsertConfig(config.copy(
+                            lastFetchedAt = fetchedAt,
+                            lastErrorLabel = null
+                        ))
+                    }
                     TransitWidget.updateWidget(context, manager, config.widgetId, now = fetchedAt)
                 }
             } catch (e: Exception) {
@@ -97,8 +105,9 @@ class FetchWorker(
                 val error = io.github.pranavm716.transittime.transit.TransitError.fromException(e)
                 agencyErrors[agency] = error
                 for (config in agencyConfigs) {
-                    configDao.upsertConfig(config.copy(lastErrorLabel = error.label))
-                    // Update widget immediately to show the error
+                    val current = configDao.getConfig(config.widgetId) ?: continue
+                    if (current.lastFetchedAt > config.lastFetchedAt) continue
+                    configDao.upsertConfig(current.copy(lastErrorLabel = error.label))
                     TransitWidget.updateWidget(context, manager, config.widgetId, now = fetchedAt)
                 }
             }

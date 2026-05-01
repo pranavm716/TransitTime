@@ -4,7 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import androidx.core.graphics.toColorInt
 import io.github.pranavm716.transittime.data.model.Agency
-import io.github.pranavm716.transittime.data.model.Departure
+import io.github.pranavm716.transittime.transit.FetchResult
 import io.github.pranavm716.transittime.transit.TransitAgency
 import io.github.pranavm716.transittime.util.RouteShape
 import io.github.pranavm716.transittime.util.RouteStyle
@@ -12,7 +12,6 @@ import io.github.pranavm716.transittime.util.RouteStyle
 import io.github.pranavm716.transittime.transit.AuthenticationException
 import io.github.pranavm716.transittime.transit.RateLimitException
 import io.github.pranavm716.transittime.transit.TransitServerException
-import retrofit2.HttpException
 import java.io.IOException
 
 object BartAgency : TransitAgency {
@@ -24,7 +23,7 @@ object BartAgency : TransitAgency {
 
     override fun getStopNames(): Map<String, String> = BartParser.getStopNames()
 
-    override suspend fun fetchDepartures(stopIds: Set<String>, fetchedAt: Long): List<Departure> {
+    override suspend fun fetchDepartures(stopIds: Set<String>, fetchedAt: Long): FetchResult {
         val response = BartApiClient.api.getTripUpdates()
         if (!response.isSuccessful) {
             val code = response.code()
@@ -36,9 +35,9 @@ object BartAgency : TransitAgency {
                 else -> IOException("BART API error: $code $msg")
             }
         }
-        
+
         val bytes = response.body()?.bytes() ?: throw IOException("Empty response body")
-        return BartParser.parseRtFeed(bytes, fetchedAt).filter { it.stopId in stopIds }
+        return FetchResult(BartParser.parseRtFeed(bytes, fetchedAt).filter { it.stopId in stopIds }, emptyMap())
     }
 
     override suspend fun fetchRoutesForStop(stopId: String): Map<String, List<String>> =

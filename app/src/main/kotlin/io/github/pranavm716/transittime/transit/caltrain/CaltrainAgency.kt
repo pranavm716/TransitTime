@@ -6,6 +6,7 @@ import androidx.core.graphics.toColorInt
 import io.github.pranavm716.transittime.BuildConfig
 import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.Departure
+import io.github.pranavm716.transittime.transit.FetchResult
 import io.github.pranavm716.transittime.transit.TransitAgency
 import io.github.pranavm716.transittime.util.RouteShape
 import io.github.pranavm716.transittime.util.RouteStyle
@@ -24,7 +25,7 @@ object CaltrainAgency : TransitAgency {
 
     override fun getStopNames(): Map<String, String> = CaltrainParser.getStopNames()
 
-    override suspend fun fetchDepartures(stopIds: Set<String>, fetchedAt: Long): List<Departure> {
+    override suspend fun fetchDepartures(stopIds: Set<String>, fetchedAt: Long): FetchResult {
         val response = CaltrainApiClient.api.getTripUpdates(apiKey = BuildConfig.TRANSIT511_API_KEY)
         if (!response.isSuccessful) {
             val code = response.code()
@@ -61,7 +62,7 @@ object CaltrainAgency : TransitAgency {
                 )
             )
         }
-        return result
+        return FetchResult(result, emptyMap())
     }
 
     override suspend fun fetchRoutesForStop(stopId: String): Map<String, List<String>> =

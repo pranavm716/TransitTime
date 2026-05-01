@@ -5,6 +5,7 @@ import android.graphics.Color
 import androidx.core.graphics.toColorInt
 import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.Departure
+import io.github.pranavm716.transittime.transit.FetchResult
 import io.github.pranavm716.transittime.transit.TransitAgency
 import io.github.pranavm716.transittime.util.RouteShape
 import io.github.pranavm716.transittime.util.RouteStyle
@@ -18,12 +19,18 @@ object MuniAgency : TransitAgency {
 
     override fun getStopNames(): Map<String, String> = MuniParser.getStopNames()
 
-    override suspend fun fetchDepartures(stopIds: Set<String>, fetchedAt: Long): List<Departure> {
+    override suspend fun fetchDepartures(stopIds: Set<String>, fetchedAt: Long): FetchResult {
         val departures = mutableListOf<Departure>()
+        val stopErrors = mutableMapOf<String, Exception>()
         for (stopId in stopIds) {
-            departures.addAll(MuniParser.fetchAndParseStop(stopId, fetchedAt))
+            try {
+                departures.addAll(MuniParser.fetchAndParseStop(stopId, fetchedAt))
+            } catch (e: Exception) {
+                e.printStackTrace()
+                stopErrors[stopId] = e
+            }
         }
-        return departures
+        return FetchResult(departures, stopErrors)
     }
 
     override suspend fun fetchRoutesForStop(stopId: String): Map<String, List<String>> =
