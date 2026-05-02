@@ -598,7 +598,12 @@ class TransitWidget : AppWidgetProvider() {
                 CoroutineScope(Dispatchers.IO).launch {
                     val db = TransitDatabase.getInstance(context)
                     db.widgetConfigDao().getConfig(widgetId) ?: return@launch
-                    animateRefreshIcon(context, appWidgetManager, widgetId)
+                    val allIds = appWidgetManager.getAppWidgetIds(
+                        ComponentName(context, TransitWidget::class.java)
+                    )
+                    for (id in allIds) {
+                        animateRefreshIcon(context, appWidgetManager, id)
+                    }
                     triggerFetch(context)
                 }
             }

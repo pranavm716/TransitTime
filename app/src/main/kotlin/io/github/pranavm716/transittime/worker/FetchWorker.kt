@@ -34,6 +34,10 @@ class FetchWorker(
             for (id in activeIds) {
                 TransitWidget.animateGoModeDot(context, manager, id)
             }
+        } else {
+            for (id in activeIds) {
+                TransitWidget.animateRefreshIcon(context, manager, id)
+            }
         }
 
         val allConfigs = configDao.getAllConfigs()
