@@ -16,7 +16,7 @@ class GoModeManager(context: Context) {
 
     companion object {
         const val GO_MODE_DURATION_MS: Long = 20 * 60 * 1000L
-        const val GO_MODE_INTERVAL_MS: Long = 20 * 1000L
+        const val GO_MODE_INTERVAL_MS: Long = 30 * 1000L
         private const val PREFS_NAME = "transit_go_mode_prefs"
         private const val KEY_EXPIRES_AT = "go_mode_expires_at"
     }
