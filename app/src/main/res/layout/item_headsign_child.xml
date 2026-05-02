@@ -13,8 +13,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="14sp"
-        android:textColor="#C9D1D9"
+        android:textColor="@color/text_checkbox"
         android:minHeight="40dp"
-        android:buttonTint="#238636" />
+        android:buttonTint="@color/accent_color" />
 
 </LinearLayout>

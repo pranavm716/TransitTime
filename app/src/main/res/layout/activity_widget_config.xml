@@ -448,7 +448,7 @@
         android:layout_marginBottom="20dp"
         android:text="@string/add_widget"
         android:background="@drawable/bg_button_island"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/white"
         android:textAllCaps="false"
         android:textSize="16sp"
         android:textStyle="bold" />

@@ -3,15 +3,15 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:paddingVertical="3dp"
+    android:paddingVertical="@dimen/widget_departure_row_padding_vertical"
     android:baselineAligned="false"
     android:gravity="center_vertical">
 
     <ImageView
         android:id="@+id/ivRouteIcon"
-        android:layout_width="34dp"
-        android:layout_height="34dp"
-        android:layout_marginEnd="10dp" />
+        android:layout_width="@dimen/widget_departure_row_icon_size"
+        android:layout_height="@dimen/widget_departure_row_icon_size"
+        android:layout_marginEnd="@dimen/widget_departure_row_icon_margin_end" />
 
     <TextView
         android:id="@+id/tvHeadsign"
@@ -29,29 +29,29 @@
 
     <TextView
         android:id="@+id/tvTime1"
-        android:layout_width="60dp"
+        android:layout_width="@dimen/widget_departure_time_cell_width"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:paddingHorizontal="4dp"
-        android:textSize="16sp"
+        android:paddingHorizontal="@dimen/widget_departure_time_cell_padding_horizontal"
+        android:textSize="@dimen/widget_departure_time_max_text_size"
         android:textStyle="bold" />
 
     <TextView
         android:id="@+id/tvTime2"
-        android:layout_width="60dp"
+        android:layout_width="@dimen/widget_departure_time_cell_width"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:paddingHorizontal="4dp"
-        android:textSize="16sp"
+        android:paddingHorizontal="@dimen/widget_departure_time_cell_padding_horizontal"
+        android:textSize="@dimen/widget_departure_time_max_text_size"
         android:textStyle="bold" />
 
     <TextView
         android:id="@+id/tvTime3"
-        android:layout_width="60dp"
+        android:layout_width="@dimen/widget_departure_time_cell_width"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:paddingHorizontal="4dp"
-        android:textSize="16sp"
+        android:paddingHorizontal="@dimen/widget_departure_time_cell_padding_horizontal"
+        android:textSize="@dimen/widget_departure_time_max_text_size"
         android:textStyle="bold" />
 
 </LinearLayout>

@@ -9,6 +9,7 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.util.AttributeSet
 import android.view.View
+import io.github.pranavm716.transittime.R
 import kotlin.math.roundToInt
 
 class DelayGradientBarView @JvmOverloads constructor(
@@ -33,11 +34,11 @@ class DelayGradientBarView @JvmOverloads constructor(
 
     private val triPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = 0xFFFFFFFF.toInt()
+        color = context.getColor(android.R.color.white)
     }
 
     private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFF94A3B8.toInt()
+        color = context.getColor(R.color.text_secondary)
         textSize = sp(10f)
     }
 

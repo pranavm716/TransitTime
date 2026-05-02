@@ -109,10 +109,6 @@ class TransitWidget : AppWidgetProvider() {
             return 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
         }
 
-        private const val HEADER_DP = 44
-        private const val ROW_DP = 40
-        private const val PADDING_DP = 30
-
         private val lastRenderNow = mutableMapOf<Int, Long>()
         private val spinningJobs = mutableMapOf<Int, Job>()
         private val spinStep = mutableMapOf<Int, Int>()
@@ -128,7 +124,12 @@ class TransitWidget : AppWidgetProvider() {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
             val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
-            val maxRows = ((minHeight - HEADER_DP - PADDING_DP) / ROW_DP).coerceAtLeast(1)
+            val res = context.resources
+            val dm = res.displayMetrics
+            val headerDp = res.getDimension(R.dimen.widget_header_height) / dm.density
+            val rowDp = res.getDimension(R.dimen.widget_row_height) / dm.density
+            val padDp = res.getDimension(R.dimen.widget_body_vertical_overhead) / dm.density
+            val maxRows = ((minHeight - headerDp - padDp) / rowDp).toInt().coerceAtLeast(1)
 
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
 
@@ -180,8 +181,9 @@ class TransitWidget : AppWidgetProvider() {
                 val nowVal = (now ?: System.currentTimeMillis()).also { lastRenderNow[widgetId] = it }
                 val (grouped, overflow) = loadGroupedDepartures(db, config, nowVal, maxRows)
 
-                applyHeader(views, config, context, minWidth)
-                applyFreshness(context, views, db, config)
+                val freshnessText = resolveFreshnessText(db, config)
+                applyHeader(views, config, context, minWidth, freshnessText)
+                applyFreshness(context, views, config, freshnessText)
                 applyDepartures(context, views, grouped, config, nowVal)
                 applyOverflow(views, overflow)
 
@@ -195,10 +197,11 @@ class TransitWidget : AppWidgetProvider() {
             views: RemoteViews,
             config: WidgetConfig,
             context: Context,
-            minWidthDp: Int
+            minWidthDp: Int,
+            freshnessText: String
         ) {
             views.setTextViewText(R.id.tvStopName, config.stopName)
-            val sp = calcStopNameTextSizeSp(context, config.stopName, minWidthDp)
+            val sp = calcStopNameTextSizeSp(context, config.stopName, minWidthDp, freshnessText)
             views.setTextViewTextSize(R.id.tvStopName, TypedValue.COMPLEX_UNIT_SP, sp)
             val logoRes = when (config.agency) {
                 Agency.BART -> R.drawable.ic_bart
@@ -211,12 +214,25 @@ class TransitWidget : AppWidgetProvider() {
         private fun calcStopNameTextSizeSp(
             context: Context,
             stopName: String,
-            widgetMinWidthDp: Int
+            widgetMinWidthDp: Int,
+            freshnessText: String
         ): Float {
-            val dm = context.resources.displayMetrics
-            // paddingStart(16) + logo(42) + logoMarginEnd(10) + nameMarginEnd(5) + goModeArea(~90)
-            val overheadDp = 163f
-            val availableWidthPx = (widgetMinWidthDp - overheadDp) * dm.density
+            val res = context.resources
+            val dm = res.displayMetrics
+            val freshnessPaint = android.graphics.Paint().apply {
+                textSize = res.getDimension(R.dimen.widget_freshness_text_size)
+            }
+            val goModeWidthPx = res.getDimension(R.dimen.widget_go_mode_padding_horizontal) +
+                freshnessPaint.measureText(freshnessText) +
+                res.getDimension(R.dimen.widget_freshness_text_margin_end) +
+                res.getDimension(R.dimen.widget_freshness_icon_size) +
+                res.getDimension(R.dimen.widget_freshness_icon_margin_end) +
+                res.getDimension(R.dimen.widget_go_mode_padding_horizontal)
+            val leftOverheadPx = res.getDimension(R.dimen.widget_header_padding_start) +
+                res.getDimension(R.dimen.widget_agency_logo_width) +
+                res.getDimension(R.dimen.widget_agency_logo_margin_end) +
+                res.getDimension(R.dimen.widget_stop_name_margin_end)
+            val availableWidthPx = widgetMinWidthDp * dm.density - goModeWidthPx - leftOverheadPx
             val paint = android.graphics.Paint().apply {
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
             }
@@ -227,11 +243,20 @@ class TransitWidget : AppWidgetProvider() {
             return 13f
         }
 
-        private suspend fun applyFreshness(
+        private suspend fun resolveFreshnessText(db: TransitDatabase, config: WidgetConfig): String {
+            if (config.lastErrorLabel != null) return config.lastErrorLabel
+            val lastFetchedAt = config.lastFetchedAt.takeIf { it > 0L }
+                ?: db.departureDao().getDeparturesForStop(config.stopId)
+                    .maxOfOrNull { it.fetchedAt } ?: 0L
+            return if (lastFetchedAt == 0L) "—"
+            else SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(lastFetchedAt))
+        }
+
+        private fun applyFreshness(
             context: Context,
             views: RemoteViews,
-            db: TransitDatabase,
-            config: WidgetConfig
+            config: WidgetConfig,
+            freshnessText: String
         ) {
             val isGoModeActive = GoModeManager(context).isGoModeActive
 
@@ -245,23 +270,15 @@ class TransitWidget : AppWidgetProvider() {
             )
 
             views.setViewVisibility(R.id.tvFreshnessText, View.VISIBLE)
-            if (config.lastErrorLabel != null) {
-                views.setTextViewText(R.id.tvFreshnessText, config.lastErrorLabel)
-                views.setTextColor(R.id.tvFreshnessText, 0xFFdc3545.toInt()) // Red
-            } else {
-                val lastFetchedAt = config.lastFetchedAt.takeIf { it > 0L }
-                    ?: db.departureDao().getDeparturesForStop(config.stopId)
-                        .maxOfOrNull { it.fetchedAt } ?: 0L
-                
-                val freshnessText = if (lastFetchedAt == 0L) "—"
-                else SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(lastFetchedAt))
-
-                views.setTextViewText(R.id.tvFreshnessText, freshnessText)
-                views.setTextColor(
-                    R.id.tvFreshnessText,
-                    if (isGoModeActive) 0xFF238636.toInt() else 0xFFAAAAAA.toInt()
-                )
-            }
+            views.setTextViewText(R.id.tvFreshnessText, freshnessText)
+            views.setTextColor(
+                R.id.tvFreshnessText,
+                when {
+                    config.lastErrorLabel != null -> COLOR_LATE
+                    isGoModeActive -> context.getColor(R.color.accent_color)
+                    else -> context.getColor(R.color.widget_color_secondary)
+                }
+            )
         }
 
         private suspend fun loadGroupedDepartures(
@@ -358,7 +375,7 @@ class TransitWidget : AppWidgetProvider() {
             val handler = AgencyRegistry.get(first.agency)
             val rowViews = RemoteViews(context.packageName, R.layout.widget_departure_row)
 
-            val iconSizePx = (36 * context.resources.displayMetrics.density).toInt()
+            val iconSizePx = context.resources.getDimensionPixelSize(R.dimen.widget_departure_row_icon_size)
             val bitmap = RouteIconDrawer.draw(
                 style = handler.getRouteStyle(first.routeName),
                 text = handler.getIconText(first.routeName),
@@ -384,7 +401,7 @@ class TransitWidget : AppWidgetProvider() {
                 val color = if (departure != null) delayColor(
                     departure,
                     delayColorMode
-                ) else 0xFFBDC1C7.toInt()
+                ) else context.getColor(R.color.widget_color_placeholder)
                 rowViews.setTextViewText(timeCells[i], text)
                 rowViews.setTextColor(timeCells[i], color)
             }
@@ -444,11 +461,12 @@ class TransitWidget : AppWidgetProvider() {
         private fun calcTimeFontSizeSp(
             context: Context,
             allTimes: List<List<String>>,
-            maxDepartures: Int,
-            cellWidthDp: Float = 52f
+            maxDepartures: Int
         ): Float {
-            val dm = context.resources.displayMetrics
-            val cellWidthPx = cellWidthDp * dm.density
+            val res = context.resources
+            val cellWidthPx = res.getDimension(R.dimen.widget_departure_time_cell_width) -
+                2 * res.getDimension(R.dimen.widget_departure_time_cell_padding_horizontal)
+            val dm = res.displayMetrics
             val paint = android.graphics.Paint().apply {
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
             }

@@ -21,16 +21,16 @@
             android:layout_weight="1"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingStart="16dp"
+            android:paddingStart="@dimen/widget_header_padding_start"
             android:paddingTop="12dp"
             android:paddingBottom="6dp"
             android:background="@drawable/widget_ripple_overlay">
 
             <ImageView
                 android:id="@+id/ivAgencyLogo"
-                android:layout_width="42dp"
+                android:layout_width="@dimen/widget_agency_logo_width"
                 android:layout_height="30dp"
-                android:layout_marginEnd="10dp"
+                android:layout_marginEnd="@dimen/widget_agency_logo_margin_end"
                 android:scaleType="fitCenter" />
 
             <TextView
@@ -38,7 +38,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginEnd="5dp"
+                android:layout_marginEnd="@dimen/widget_stop_name_margin_end"
                 android:text="@string/station"
                 android:textColor="@android:color/white"
                 android:textSize="20sp"
@@ -57,8 +57,8 @@
             android:gravity="center_vertical"
             android:paddingTop="12dp"
             android:paddingBottom="6dp"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
+            android:paddingStart="@dimen/widget_go_mode_padding_horizontal"
+            android:paddingEnd="@dimen/widget_go_mode_padding_horizontal"
             android:background="@drawable/widget_ripple_overlay">
 
             <TextView
@@ -67,26 +67,26 @@
                 android:layout_height="match_parent"
                 android:layout_gravity="center_vertical"
                 android:gravity="center_vertical"
-                android:textColor="#AAAAAA"
-                android:textSize="13sp"
-                android:layout_marginEnd="4dp" />
+                android:textColor="@color/widget_color_secondary"
+                android:textSize="@dimen/widget_freshness_text_size"
+                android:layout_marginEnd="@dimen/widget_freshness_text_margin_end" />
 
 
             <ImageView
                 android:id="@+id/ivRefreshIcon"
-                android:layout_width="14dp"
-                android:layout_height="14dp"
+                android:layout_width="@dimen/widget_freshness_icon_size"
+                android:layout_height="@dimen/widget_freshness_icon_size"
                 android:layout_gravity="center_vertical"
-                android:layout_marginEnd="2dp"
+                android:layout_marginEnd="@dimen/widget_freshness_icon_margin_end"
                 android:src="@drawable/ic_refresh"
-                app:tint="#AAAAAA" />
+                app:tint="@color/widget_color_secondary" />
 
             <ImageView
                 android:id="@+id/ivGoModeDot"
-                android:layout_width="14dp"
-                android:layout_height="14dp"
+                android:layout_width="@dimen/widget_freshness_icon_size"
+                android:layout_height="@dimen/widget_freshness_icon_size"
                 android:layout_gravity="center_vertical"
-                android:layout_marginEnd="2dp"
+                android:layout_marginEnd="@dimen/widget_freshness_icon_margin_end"
                 android:src="@drawable/ic_go_mode_dot"
                 android:visibility="gone" />
 
@@ -111,7 +111,7 @@
             android:layout_marginEnd="20dp"
             android:layout_marginBottom="4dp"
             android:src="@android:color/transparent"
-            android:background="#bdc1c7" />
+            android:background="@color/widget_color_placeholder" />
 
         <!-- Departures + overflow -->
         <FrameLayout
@@ -141,7 +141,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="bottom|center_horizontal"
                 android:gravity="center_horizontal"
-                android:textColor="#AAAAAA"
+                android:textColor="@color/widget_color_secondary"
                 android:textSize="13sp"
                 android:text="" />
 
