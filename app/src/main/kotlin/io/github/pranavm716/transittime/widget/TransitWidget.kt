@@ -25,6 +25,7 @@ import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.util.RouteIconDrawer
+import io.github.pranavm716.transittime.util.getDelayColor
 import io.github.pranavm716.transittime.worker.FetchWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -398,64 +399,15 @@ class TransitWidget : AppWidgetProvider() {
             for (i in 0 until maxDepartures) {
                 val text = times.getOrNull(i) ?: "—"
                 val departure = departures.getOrNull(i)
-                val color = if (departure != null) delayColor(
-                    departure,
+                val color = if (departure != null) getDelayColor(
+                    departure.delaySeconds,
+                    departure.isScheduled,
                     delayColorMode
                 ) else context.getColor(R.color.widget_color_placeholder)
                 rowViews.setTextViewText(timeCells[i], text)
                 rowViews.setTextColor(timeCells[i], color)
             }
             return rowViews
-        }
-
-        private fun delayColor(
-            departure: Departure,
-            mode: DelayColorMode,
-            onTimeColor: Int = COLOR_ON_TIME,
-            lateColor: Int = COLOR_LATE,
-            earlyColor: Int = COLOR_EARLY,
-            lateDeadZoneSeconds: Int = 60,
-            earlyDeadZoneSeconds: Int = 60,
-            lateCapSeconds: Int = 300,
-            earlyCapSeconds: Int = 180,
-        ): Int {
-            fun dimmed(color: Int): Int {
-                val dim = 0.62f
-                val r = ((color shr 16 and 0xFF) * dim).roundToInt()
-                val g = ((color shr 8 and 0xFF) * dim).roundToInt()
-                val b = ((color and 0xFF) * dim).roundToInt()
-                return 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
-            }
-
-            if (mode == DelayColorMode.NONE) {
-                return if (departure.isScheduled) dimmed(onTimeColor) else onTimeColor
-            }
-
-            if (departure.isScheduled) return dimmed(onTimeColor)
-
-            val delay = departure.delaySeconds
-            if (delay == null || delay in -earlyDeadZoneSeconds..lateDeadZoneSeconds) return onTimeColor
-
-            if (mode == DelayColorMode.FLAT) {
-                return if (delay > lateDeadZoneSeconds) lateColor else earlyColor
-            }
-
-            // GRADIENT
-            return if (delay > lateDeadZoneSeconds) {
-                val t =
-                    ((delay - lateDeadZoneSeconds).toFloat() / (lateCapSeconds - lateDeadZoneSeconds)).coerceIn(
-                        0f,
-                        1f
-                    )
-                lerp(onTimeColor, lateColor, t)
-            } else {
-                val t =
-                    ((-delay - earlyDeadZoneSeconds).toFloat() / (earlyCapSeconds - earlyDeadZoneSeconds)).coerceIn(
-                        0f,
-                        1f
-                    )
-                lerp(onTimeColor, earlyColor, t)
-            }
         }
 
         private fun calcTimeFontSizeSp(

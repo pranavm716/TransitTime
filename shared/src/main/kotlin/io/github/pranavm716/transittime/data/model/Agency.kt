@@ -1,3 +1,5 @@
 package io.github.pranavm716.transittime.data.model
 
-// Moved to :shared module
+enum class Agency {
+    BART, MUNI, CALTRAIN
+}
