@@ -12,6 +12,7 @@ kotlinxCoroutinesAndroid = "1.10.2"
 material = "1.13.0"
 okhttp = "5.3.2"
 retrofit = "3.0.0"
+gson = "2.13.1"
 room = "2.8.4"
 workRuntimeKtx = "2.11.1"
 protobuf = "3.25.3"
@@ -28,6 +29,7 @@ androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntimeKtx" }
 converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "retrofit" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 gtfs-realtime-bindings = { module = "org.mobilitydata:gtfs-realtime-bindings", version.ref = "gtfsRealtimeBindings" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

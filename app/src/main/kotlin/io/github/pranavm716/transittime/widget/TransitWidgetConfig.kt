@@ -35,8 +35,10 @@ import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.DelayColorMode
 import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.data.model.WidgetConfig
+import io.github.pranavm716.transittime.model.WatchStopConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.transit.TransitError
+import io.github.pranavm716.transittime.wear.WearDataPusher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -406,6 +408,14 @@ class TransitWidgetConfig : AppCompatActivity() {
                 }
 
                 configDao.upsertConfig(config)
+
+                try {
+                    val watchConfigs = configDao.getAllConfigs()
+                        .map { WatchStopConfig(it.stopId, it.stopName, it.agency, it.delayColorMode) }
+                    WearDataPusher(applicationContext).pushStopConfigs(watchConfigs)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
 
                 withContext(Dispatchers.Main) {
                     TransitWidget.triggerFetch(applicationContext)

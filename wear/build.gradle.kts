@@ -49,5 +49,7 @@ dependencies {
     implementation(libs.androidx.wear.protolayout.material)
     implementation(libs.androidx.wear.protolayout.expression)
     implementation(libs.play.services.wearable)
+    implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.gson)
     implementation(project(":shared"))
 }
