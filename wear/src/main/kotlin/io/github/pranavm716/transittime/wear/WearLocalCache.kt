@@ -28,10 +28,15 @@ class WearLocalCache(context: Context) {
 
     fun getFetchedAt(stopId: String): Long = prefs.getLong(fetchedAtKey(stopId), 0L)
 
-    fun saveStopConfigs(configs: List<WatchStopConfig>) {
+    fun saveStopConfigs(configs: List<WatchStopConfig>, pushedAt: Long) {
         Log.d(TAG, "saveStopConfigs: writing ${configs.size} configs: ${configs.map { it.stopName }}")
-        prefs.edit { putString(KEY_STOP_CONFIGS, gson.toJson(configs)) }
+        prefs.edit {
+            putString(KEY_STOP_CONFIGS, gson.toJson(configs))
+            putLong(KEY_CONFIGS_PUSHED_AT, pushedAt)
+        }
     }
+
+    fun getConfigsPushedAt(): Long = prefs.getLong(KEY_CONFIGS_PUSHED_AT, 0L)
 
     fun getStopConfigs(): List<WatchStopConfig> {
         val json = prefs.getString(KEY_STOP_CONFIGS, null) ?: run {
@@ -57,6 +62,7 @@ class WearLocalCache(context: Context) {
         private const val TAG = "TransitWear"
         private const val PREFS_NAME = "wear_local_cache"
         private const val KEY_STOP_CONFIGS = "stop_configs"
+        private const val KEY_CONFIGS_PUSHED_AT = "configs_pushed_at"
         private const val KEY_GO_MODE_EXPIRES_AT = "go_mode_expires_at"
     }
 }

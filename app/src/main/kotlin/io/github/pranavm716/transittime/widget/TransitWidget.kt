@@ -26,6 +26,8 @@ import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.util.RouteIconDrawer
 import io.github.pranavm716.transittime.util.getDelayColor
+import io.github.pranavm716.transittime.model.WatchStopConfig
+import io.github.pranavm716.transittime.wear.WearDataPusher
 import io.github.pranavm716.transittime.worker.FetchWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +66,7 @@ class TransitWidget : AppWidgetProvider() {
             val departureDao = db.departureDao()
             val allConfigs = configDao.getAllConfigs()
             val deletedWidgetIds = appWidgetIds.toSet()
+            val clearedStopIds = mutableSetOf<String>()
             for (widgetId in appWidgetIds) {
                 val config = allConfigs.find { it.widgetId == widgetId } ?: continue
                 configDao.deleteConfig(widgetId)
@@ -71,6 +74,23 @@ class TransitWidget : AppWidgetProvider() {
                     allConfigs.filter { it.widgetId !in deletedWidgetIds && it.stopId == config.stopId }
                 if (remaining.isEmpty()) {
                     departureDao.deleteDeparturesForStop(config.stopId)
+                    clearedStopIds.add(config.stopId)
+                }
+            }
+            val pushedAt = System.currentTimeMillis()
+            val wearDataPusher = WearDataPusher(context)
+            try {
+                val remainingConfigs = configDao.getAllConfigs()
+                    .map { WatchStopConfig(it.stopId, it.stopName, it.agency, it.delayColorMode) }
+                wearDataPusher.pushStopConfigs(remainingConfigs, pushedAt)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            for (stopId in clearedStopIds) {
+                try {
+                    wearDataPusher.pushDepartures(stopId, emptyList(), pushedAt)
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
             }
         }

@@ -412,7 +412,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                 try {
                     val watchConfigs = configDao.getAllConfigs()
                         .map { WatchStopConfig(it.stopId, it.stopName, it.agency, it.delayColorMode) }
-                    WearDataPusher(applicationContext).pushStopConfigs(watchConfigs)
+                    WearDataPusher(applicationContext).pushStopConfigs(watchConfigs, System.currentTimeMillis())
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }

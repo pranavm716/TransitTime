@@ -16,15 +16,6 @@
             android:value="false" />
 
         <service
-            android:name=".PhoneDataListenerService"
-            android:exported="true"
-            android:permission="com.google.android.gms.wearable.BIND_LISTENER">
-            <intent-filter>
-                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
-            </intent-filter>
-        </service>
-
-        <service
             android:name=".TransitTileService"
             android:exported="true"
             android:label="@string/tile_label"

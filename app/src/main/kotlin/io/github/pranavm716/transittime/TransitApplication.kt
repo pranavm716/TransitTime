@@ -30,7 +30,7 @@ class TransitApplication : Application() {
                     .widgetConfigDao()
                     .getAllConfigs()
                     .map { WatchStopConfig(it.stopId, it.stopName, it.agency, it.delayColorMode) }
-                WearDataPusher(this@TransitApplication).pushStopConfigs(configs)
+                WearDataPusher(this@TransitApplication).pushStopConfigs(configs, System.currentTimeMillis())
             } catch (e: Exception) {
                 e.printStackTrace()
             }

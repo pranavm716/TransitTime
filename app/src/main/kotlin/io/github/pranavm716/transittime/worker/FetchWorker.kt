@@ -45,6 +45,7 @@ class FetchWorker(
 
         val allConfigs = configDao.getAllConfigs()
         val staleConfigs = allConfigs.filter { it.widgetId !in activeIds }
+        val clearedStopIds = mutableSetOf<String>()
         if (staleConfigs.isNotEmpty()) {
             val removedStopIds = staleConfigs.map { it.stopId }.toSet()
             val staleWidgetIds = staleConfigs.map { it.widgetId }.toSet()
@@ -52,17 +53,36 @@ class FetchWorker(
             val survivingConfigs = allConfigs.filter { it.widgetId !in staleWidgetIds }
             removedStopIds.forEach { stopId ->
                 val remaining = survivingConfigs.filter { it.stopId == stopId }
-                if (remaining.isEmpty()) departureDao.deleteDeparturesForStop(stopId)
+                if (remaining.isEmpty()) {
+                    departureDao.deleteDeparturesForStop(stopId)
+                    clearedStopIds.add(stopId)
+                }
             }
         }
 
         val configs = if (staleConfigs.isNotEmpty()) configDao.getAllConfigs() else allConfigs
-        if (configs.isEmpty()) return Result.success()
-
         val fetchedAt = System.currentTimeMillis()
+        val wearDataPusher = WearDataPusher(context)
+
+        for (stopId in clearedStopIds) {
+            try {
+                wearDataPusher.pushDepartures(stopId, emptyList(), fetchedAt)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        if (configs.isEmpty()) {
+            try {
+                wearDataPusher.pushStopConfigs(emptyList(), fetchedAt)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            return Result.success()
+        }
+
         val agencyErrors = mutableMapOf<io.github.pranavm716.transittime.data.model.Agency, io.github.pranavm716.transittime.transit.TransitError>()
         val changedStops = mutableSetOf<String>()
-        val wearDataPusher = WearDataPusher(context)
 
         configs.groupBy { it.agency }.forEach { (agency, agencyConfigs) ->
             val handler = AgencyRegistry.get(agency)
@@ -133,7 +153,8 @@ class FetchWorker(
 
         try {
             wearDataPusher.pushStopConfigs(
-                configs.map { WatchStopConfig(it.stopId, it.stopName, it.agency, it.delayColorMode) }
+                configs.map { WatchStopConfig(it.stopId, it.stopName, it.agency, it.delayColorMode) },
+                fetchedAt
             )
         } catch (e: Exception) {
             e.printStackTrace()
