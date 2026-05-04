@@ -27,6 +27,7 @@ import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.util.RouteIconDrawer
 import io.github.pranavm716.transittime.util.getDelayColor
+import io.github.pranavm716.transittime.util.groupDepartures
 import io.github.pranavm716.transittime.wear.TileSnapshotPusher
 import io.github.pranavm716.transittime.worker.FetchWorker
 import kotlinx.coroutines.CoroutineScope
@@ -201,7 +202,8 @@ class TransitWidget : AppWidgetProvider() {
                 }
 
                 val nowVal = (now ?: System.currentTimeMillis()).also { lastRenderNow[widgetId] = it }
-                val (grouped, overflow) = loadGroupedDepartures(db, config, nowVal, maxRows)
+                val allDepartures = db.departureDao().getDeparturesForStop(config.stopId)
+                val (grouped, overflow) = groupDepartures(allDepartures, config.filteredHeadsigns, config.maxDepartures, nowVal, maxRows)
 
                 val freshnessText = resolveFreshnessText(db, config)
                 applyHeader(views, config, context, minWidth, freshnessText)
@@ -301,48 +303,6 @@ class TransitWidget : AppWidgetProvider() {
                     else -> context.getColor(R.color.widget_color_secondary)
                 }
             )
-        }
-
-        private suspend fun loadGroupedDepartures(
-            db: TransitDatabase,
-            config: WidgetConfig,
-            now: Long,
-            maxRows: Int
-        ): Pair<List<List<Departure>>, Int> {
-            val allGroups = db.departureDao()
-                .getDeparturesForStop(config.stopId)
-                .filter { departure ->
-                    (departure.departureTimestamp ?: departure.arrivalTimestamp
-                    ?: Long.MIN_VALUE) > now &&
-                            (config.filteredHeadsigns.isEmpty() ||
-                                    "${departure.routeName}|${departure.headsign}" in config.filteredHeadsigns)
-                }
-                .groupBy { "${it.routeName}|${it.headsign}" }
-                .entries
-                .map { (_, departures) ->
-                    departures.sortedBy {
-                        it.arrivalTimestamp ?: it.departureTimestamp ?: Long.MAX_VALUE
-                    }
-                        .take(config.maxDepartures)
-                }
-                .sortedWith(
-                    compareBy(
-                        {
-                            it.first().arrivalTimestamp ?: it.first().departureTimestamp
-                            ?: Long.MAX_VALUE
-                        },
-                        {
-                            it.getOrNull(1)?.let { d -> d.arrivalTimestamp ?: d.departureTimestamp }
-                                ?: Long.MAX_VALUE
-                        },
-                        {
-                            it.getOrNull(2)?.let { d -> d.arrivalTimestamp ?: d.departureTimestamp }
-                                ?: Long.MAX_VALUE
-                        },
-                        { it.first().routeName }
-                    ))
-            val overflow = (allGroups.size - maxRows).coerceAtLeast(0)
-            return allGroups.take(maxRows) to overflow
         }
 
         private fun applyDepartures(

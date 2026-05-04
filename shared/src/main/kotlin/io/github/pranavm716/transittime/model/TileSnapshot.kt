@@ -16,6 +16,6 @@ data class TileSnapshot(
 data class TileRow(
     val routeName: String,
     val headsign: String,
-    val displayTime: String,
-    val delayColor: Int
+    val displayTimes: List<String>,
+    val delayColors: List<Int>
 )

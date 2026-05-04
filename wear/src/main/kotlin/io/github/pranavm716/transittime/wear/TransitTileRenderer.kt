@@ -41,9 +41,9 @@ object TransitTileRenderer {
         val firstRow = snapshot.rows.firstOrNull()
 
         val nextDepText = snapshot.errorLabel
-            ?: firstRow?.let { "${it.routeName}: ${it.displayTime}" }
+            ?: firstRow?.let { "${it.routeName}: ${it.displayTimes.firstOrNull() ?: ""}" }
             ?: "No departures"
-        val nextDepColor = firstRow?.delayColor ?: COLORS.onSurface
+        val nextDepColor = firstRow?.delayColors?.firstOrNull() ?: COLORS.onSurface
 
         val updatedText = if (snapshot.fetchedAt > 0L)
             "Updated " + SimpleDateFormat("h:mma", Locale.getDefault()).format(Date(snapshot.fetchedAt))
