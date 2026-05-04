@@ -7,7 +7,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "io.github.pranavm716.transittime.wear"
+        applicationId = "io.github.pranavm716.transittime"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.androidx.wear.protolayout.expression)
     implementation(libs.play.services.wearable)
     implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.androidx.concurrent.futures)
     implementation(libs.gson)
     implementation(project(":shared"))
 }
