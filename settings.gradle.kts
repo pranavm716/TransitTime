@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "TransitTime"
 include(":app")
+include(":shared")

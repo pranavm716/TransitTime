@@ -68,4 +68,5 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.protobuf.java)
     implementation(libs.androidx.appcompat)
+    implementation(project(":shared"))
 }
