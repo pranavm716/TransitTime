@@ -8,10 +8,8 @@ val COLOR_LATE = 0xFFdc3545.toInt()
 val COLOR_EARLY = 0xFF28a745.toInt()
 
 private fun lerp(from: Int, to: Int, t: Float): Int {
-    val r =
-        ((from shr 16 and 0xFF) + ((to shr 16 and 0xFF) - (from shr 16 and 0xFF)) * t).roundToInt()
-    val g =
-        ((from shr 8 and 0xFF) + ((to shr 8 and 0xFF) - (from shr 8 and 0xFF)) * t).roundToInt()
+    val r = ((from shr 16 and 0xFF) + ((to shr 16 and 0xFF) - (from shr 16 and 0xFF)) * t).roundToInt()
+    val g = ((from shr 8 and 0xFF) + ((to shr 8 and 0xFF) - (from shr 8 and 0xFF)) * t).roundToInt()
     val b = ((from and 0xFF) + ((to and 0xFF) - (from and 0xFF)) * t).roundToInt()
     return 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
 }

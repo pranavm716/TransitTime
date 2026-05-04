@@ -1,3 +1,7 @@
 package io.github.pranavm716.transittime.data.model
 
-// Moved to :shared module
+enum class DelayColorMode {
+    NONE,
+    FLAT,
+    GRADIENT
+}

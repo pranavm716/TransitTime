@@ -5,64 +5,55 @@ import android.util.Log
 import androidx.core.content.edit
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import io.github.pranavm716.transittime.model.WatchDeparture
-import io.github.pranavm716.transittime.model.WatchStopConfig
+import io.github.pranavm716.transittime.model.TileSnapshot
 
 class WearLocalCache(context: Context) {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val gson = Gson()
 
-    fun saveDepartures(stopId: String, departures: List<WatchDeparture>, fetchedAt: Long) {
+    fun saveSnapshot(snapshot: TileSnapshot) {
         prefs.edit {
-            putString(departuresKey(stopId), gson.toJson(departures))
-            putLong(fetchedAtKey(stopId), fetchedAt)
+            putString(snapshotKey(snapshot.stopId), gson.toJson(snapshot))
+            putLong(fetchedAtKey(snapshot.stopId), snapshot.fetchedAt)
         }
     }
 
-    fun getDepartures(stopId: String): List<WatchDeparture> {
-        val json = prefs.getString(departuresKey(stopId), null) ?: return emptyList()
-        val type = object : TypeToken<List<WatchDeparture>>() {}.type
-        return gson.fromJson(json, type) ?: emptyList()
+    fun getSnapshot(stopId: String): TileSnapshot? {
+        val json = prefs.getString(snapshotKey(stopId), null)
+        val result = if (json != null) gson.fromJson(json, TileSnapshot::class.java) else null
+        Log.d(TAG, "getSnapshot: stopId=$stopId, ${if (result != null) "hit (fetchedAt=${result.fetchedAt}, rows=${result.rows.size})" else "miss"}")
+        return result
     }
 
     fun getFetchedAt(stopId: String): Long = prefs.getLong(fetchedAtKey(stopId), 0L)
 
-    fun saveStopConfigs(configs: List<WatchStopConfig>, pushedAt: Long) {
-        Log.d(TAG, "saveStopConfigs: writing ${configs.size} configs: ${configs.map { it.stopName }}")
+    fun saveStopIds(stopIds: List<String>, pushedAt: Long) {
         prefs.edit {
-            putString(KEY_STOP_CONFIGS, gson.toJson(configs))
-            putLong(KEY_CONFIGS_PUSHED_AT, pushedAt)
+            putString(KEY_STOP_IDS, gson.toJson(stopIds))
+            putLong(KEY_STOP_IDS_PUSHED_AT, pushedAt)
         }
     }
 
-    fun getConfigsPushedAt(): Long = prefs.getLong(KEY_CONFIGS_PUSHED_AT, 0L)
-
-    fun getStopConfigs(): List<WatchStopConfig> {
-        val json = prefs.getString(KEY_STOP_CONFIGS, null) ?: run {
-            Log.d(TAG, "getStopConfigs: cache miss (no value stored)")
-            return emptyList()
-        }
-        val type = object : TypeToken<List<WatchStopConfig>>() {}.type
-        val result = gson.fromJson<List<WatchStopConfig>>(json, type) ?: emptyList()
-        Log.d(TAG, "getStopConfigs: cache hit, ${result.size} configs: ${result.map { it.stopName }}")
+    fun getStopIds(): List<String> {
+        val json = prefs.getString(KEY_STOP_IDS, null)
+        val result: List<String> = if (json != null) {
+            val type = object : TypeToken<List<String>>() {}.type
+            gson.fromJson(json, type) ?: emptyList()
+        } else emptyList()
+        Log.d(TAG, "getStopIds: ${if (result.isNotEmpty()) "hit, stopIds=$result" else "miss"}")
         return result
     }
 
-    fun saveGoModeExpiresAt(expiresAt: Long) {
-        prefs.edit { putLong(KEY_GO_MODE_EXPIRES_AT, expiresAt) }
-    }
+    fun getStopIdsPushedAt(): Long = prefs.getLong(KEY_STOP_IDS_PUSHED_AT, 0L)
 
-    fun getGoModeExpiresAt(): Long = prefs.getLong(KEY_GO_MODE_EXPIRES_AT, 0L)
-
-    private fun departuresKey(stopId: String) = "departures_$stopId"
+    private fun snapshotKey(stopId: String) = "snapshot_$stopId"
     private fun fetchedAtKey(stopId: String) = "fetched_at_$stopId"
 
     companion object {
         private const val TAG = "TransitWear"
         private const val PREFS_NAME = "wear_local_cache"
-        private const val KEY_STOP_CONFIGS = "stop_configs"
-        private const val KEY_CONFIGS_PUSHED_AT = "configs_pushed_at"
-        private const val KEY_GO_MODE_EXPIRES_AT = "go_mode_expires_at"
+        private const val KEY_STOP_IDS = "stop_ids"
+        private const val KEY_STOP_IDS_PUSHED_AT = "stop_ids_pushed_at"
     }
 }

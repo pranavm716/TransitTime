@@ -40,7 +40,6 @@ fun getDisplayTime(
         }
     }
 
-    // Xmin or absolute time depending on display mode
     val minutes = maxOf(1, (millisToDisplay / 60_000).toInt())
     val relativeTime = "${minutes}min"
     val absoluteTime = SimpleDateFormat("h:mma", Locale.getDefault())

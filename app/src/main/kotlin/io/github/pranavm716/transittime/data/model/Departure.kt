@@ -2,7 +2,6 @@ package io.github.pranavm716.transittime.data.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import io.github.pranavm716.transittime.model.WatchDeparture
 import io.github.pranavm716.transittime.util.getDisplayTime
 
 @Entity(tableName = "departures")
@@ -27,16 +26,3 @@ data class Departure(
         departingWindowMillis: Long = 30_000
     ): String = getDisplayTime(arrivalTimestamp, departureTimestamp, isOriginStop, isScheduled, now, displayMode, hybridThresholdMinutes, departingWindowMillis)
 }
-
-fun Departure.toWatchDeparture(): WatchDeparture = WatchDeparture(
-    stopId = stopId,
-    routeName = routeName,
-    headsign = headsign,
-    agency = agency,
-    arrivalTimestamp = arrivalTimestamp,
-    departureTimestamp = departureTimestamp,
-    isOriginStop = isOriginStop,
-    isScheduled = isScheduled,
-    delaySeconds = delaySeconds,
-    fetchedAt = fetchedAt
-)

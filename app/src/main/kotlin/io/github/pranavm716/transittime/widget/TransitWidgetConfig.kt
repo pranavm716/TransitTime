@@ -35,10 +35,12 @@ import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.DelayColorMode
 import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.data.model.WidgetConfig
-import io.github.pranavm716.transittime.model.WatchStopConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.transit.TransitError
-import io.github.pranavm716.transittime.wear.WearDataPusher
+import io.github.pranavm716.transittime.wear.TileSnapshotPusher
+import io.github.pranavm716.transittime.wear.buildSnapshot
+import io.github.pranavm716.transittime.GoModeManager
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -398,21 +400,37 @@ class TransitWidgetConfig : AppCompatActivity() {
                 val configDao = db.widgetConfigDao()
                 val departureDao = db.departureDao()
 
-                val oldStopId = configDao.getConfig(widgetId)?.stopId
+                val prevConfig = configDao.getConfig(widgetId)
+                val oldStopId = prevConfig?.stopId
+                val isNewWidget = prevConfig == null
+
                 if (oldStopId != null && oldStopId != stopId) {
                     val remaining = configDao.getAllConfigs()
                         .filter { it.stopId == oldStopId && it.widgetId != widgetId }
                     if (remaining.isEmpty()) {
                         departureDao.deleteDeparturesForStop(oldStopId)
+                        // Scenario (2): stopId changed — delete the old snapshot first
+                        try {
+                            Log.d("TransitWear", "TransitWidgetConfig: stopId changed, deleting snapshot for oldStopId=$oldStopId")
+                            TileSnapshotPusher(applicationContext).deleteSnapshot(oldStopId)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
                     }
                 }
 
                 configDao.upsertConfig(config)
 
+                // Scenario (1) new widget / Scenario (2) updated widget — push snapshot + index
                 try {
-                    val watchConfigs = configDao.getAllConfigs()
-                        .map { WatchStopConfig(it.stopId, it.stopName, it.agency, it.delayColorMode) }
-                    WearDataPusher(applicationContext).pushStopConfigs(watchConfigs, System.currentTimeMillis())
+                    val goModeManager = GoModeManager(applicationContext)
+                    val snapshot = buildSnapshot(config, emptyList(), goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
+                    val label = if (isNewWidget) "widget added" else "widget updated"
+                    Log.d("TransitWear", "TransitWidgetConfig: $label, pushing snapshot for stopId=${config.stopId}")
+                    val pusher = TileSnapshotPusher(applicationContext)
+                    pusher.pushSnapshot(snapshot)
+                    val allStopIds = configDao.getAllConfigs().map { it.stopId }.distinct()
+                    pusher.pushStopIndex(allStopIds)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }

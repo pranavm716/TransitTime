@@ -1,6 +1,7 @@
 package io.github.pranavm716.transittime.widget
 
 import android.app.PendingIntent
+import android.util.Log
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
@@ -26,8 +27,7 @@ import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.util.RouteIconDrawer
 import io.github.pranavm716.transittime.util.getDelayColor
-import io.github.pranavm716.transittime.model.WatchStopConfig
-import io.github.pranavm716.transittime.wear.WearDataPusher
+import io.github.pranavm716.transittime.wear.TileSnapshotPusher
 import io.github.pranavm716.transittime.worker.FetchWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -77,21 +77,22 @@ class TransitWidget : AppWidgetProvider() {
                     clearedStopIds.add(config.stopId)
                 }
             }
-            val pushedAt = System.currentTimeMillis()
-            val wearDataPusher = WearDataPusher(context)
-            try {
-                val remainingConfigs = configDao.getAllConfigs()
-                    .map { WatchStopConfig(it.stopId, it.stopName, it.agency, it.delayColorMode) }
-                wearDataPusher.pushStopConfigs(remainingConfigs, pushedAt)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            val pusher = TileSnapshotPusher(context)
+            // Scenario (3): widget deleted — remove snapshots for cleared stops
             for (stopId in clearedStopIds) {
                 try {
-                    wearDataPusher.pushDepartures(stopId, emptyList(), pushedAt)
+                    Log.d("TransitWear", "TransitWidget.onDeleted: deleting snapshot for stopId=$stopId")
+                    pusher.deleteSnapshot(stopId)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
+            }
+            try {
+                val remainingStopIds = configDao.getAllConfigs().map { it.stopId }.distinct()
+                Log.d("TransitWear", "TransitWidget.onDeleted: pushing stop index, stopIds=$remainingStopIds")
+                pusher.pushStopIndex(remainingStopIds)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }

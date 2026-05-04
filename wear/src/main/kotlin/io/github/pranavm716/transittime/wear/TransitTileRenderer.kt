@@ -14,6 +14,7 @@ import androidx.wear.protolayout.material.Text
 import androidx.wear.protolayout.material.Typography
 import androidx.wear.protolayout.material.layouts.PrimaryLayout
 import androidx.wear.tiles.TileBuilders
+import io.github.pranavm716.transittime.model.TileSnapshot
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -22,41 +23,33 @@ object TransitTileRenderer {
 
     private val DIM_COLOR = 0xFFAAAAAA.toInt()
 
-    // Use bright colors to avoid "dim" look
     private val COLORS = Colors(
         0xFFB3E5FC.toInt(), // primary: Light Blue
         0xFF000000.toInt(), // onPrimary: Black
         0xFF121212.toInt(), // surface: Dark Grey
-        0xFFFFFFFF.toInt()  // onSurface: White (Bright)
+        0xFFFFFFFF.toInt()  // onSurface: White
     )
 
     fun renderTile(
         context: Context,
         deviceConfiguration: DeviceParametersBuilders.DeviceParameters,
-        stopName: String,
+        snapshot: TileSnapshot,
         currentIndex: Int,
         nextIndex: Int,
-        totalConfigs: Int,
-        departures: List<io.github.pranavm716.transittime.model.WatchDeparture> = emptyList(),
-        fetchedAt: Long = 0L
+        totalStops: Int
     ): TileBuilders.Tile {
-        val now = System.currentTimeMillis()
-        val nextDepText = departures.firstOrNull()?.let {
-            val time = io.github.pranavm716.transittime.util.getDisplayTime(
-                arrivalTimestamp = it.arrivalTimestamp,
-                departureTimestamp = it.departureTimestamp,
-                isOriginStop = it.isOriginStop,
-                isScheduled = it.isScheduled,
-                now = now
-            )
-            "${it.routeName}: $time"
-        } ?: "No departures"
+        val firstRow = snapshot.rows.firstOrNull()
 
-        val updatedText = if (fetchedAt > 0L)
-            "Updated " + SimpleDateFormat("h:mma", Locale.getDefault()).format(Date(fetchedAt))
+        val nextDepText = snapshot.errorLabel
+            ?: firstRow?.let { "${it.routeName}: ${it.displayTime}" }
+            ?: "No departures"
+        val nextDepColor = firstRow?.delayColor ?: COLORS.onSurface
+
+        val updatedText = if (snapshot.fetchedAt > 0L)
+            "Updated " + SimpleDateFormat("h:mma", Locale.getDefault()).format(Date(snapshot.fetchedAt))
         else null
 
-        val root = if (totalConfigs > 1) {
+        val root = if (totalStops > 1) {
             val columnBuilder = LayoutElementBuilders.Column.Builder()
             if (updatedText != null) {
                 columnBuilder.addContent(
@@ -73,7 +66,7 @@ object TransitTileRenderer {
             }
             columnBuilder
                 .addContent(
-                    Text.Builder(context, stopName)
+                    Text.Builder(context, snapshot.stopName)
                         .setTypography(Typography.TYPOGRAPHY_TITLE2)
                         .setColor(ColorBuilders.argb(COLORS.onSurface))
                         .setMaxLines(2)
@@ -87,14 +80,14 @@ object TransitTileRenderer {
                 .addContent(
                     Text.Builder(context, nextDepText)
                         .setTypography(Typography.TYPOGRAPHY_CAPTION1)
-                        .setColor(ColorBuilders.argb(COLORS.onSurface))
+                        .setColor(ColorBuilders.argb(nextDepColor))
                         .build()
                 )
 
             PrimaryLayout.Builder(deviceConfiguration)
                 .setResponsiveContentInsetEnabled(true)
                 .setPrimaryLabelTextContent(
-                    Text.Builder(context, "Stop ${currentIndex + 1} of $totalConfigs")
+                    Text.Builder(context, "Stop ${currentIndex + 1} of $totalStops")
                         .setTypography(Typography.TYPOGRAPHY_CAPTION1)
                         .setColor(ColorBuilders.argb(COLORS.onSurface))
                         .build()
@@ -113,7 +106,6 @@ object TransitTileRenderer {
                 )
                 .build()
         } else {
-            // Single stop or no stops
             val layout = PrimaryLayout.Builder(deviceConfiguration)
                 .setResponsiveContentInsetEnabled(true)
             if (updatedText != null) {
@@ -127,7 +119,7 @@ object TransitTileRenderer {
             layout.setContent(
                 LayoutElementBuilders.Column.Builder()
                     .addContent(
-                        Text.Builder(context, stopName)
+                        Text.Builder(context, snapshot.stopName)
                             .setTypography(Typography.TYPOGRAPHY_TITLE2)
                             .setColor(ColorBuilders.argb(COLORS.onSurface))
                             .setMaxLines(2)
@@ -141,7 +133,7 @@ object TransitTileRenderer {
                     .addContent(
                         Text.Builder(context, nextDepText)
                             .setTypography(Typography.TYPOGRAPHY_CAPTION1)
-                            .setColor(ColorBuilders.argb(COLORS.onSurface))
+                            .setColor(ColorBuilders.argb(nextDepColor))
                             .build()
                     )
                     .build()

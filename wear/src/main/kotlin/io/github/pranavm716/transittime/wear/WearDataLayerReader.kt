@@ -7,8 +7,7 @@ import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import io.github.pranavm716.transittime.model.WatchDeparture
-import io.github.pranavm716.transittime.model.WatchStopConfig
+import io.github.pranavm716.transittime.model.TileSnapshot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -18,96 +17,75 @@ object WearDataLayerReader {
     private const val TAG = "TransitWear"
     private val gson = Gson()
 
-    fun deserializeStopConfigs(json: String): List<WatchStopConfig> {
-        val type = object : TypeToken<List<WatchStopConfig>>() {}.type
-        return gson.fromJson(json, type) ?: emptyList()
-    }
-
-    fun deserializeDepartures(json: String): List<WatchDeparture> {
-        val type = object : TypeToken<List<WatchDeparture>>() {}.type
-        return gson.fromJson(json, type) ?: emptyList()
-    }
-
-    suspend fun readStopConfigs(context: Context, cache: WearLocalCache): List<WatchStopConfig>? = withContext(Dispatchers.IO) {
-        val uri = "wear://*/stop_configs"
-        Log.d(TAG, "readStopConfigs: querying Data Layer uri=$uri")
-        try {
-            val dataItems = Wearable.getDataClient(context)
-                .getDataItems(Uri.parse(uri))
-                .await()
-            try {
-                Log.d(TAG, "readStopConfigs: got ${dataItems.count} item(s)")
-                val dataItem = dataItems.firstOrNull()
-                if (dataItem == null) {
-                    Log.d(TAG, "readStopConfigs: no item found — returning empty list")
-                    return@withContext emptyList()
-                }
-                val dataMap = DataMapItem.fromDataItem(dataItem).dataMap
-                val pushedAt = dataMap.getLong("pushedAt")
-                if (pushedAt == cache.getConfigsPushedAt()) {
-                    val cached = cache.getStopConfigs()
-                    Log.d(TAG, "readStopConfigs: pushedAt match, returning ${cached.size} cached configs")
-                    return@withContext cached
-                }
-                val json = dataMap.getString("configs")
-                if (json == null) {
-                    Log.d(TAG, "readStopConfigs: 'configs' key missing — returning empty list")
-                    return@withContext emptyList()
-                }
-                val result = deserializeStopConfigs(json)
-                Log.d(TAG, "readStopConfigs: deserialized ${result.size} configs: ${result.map { it.stopName }}")
-                cache.saveStopConfigs(result, pushedAt)
-                result
-            } finally {
-                dataItems.release()
-            }
-        } catch (e: Exception) {
-            Log.d(TAG, "readStopConfigs: query failed with exception", e)
-            null
-        }
-    }
-
-    suspend fun readDepartures(context: Context, stopId: String, cache: WearLocalCache): Pair<List<WatchDeparture>, Long> =
+    suspend fun readSnapshot(context: Context, stopId: String, cache: WearLocalCache): TileSnapshot? =
         withContext(Dispatchers.IO) {
+            Log.d(TAG, "readSnapshot: checking cache for stopId=$stopId")
             try {
                 val dataItems = Wearable.getDataClient(context)
-                    .getDataItems(Uri.parse("wear://*/departures/$stopId"))
+                    .getDataItems(Uri.parse("wear://*/tile_snapshot/$stopId"))
                     .await()
                 try {
-                    val item = dataItems.firstOrNull() ?: return@withContext Pair(emptyList(), 0L)
+                    val item = dataItems.firstOrNull()
+                    if (item == null) {
+                        Log.d(TAG, "readSnapshot: no Data Layer item for stopId=$stopId, falling back to cache")
+                        return@withContext cache.getSnapshot(stopId)
+                    }
                     val dataMap = DataMapItem.fromDataItem(item).dataMap
                     val fetchedAt = dataMap.getLong("fetchedAt")
-                    if (fetchedAt == cache.getFetchedAt(stopId)) {
-                        return@withContext Pair(cache.getDepartures(stopId), fetchedAt)
+                    val cachedFetchedAt = cache.getFetchedAt(stopId)
+                    Log.d(TAG, "readSnapshot: stopId=$stopId, fetchedAt=$fetchedAt, cachedFetchedAt=$cachedFetchedAt")
+                    if (fetchedAt == cachedFetchedAt) {
+                        return@withContext cache.getSnapshot(stopId)
                     }
-                    val json = dataMap.getString("departures") ?: return@withContext Pair(emptyList(), 0L)
-                    val departures = deserializeDepartures(json)
-                    cache.saveDepartures(stopId, departures, fetchedAt)
-                    Pair(departures, fetchedAt)
+                    val json = dataMap.getString("snapshot") ?: run {
+                        Log.d(TAG, "readSnapshot: 'snapshot' key missing for stopId=$stopId")
+                        return@withContext null
+                    }
+                    val snapshot = gson.fromJson(json, TileSnapshot::class.java)
+                    Log.d(TAG, "readSnapshot: fresh snapshot for stopId=$stopId, rows=${snapshot?.rows?.size}")
+                    if (snapshot != null) cache.saveSnapshot(snapshot)
+                    snapshot
                 } finally {
                     dataItems.release()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
-                Pair(emptyList(), 0L)
+                Log.d(TAG, "readSnapshot: query failed for stopId=$stopId, falling back to cache", e)
+                cache.getSnapshot(stopId)
             }
         }
 
-    suspend fun readGoModeExpiresAt(context: Context): Long = withContext(Dispatchers.IO) {
-        try {
-            val dataItems = Wearable.getDataClient(context)
-                .getDataItems(Uri.parse("wear://*/go_mode"))
-                .await()
+    suspend fun readStopIds(context: Context, cache: WearLocalCache): List<String> =
+        withContext(Dispatchers.IO) {
+            Log.d(TAG, "readStopIds: checking cache")
             try {
-                dataItems.firstOrNull()
-                    ?.let { DataMapItem.fromDataItem(it).dataMap.getLong("expiresAt") }
-                    ?: 0L
-            } finally {
-                dataItems.release()
+                val dataItems = Wearable.getDataClient(context)
+                    .getDataItems(Uri.parse("wear://*/tile_snapshot_index"))
+                    .await()
+                try {
+                    val item = dataItems.firstOrNull()
+                    if (item == null) {
+                        Log.d(TAG, "readStopIds: no Data Layer item, falling back to cache")
+                        return@withContext cache.getStopIds()
+                    }
+                    val dataMap = DataMapItem.fromDataItem(item).dataMap
+                    val pushedAt = dataMap.getLong("pushedAt")
+                    val cachedPushedAt = cache.getStopIdsPushedAt()
+                    Log.d(TAG, "readStopIds: pushedAt=$pushedAt, cachedPushedAt=$cachedPushedAt")
+                    if (pushedAt == cachedPushedAt) {
+                        return@withContext cache.getStopIds()
+                    }
+                    val json = dataMap.getString("stopIds") ?: return@withContext emptyList()
+                    val type = object : TypeToken<List<String>>() {}.type
+                    val stopIds: List<String> = gson.fromJson(json, type) ?: emptyList()
+                    Log.d(TAG, "readStopIds: fresh stopIds=$stopIds")
+                    cache.saveStopIds(stopIds, pushedAt)
+                    stopIds
+                } finally {
+                    dataItems.release()
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "readStopIds: query failed, falling back to cache", e)
+                cache.getStopIds()
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            0L
         }
-    }
 }

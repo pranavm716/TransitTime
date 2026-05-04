@@ -3,6 +3,7 @@ package io.github.pranavm716.transittime.worker
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -10,10 +11,10 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import io.github.pranavm716.transittime.GoModeManager
 import io.github.pranavm716.transittime.data.db.TransitDatabase
-import io.github.pranavm716.transittime.data.model.toWatchDeparture
-import io.github.pranavm716.transittime.wear.WearDataPusher
-import io.github.pranavm716.transittime.model.WatchStopConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
+import io.github.pranavm716.transittime.transit.TransitError
+import io.github.pranavm716.transittime.wear.TileSnapshotPusher
+import io.github.pranavm716.transittime.wear.buildSnapshot
 import io.github.pranavm716.transittime.widget.TransitWidget
 import java.util.concurrent.TimeUnit
 
@@ -21,6 +22,10 @@ class FetchWorker(
     private val context: Context,
     params: WorkerParameters
 ) : CoroutineWorker(context, params) {
+
+    companion object {
+        private const val TAG = "TransitWear"
+    }
 
     override suspend fun doWork(): Result {
         val db = TransitDatabase.getInstance(context)
@@ -62,11 +67,12 @@ class FetchWorker(
 
         val configs = if (staleConfigs.isNotEmpty()) configDao.getAllConfigs() else allConfigs
         val fetchedAt = System.currentTimeMillis()
-        val wearDataPusher = WearDataPusher(context)
+        val pusher = TileSnapshotPusher(context)
 
         for (stopId in clearedStopIds) {
             try {
-                wearDataPusher.pushDepartures(stopId, emptyList(), fetchedAt)
+                Log.d(TAG, "FetchWorker: deleting snapshot for cleared stopId=$stopId")
+                pusher.deleteSnapshot(stopId)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -74,15 +80,13 @@ class FetchWorker(
 
         if (configs.isEmpty()) {
             try {
-                wearDataPusher.pushStopConfigs(emptyList(), fetchedAt)
+                Log.d(TAG, "FetchWorker: no configs, pushing empty stop index")
+                pusher.pushStopIndex(emptyList())
             } catch (e: Exception) {
                 e.printStackTrace()
             }
             return Result.success()
         }
-
-        val agencyErrors = mutableMapOf<io.github.pranavm716.transittime.data.model.Agency, io.github.pranavm716.transittime.transit.TransitError>()
-        val changedStops = mutableSetOf<String>()
 
         configs.groupBy { it.agency }.forEach { (agency, agencyConfigs) ->
             val handler = AgencyRegistry.get(agency)
@@ -99,63 +103,70 @@ class FetchWorker(
 
                     if (stopDepartures.isEmpty()) {
                         if (existing.isNotEmpty()) {
-                            changedStops.add(stopId)
                             departureDao.deleteDeparturesForStop(stopId)
                         }
                     } else {
                         val existingSignature = existing.map { it.id to it.departureTimestamp }.toSet()
                         val newSignature = stopDepartures.map { it.id to it.departureTimestamp }.toSet()
                         if (existingSignature != newSignature) {
-                            changedStops.add(stopId)
                             departureDao.upsertDepartures(stopDepartures)
                             departureDao.deleteStaleRowsForStop(stopId, stopDepartures.map { it.id })
                         }
-                    }
-
-                    try {
-                        wearDataPusher.pushDepartures(
-                            stopId,
-                            stopDepartures.map { it.toWatchDeparture() },
-                            fetchedAt
-                        )
-                    } catch (e: Exception) {
-                        e.printStackTrace()
                     }
                 }
 
                 for (config in agencyConfigs) {
                     val stopException = result.stopErrors[config.stopId]
                     if (stopException != null) {
-                        val error = io.github.pranavm716.transittime.transit.TransitError.fromException(stopException)
+                        val error = TransitError.fromException(stopException)
                         val current = configDao.getConfig(config.widgetId) ?: continue
                         if (current.lastFetchedAt > config.lastFetchedAt) continue
                         configDao.upsertConfig(current.copy(lastErrorLabel = error.label))
                     } else {
-                        configDao.upsertConfig(config.copy(
-                            lastFetchedAt = fetchedAt,
-                            lastErrorLabel = null
-                        ))
+                        configDao.upsertConfig(config.copy(lastFetchedAt = fetchedAt, lastErrorLabel = null))
                     }
                     TransitWidget.updateWidget(context, manager, config.widgetId, now = fetchedAt)
+                    // Scenario (4): widget refreshed — push updated snapshot
+                    try {
+                        val latestConfig = configDao.getConfig(config.widgetId)
+                        if (latestConfig != null) {
+                            val deps = departureDao.getDeparturesForStop(latestConfig.stopId)
+                            val snapshot = buildSnapshot(latestConfig, deps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
+                            Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId}")
+                            pusher.pushSnapshot(snapshot)
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                val error = io.github.pranavm716.transittime.transit.TransitError.fromException(e)
-                agencyErrors[agency] = error
+                val error = TransitError.fromException(e)
                 for (config in agencyConfigs) {
                     val current = configDao.getConfig(config.widgetId) ?: continue
                     if (current.lastFetchedAt > config.lastFetchedAt) continue
                     configDao.upsertConfig(current.copy(lastErrorLabel = error.label))
                     TransitWidget.updateWidget(context, manager, config.widgetId, now = fetchedAt)
+                    // Scenario (4): agency error path — push snapshot with error label
+                    try {
+                        val latestConfig = configDao.getConfig(config.widgetId)
+                        if (latestConfig != null) {
+                            val deps = departureDao.getDeparturesForStop(latestConfig.stopId)
+                            val snapshot = buildSnapshot(latestConfig, deps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
+                            Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId} (agency error)")
+                            pusher.pushSnapshot(snapshot)
+                        }
+                    } catch (e2: Exception) {
+                        e2.printStackTrace()
+                    }
                 }
             }
         }
 
         try {
-            wearDataPusher.pushStopConfigs(
-                configs.map { WatchStopConfig(it.stopId, it.stopName, it.agency, it.delayColorMode) },
-                fetchedAt
-            )
+            val allStopIds = configs.map { it.stopId }.distinct()
+            Log.d(TAG, "FetchWorker: pushing stop index, stopIds=$allStopIds")
+            pusher.pushStopIndex(allStopIds)
         } catch (e: Exception) {
             e.printStackTrace()
         }
