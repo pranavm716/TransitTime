@@ -2,14 +2,28 @@ package io.github.pranavm716.transittime
 
 import android.content.Context
 import androidx.core.content.edit
+import io.github.pranavm716.transittime.wear.WearDataPusher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class GoModeManager(context: Context) {
 
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     var goModeExpiresAt: Long
         get() = prefs.getLong(KEY_EXPIRES_AT, 0L)
-        set(value) = prefs.edit { putLong(KEY_EXPIRES_AT, value) }
+        set(value) {
+            prefs.edit { putLong(KEY_EXPIRES_AT, value) }
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    WearDataPusher(appContext).pushGoModeState(value)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
 
     val isGoModeActive: Boolean
         get() = goModeExpiresAt > System.currentTimeMillis()

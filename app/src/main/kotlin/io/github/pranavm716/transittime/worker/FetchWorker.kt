@@ -10,6 +10,9 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import io.github.pranavm716.transittime.GoModeManager
 import io.github.pranavm716.transittime.data.db.TransitDatabase
+import io.github.pranavm716.transittime.data.model.toWatchDeparture
+import io.github.pranavm716.transittime.wear.WearDataPusher
+import io.github.pranavm716.transittime.model.WatchStopConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.widget.TransitWidget
 import java.util.concurrent.TimeUnit
@@ -59,6 +62,7 @@ class FetchWorker(
         val fetchedAt = System.currentTimeMillis()
         val agencyErrors = mutableMapOf<io.github.pranavm716.transittime.data.model.Agency, io.github.pranavm716.transittime.transit.TransitError>()
         val changedStops = mutableSetOf<String>()
+        val wearDataPusher = WearDataPusher(context)
 
         configs.groupBy { it.agency }.forEach { (agency, agencyConfigs) ->
             val handler = AgencyRegistry.get(agency)
@@ -86,6 +90,16 @@ class FetchWorker(
                             departureDao.upsertDepartures(stopDepartures)
                             departureDao.deleteStaleRowsForStop(stopId, stopDepartures.map { it.id })
                         }
+                    }
+
+                    try {
+                        wearDataPusher.pushDepartures(
+                            stopId,
+                            stopDepartures.map { it.toWatchDeparture() },
+                            fetchedAt
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
                 }
 
@@ -115,6 +129,14 @@ class FetchWorker(
                     TransitWidget.updateWidget(context, manager, config.widgetId, now = fetchedAt)
                 }
             }
+        }
+
+        try {
+            wearDataPusher.pushStopConfigs(
+                configs.map { WatchStopConfig(it.stopId, it.stopName, it.agency, it.delayColorMode) }
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
 
         if (goModeManager.isGoModeActive) {
