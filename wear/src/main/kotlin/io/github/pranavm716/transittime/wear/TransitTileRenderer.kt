@@ -223,8 +223,27 @@ object TransitTileRenderer {
 
             else -> {
                 val visible = snapshot.rows.take(3)
+                // Compute available horizontal space
+                val isRound = device.screenShape == DeviceParametersBuilders.SCREEN_SHAPE_ROUND
+                val sidePaddingDp = if (isRound) 24f else 0f
+                val iconAreaDp = 42f  // 34dp icon box + 8dp spacer
+                val timesAvailableDp = device.screenWidthDp - 2 * sidePaddingDp - iconAreaDp
+
+                // Simplified gap calculation: find the max gap that fits all visible rows
+                val fontScale = if (device.fontScale > 0) device.fontScale else 1f
+                val paint = android.graphics.Paint().apply {
+                    typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
+                    textSize = 13f * fontScale // Measured at 13sp for a small buffer
+                }
+                val gapDp = visible.map { row ->
+                    val times = row.displayTimes.take(3)
+                    val textWidth = times.sumOf { paint.measureText(it).toDouble() }.toFloat()
+                    val numGaps = (times.size - 1).coerceAtLeast(0)
+                    if (numGaps > 0) (timesAvailableDp - textWidth) / numGaps else 15f
+                }.minOrNull()?.coerceIn(4f, 15f) ?: 15f
+
                 visible.forEachIndexed { i, row ->
-                    rowsCol.addContent(buildDepartureRow(device, row))
+                    rowsCol.addContent(buildDepartureRow(device, row, gapDp))
                     if (i < visible.lastIndex) rowsCol.addContent(vSpacer(6f))
                 }
                 val overflow = snapshot.rows.size - 3
@@ -273,7 +292,8 @@ object TransitTileRenderer {
 
     private fun buildDepartureRow(
         device: DeviceParametersBuilders.DeviceParameters,
-        row: TileRow
+        row: TileRow,
+        gapDp: Float
     ): LayoutElementBuilders.LayoutElement {
         val iconText = row.iconText?.takeIf { it.isNotEmpty() } ?: "?"
         val iconBgColor = row.iconBgColor
@@ -349,10 +369,11 @@ object TransitTileRenderer {
             .setHeight(DimensionBuilders.wrap())
             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
 
-        row.displayTimes.take(3).forEachIndexed { i, time ->
+        val times = row.displayTimes.take(3)
+        times.forEachIndexed { i, time ->
             timesRow.addContent(timeText(time, row.delayColors.getOrNull(i) ?: COLOR_DIM))
-            if (i < 2 && i < row.displayTimes.size - 1) {
-                timesRow.addContent(hSpacer(15f))
+            if (i < times.lastIndex) {
+                timesRow.addContent(hSpacer(gapDp))
             }
         }
 
