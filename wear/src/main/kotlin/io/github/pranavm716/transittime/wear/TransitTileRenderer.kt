@@ -33,6 +33,7 @@ object TransitTileRenderer {
     private val COLOR_GO_MODE = 0xFF238636.toInt()
     private val COLOR_ERROR = 0xFFdc3545.toInt()
     private val COLOR_ICON_FB = 0xFF888888.toInt()
+    private val COLOR_RIPPLE = 0x33FFFFFF
 
     fun renderTile(
         context: Context,
@@ -138,6 +139,7 @@ object TransitTileRenderer {
                         ModifiersBuilders.Clickable.Builder()
                             .setId(nextIndex.toString())
                             .setOnClick(ActionBuilders.LoadAction.Builder().build())
+                            .setVisualFeedbackEnabled(true)
                             .build()
                     )
                     .setPadding(edgePadding(device, top = 4f, isHeaderFooter = true))
@@ -232,6 +234,7 @@ object TransitTileRenderer {
                         ModifiersBuilders.Clickable.Builder()
                             .setId("refresh")
                             .setOnClick(ActionBuilders.LoadAction.Builder().build())
+                            .setVisualFeedbackEnabled(true)
                             .build()
                     )
                     .setPadding(edgePadding(device, top = 0f, isHeaderFooter = false))
@@ -322,7 +325,7 @@ object TransitTileRenderer {
         row.displayTimes.take(3).forEachIndexed { i, time ->
             timesRow.addContent(timeText(time, row.delayColors.getOrNull(i) ?: COLOR_DIM))
             if (i < 2 && i < row.displayTimes.size - 1) {
-                timesRow.addContent(hSpacer(8f))
+                timesRow.addContent(hSpacer(15f))
             }
         }
 
@@ -380,6 +383,7 @@ object TransitTileRenderer {
                         ModifiersBuilders.Clickable.Builder()
                             .setId("go_mode")
                             .setOnClick(launchAction(context, "/action/go_mode_toggle"))
+                            .setVisualFeedbackEnabled(true)
                             .build()
                     )
                     .setPadding(edgePadding(device, top = 4f, bottom = 18f, isHeaderFooter = true))
@@ -478,7 +482,13 @@ object TransitTileRenderer {
         val anchorProp = if (!isWrap && fromAngle != toAngle) {
             DimensionBuilders.DegreesProp.Builder()
                 .setValue(toAngle)
-                .setDynamicValue(DynamicBuilders.DynamicFloat.animate(fromAngle, toAngle, slideSpec))
+                .setDynamicValue(
+                    DynamicBuilders.DynamicFloat.animate(
+                        fromAngle,
+                        toAngle,
+                        slideSpec
+                    )
+                )
                 .build()
         } else {
             DimensionBuilders.DegreesProp.Builder().setValue(toAngle).build()

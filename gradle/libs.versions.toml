@@ -19,7 +19,7 @@ protobuf = "3.25.3"
 activity = "1.10.0"
 wear = "1.3.0"
 wearTiles = "1.6.0"
-wearProtolayout = "1.2.1"
+wearProtolayout = "1.4.0"
 playServicesWearable = "18.2.0"
 concurrentFutures = "1.2.0"
 

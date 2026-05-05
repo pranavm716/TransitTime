@@ -7,4 +7,7 @@
     <color name="widget_color_on_time">#FFC107</color>
     <color name="widget_color_late">#dc3545</color>
     <color name="widget_color_early">#28a745</color>
+
+    <!-- Ripple overlay (semi-transparent white) -->
+    <color name="ripple_overlay">#33FFFFFF</color>
 </resources>
