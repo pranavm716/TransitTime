@@ -31,10 +31,10 @@ object WearDataLayerReader {
                         return@withContext cache.getSnapshot(stopId)
                     }
                     val dataMap = DataMapItem.fromDataItem(item).dataMap
-                    val fetchedAt = dataMap.getLong("fetchedAt")
-                    val cachedFetchedAt = cache.getFetchedAt(stopId)
-                    Log.d(TAG, "readSnapshot: stopId=$stopId, fetchedAt=$fetchedAt, cachedFetchedAt=$cachedFetchedAt")
-                    if (fetchedAt == cachedFetchedAt) {
+                    val pushedAt = dataMap.getLong("pushedAt")
+                    val cachedPushedAt = cache.getPushedAt(stopId)
+                    Log.d(TAG, "readSnapshot: stopId=$stopId, pushedAt=$pushedAt, cachedPushedAt=$cachedPushedAt")
+                    if (pushedAt == cachedPushedAt) {
                         return@withContext cache.getSnapshot(stopId)
                     }
                     val json = dataMap.getString("snapshot") ?: run {
@@ -43,7 +43,7 @@ object WearDataLayerReader {
                     }
                     val snapshot = gson.fromJson(json, TileSnapshot::class.java)
                     Log.d(TAG, "readSnapshot: fresh snapshot for stopId=$stopId, rows=${snapshot?.rows?.size}")
-                    if (snapshot != null) cache.saveSnapshot(snapshot)
+                    if (snapshot != null) cache.saveSnapshot(snapshot, pushedAt)
                     snapshot
                 } finally {
                     dataItems.release()

@@ -694,6 +694,6 @@ object TransitTileRenderer {
 
     private fun mediumWeight(): LayoutElementBuilders.FontWeightProp =
         LayoutElementBuilders.FontWeightProp.Builder()
-            .setValue(500) // FONT_WEIGHT_MEDIUM
+            .setValue(LayoutElementBuilders.FONT_WEIGHT_MEDIUM)
             .build()
 }

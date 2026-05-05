@@ -12,10 +12,10 @@ class WearLocalCache(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val gson = Gson()
 
-    fun saveSnapshot(snapshot: TileSnapshot) {
+    fun saveSnapshot(snapshot: TileSnapshot, pushedAt: Long) {
         prefs.edit {
             putString(snapshotKey(snapshot.stopId), gson.toJson(snapshot))
-            putLong(fetchedAtKey(snapshot.stopId), snapshot.fetchedAt)
+            putLong(pushedAtKey(snapshot.stopId), pushedAt)
         }
     }
 
@@ -26,7 +26,7 @@ class WearLocalCache(context: Context) {
         return result
     }
 
-    fun getFetchedAt(stopId: String): Long = prefs.getLong(fetchedAtKey(stopId), 0L)
+    fun getPushedAt(stopId: String): Long = prefs.getLong(pushedAtKey(stopId), 0L)
 
     fun saveStopIds(stopIds: List<String>, pushedAt: Long) {
         prefs.edit {
@@ -54,7 +54,7 @@ class WearLocalCache(context: Context) {
     fun getCurrentStopId(): String? = prefs.getString(KEY_CURRENT_STOP_ID, null)
 
     private fun snapshotKey(stopId: String) = "snapshot_$stopId"
-    private fun fetchedAtKey(stopId: String) = "fetched_at_$stopId"
+    private fun pushedAtKey(stopId: String) = "pushed_at_$stopId"
 
     companion object {
         private const val TAG = "TransitWear"
