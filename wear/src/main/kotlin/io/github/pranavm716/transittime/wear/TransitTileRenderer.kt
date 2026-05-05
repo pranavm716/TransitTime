@@ -233,7 +233,7 @@ object TransitTileRenderer {
                     .setClickable(
                         ModifiersBuilders.Clickable.Builder()
                             .setId("refresh")
-                            .setOnClick(ActionBuilders.LoadAction.Builder().build())
+                            .setOnClick(launchAction(context, "/action/refresh"))
                             .setVisualFeedbackEnabled(true)
                             .build()
                     )

@@ -507,6 +507,7 @@ class TransitWidget : AppWidgetProvider() {
         }
 
         fun triggerFetch(context: Context) {
+            Log.d("TransitWidget", "triggerFetch: enqueuing manual FetchWorker")
             val request = OneTimeWorkRequestBuilder<FetchWorker>()
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
