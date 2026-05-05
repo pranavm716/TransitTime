@@ -431,17 +431,19 @@ object TransitTileRenderer {
                         .setLength(
                             DimensionBuilders.DegreesProp.Builder().setValue(gapDeg).build()
                         )
-                        .setThickness(DimensionBuilders.dp(5f))
+                        .setThickness(DimensionBuilders.dp(2.5f))
                         .build()
                 )
             }
-            val color = if (i == currentIndex) COLOR_WHITE else 0x40FFFFFF
+            // Segments are drawn clockwise from anchor, so i=0 lands on the right side
+            // visually. Invert the mapping so stop 0 lights the leftmost dot.
+            val color = if (i == totalStops - 1 - currentIndex) COLOR_WHITE else 0x40FFFFFF
             arc.addContent(
                 LayoutElementBuilders.ArcLine.Builder()
                     .setLength(
                         DimensionBuilders.DegreesProp.Builder().setValue(segDeg).build()
                     )
-                    .setThickness(DimensionBuilders.dp(5f))
+                    .setThickness(DimensionBuilders.dp(2.5f))
                     .setColor(ColorBuilders.argb(color))
                     .setStrokeCap(
                         LayoutElementBuilders.StrokeCapProp.Builder()

@@ -45,7 +45,10 @@ class TransitTileService : TileService() {
         val nextIndex = if (stopIds.size > 1) (currentIndex + 1) % stopIds.size else 0
         val stopId = stopIds.getOrNull(currentIndex)
 
-        Log.d("TransitTile", "tileRequestInternal: stopIds=$stopIds, index=$currentIndex, stopId=$stopId")
+        Log.d(
+            "TransitTile",
+            "tileRequestInternal: stopIds=$stopIds, index=$currentIndex, stopId=$stopId"
+        )
 
         val snapshot: TileSnapshot? = if (stopId != null) {
             WearDataLayerReader.readSnapshot(this@TransitTileService, stopId, cache)
