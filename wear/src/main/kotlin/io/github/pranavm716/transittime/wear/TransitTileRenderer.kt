@@ -43,8 +43,11 @@ object TransitTileRenderer {
         prevIndex: Int,
         nextIndex: Int,
         totalStops: Int
-    ): TileBuilders.Tile =
-        TileBuilders.Tile.Builder()
+    ): TileBuilders.Tile {
+        val root = if (totalStops == 0) buildNoStopsLayout() else buildRoot(
+            context, deviceConfiguration, snapshot, nextIndex, currentIndex, prevIndex, totalStops
+        )
+        return TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
             .setFreshnessIntervalMillis(15 * 60 * 1000L)
             .setTileTimeline(
@@ -53,21 +56,45 @@ object TransitTileRenderer {
                         TimelineBuilders.TimelineEntry.Builder()
                             .setLayout(
                                 LayoutElementBuilders.Layout.Builder()
-                                    .setRoot(
-                                        buildRoot(
-                                            context,
-                                            deviceConfiguration,
-                                            snapshot,
-                                            nextIndex,
-                                            currentIndex,
-                                            prevIndex,
-                                            totalStops
-                                        )
-                                    )
+                                    .setRoot(root)
                                     .build()
                             )
                             .build()
                     )
+                    .build()
+            )
+            .build()
+    }
+
+    // ── No stops layout ──────────────────────────────────────────────────────
+
+    private fun buildNoStopsLayout(): LayoutElementBuilders.LayoutElement =
+        LayoutElementBuilders.Box.Builder()
+            .setWidth(DimensionBuilders.expand())
+            .setHeight(DimensionBuilders.expand())
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+            .setModifiers(
+                ModifiersBuilders.Modifiers.Builder()
+                    .setBackground(
+                        ModifiersBuilders.Background.Builder()
+                            .setColor(ColorBuilders.argb(COLOR_BG))
+                            .build()
+                    )
+                    .build()
+            )
+            .addContent(
+                LayoutElementBuilders.Text.Builder()
+                    .setText(strProp("No stops configured. To get started, add a TransitTime widget on your phone."))
+                    .setFontStyle(
+                        LayoutElementBuilders.FontStyle.Builder()
+                            .setColor(ColorBuilders.argb(COLOR_DIM))
+                            .setSize(DimensionBuilders.sp(13f))
+                            .build()
+                    )
+                    .setMaxLines(intProp(6))
+                    .setMultilineAlignment(LayoutElementBuilders.TEXT_ALIGN_CENTER)
+                    .setOverflow(LayoutElementBuilders.TEXT_OVERFLOW_ELLIPSIZE_END)
                     .build()
             )
             .build()
@@ -665,7 +692,7 @@ object TransitTileRenderer {
             .setValue(LayoutElementBuilders.FONT_WEIGHT_BOLD)
             .build()
 
-    @OptIn(ProtoLayoutExperimental::class)
+    @Suppress("OPT_IN_USAGE_ERROR", "OPT_IN_USAGE")
     private fun mediumWeight(): LayoutElementBuilders.FontWeightProp =
         LayoutElementBuilders.FontWeightProp.Builder()
             .setValue(LayoutElementBuilders.FONT_WEIGHT_MEDIUM)
