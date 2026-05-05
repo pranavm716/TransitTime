@@ -9,6 +9,7 @@ import androidx.wear.protolayout.LayoutElementBuilders
 import androidx.wear.protolayout.ModifiersBuilders
 import androidx.wear.protolayout.TimelineBuilders
 import androidx.wear.protolayout.TypeBuilders
+import androidx.wear.protolayout.expression.ProtoLayoutExperimental
 import androidx.wear.tiles.TileBuilders
 import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.model.IconShape
@@ -18,13 +19,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ProtoLayoutExperimental::class)
 object TransitTileRenderer {
 
     const val RESOURCES_VERSION = "1"
 
     // Colors matching :app colors.xml
     private val COLOR_BG = 0xFF000000.toInt()
-    private val COLOR_DIVIDER = 0xFFBDC1C7.toInt()
     private val COLOR_WHITE = 0xFFFFFFFF.toInt()
     private val COLOR_DIM = 0xFFAAAAAA.toInt()
     private val COLOR_GO_MODE = 0xFF238636.toInt()
@@ -90,8 +91,13 @@ object TransitTileRenderer {
                 LayoutElementBuilders.Column.Builder()
                     .setWidth(DimensionBuilders.expand())
                     .setHeight(DimensionBuilders.expand())
+                    .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
                     .addContent(buildHeader(context, device, snapshot, nextIndex))
                     .addContent(buildContent(context, device, snapshot))
+                    .addContent(
+                        LayoutElementBuilders.Spacer.Builder().setHeight(DimensionBuilders.expand())
+                            .build()
+                    )
                     .addContent(buildFooter(context, device, snapshot))
                     .build()
             )
@@ -111,9 +117,10 @@ object TransitTileRenderer {
             Agency.CALTRAIN -> "ic_caltrain"
         }
         val stopNameSp = when {
-            snapshot.stopName.length <= 16 -> 16f
-            snapshot.stopName.length <= 24 -> 14f
-            else -> 12f
+            snapshot.stopName.length <= 14 -> 16f
+            snapshot.stopName.length <= 22 -> 14f
+            snapshot.stopName.length <= 30 -> 12f
+            else -> 11f
         }
         return LayoutElementBuilders.Column.Builder()
             .setWidth(DimensionBuilders.expand())
@@ -138,7 +145,7 @@ object TransitTileRenderer {
                     .setContentScaleMode(LayoutElementBuilders.CONTENT_SCALE_MODE_FIT)
                     .build()
             )
-            .addContent(vSpacer(4f))
+            .addContent(vSpacer(2f))
             .addContent(
                 LayoutElementBuilders.Text.Builder()
                     .setText(strProp(snapshot.stopName))
@@ -154,7 +161,7 @@ object TransitTileRenderer {
                     .setOverflow(LayoutElementBuilders.TEXT_OVERFLOW_ELLIPSIZE_END)
                     .build()
             )
-            .addContent(vSpacer(6f))
+            .addContent(vSpacer(2f))
             .build()
     }
 
@@ -165,51 +172,62 @@ object TransitTileRenderer {
         device: DeviceParametersBuilders.DeviceParameters,
         snapshot: TileSnapshot
     ): LayoutElementBuilders.LayoutElement {
-        val col = LayoutElementBuilders.Column.Builder()
+        val rowsCol = LayoutElementBuilders.Column.Builder()
             .setWidth(DimensionBuilders.expand())
-            .setHeight(DimensionBuilders.expand())
-            .setModifiers(
-                ModifiersBuilders.Modifiers.Builder()
-                    .setClickable(
-                        ModifiersBuilders.Clickable.Builder()
-                            .setId("refresh")
-                            .setOnClick(launchAction(context, "/action/refresh"))
-                            .build()
-                    )
-                    .setPadding(edgePadding(device, start = 8f, end = 8f, top = 4f))
-                    .build()
-            )
+            .setHeight(DimensionBuilders.wrap())
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
 
         val errorLabel = snapshot.errorLabel
         when {
             errorLabel != null -> {
-                col.addContent(plainText(errorLabel, COLOR_ERROR, 13f))
+                rowsCol.addContent(plainText(errorLabel, COLOR_ERROR, 13f))
             }
 
             snapshot.rows.isEmpty() -> {
-                col.addContent(plainText("No departures", COLOR_DIM, 13f))
+                rowsCol.addContent(plainText("No departures", COLOR_DIM, 13f))
             }
 
             else -> {
                 val visible = snapshot.rows.take(3)
                 visible.forEachIndexed { i, row ->
-                    col.addContent(buildDepartureRow(device, row))
-                    if (i < visible.lastIndex) col.addContent(vSpacer(3f))
+                    rowsCol.addContent(buildDepartureRow(device, row))
+                    if (i < visible.lastIndex) rowsCol.addContent(vSpacer(3f))
                 }
                 val overflow = snapshot.rows.size - 3
                 if (overflow > 0) {
-                    col.addContent(vSpacer(3f))
-                    col.addContent(
-                        plainText(
-                            "+$overflow more route${if (overflow > 1) "s" else ""}",
-                            COLOR_DIM, 13f
-                        )
+                    rowsCol.addContent(vSpacer(3f))
+                    rowsCol.addContent(
+                        LayoutElementBuilders.Box.Builder()
+                            .setWidth(DimensionBuilders.expand())
+                            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+                            .addContent(
+                                plainText(
+                                    "+$overflow more route${if (overflow > 1) "s" else ""}",
+                                    0xFF666666.toInt(), 11f
+                                )
+                            )
+                            .build()
                     )
                 }
             }
         }
 
-        return col.build()
+        return LayoutElementBuilders.Box.Builder()
+            .setWidth(DimensionBuilders.expand())
+            .setHeight(DimensionBuilders.wrap())
+            .setModifiers(
+                ModifiersBuilders.Modifiers.Builder()
+                    .setClickable(
+                        ModifiersBuilders.Clickable.Builder()
+                            .setId("refresh")
+                            .setOnClick(ActionBuilders.LoadAction.Builder().build())
+                            .build()
+                    )
+                    .setPadding(edgePadding(device, top = 2f, isHeaderFooter = false))
+                    .build()
+            )
+            .addContent(rowsCol.build())
+            .build()
     }
 
     private fun buildDepartureRow(
@@ -217,87 +235,104 @@ object TransitTileRenderer {
         row: TileRow
     ): LayoutElementBuilders.LayoutElement {
         val iconText = row.iconText?.takeIf { it.isNotEmpty() } ?: "?"
-        val iconBgColor = if (row.iconBgColor != 0) row.iconBgColor else COLOR_ICON_FB
+        val iconBgColor = row.iconBgColor
         val iconTxtColor = if (row.iconTextColor != 0) row.iconTextColor else COLOR_WHITE
         val iconShape = row.iconShape ?: IconShape.SQUARE
 
-        // Scale text size to icon text length, matching RouteIconDrawer ratios.
-        val iconTextSp = when (iconText.length) {
-            1 -> 11f; 2 -> 9f; else -> 7f
+        val badgeWidth: Float
+        val badgeHeight: Float
+        val cornerRadius: Float
+        val fontSize: Float
+
+        when (iconShape) {
+            IconShape.SQUARE -> {
+                badgeWidth = 28f
+                badgeHeight = 28f
+                cornerRadius = 5f
+                fontSize = 13f
+            }
+
+            IconShape.CIRCLE -> {
+                badgeWidth = 28f
+                badgeHeight = 28f
+                cornerRadius = 14f
+                fontSize = 13f
+            }
+
+            IconShape.ROUNDED_RECT -> {
+                badgeWidth = 28f
+                badgeHeight = 28f
+                cornerRadius = 10f
+                fontSize = 13f
+            }
+
+            IconShape.RECT -> {
+                badgeWidth = 34f
+                badgeHeight = 20f
+                cornerRadius = 0f
+                fontSize = 10f
+            }
         }
 
-        // Icon dimensions + corner radius, matching RouteIconDrawer geometry at 24dp.
-        val icon = when (iconShape) {
-            IconShape.SQUARE -> iconBox(
-                iconText,
-                iconBgColor,
-                iconTxtColor,
-                iconTextSp,
-                24f,
-                24f,
-                24f * 0.08f
-            )
+        val icon = iconBox(
+            iconText,
+            iconBgColor,
+            iconTxtColor,
+            fontSize,
+            badgeWidth,
+            badgeHeight,
+            cornerRadius
+        )
 
-            IconShape.CIRCLE -> iconBox(
-                iconText,
-                iconBgColor,
-                iconTxtColor,
-                iconTextSp,
-                24f,
-                24f,
-                12f
+        val headsign = LayoutElementBuilders.Text.Builder()
+            .setText(strProp(row.headsign))
+            .setFontStyle(
+                LayoutElementBuilders.FontStyle.Builder()
+                    .setColor(ColorBuilders.argb(COLOR_WHITE))
+                    .setSize(DimensionBuilders.sp(13f))
+                    .setWeight(mediumWeight())
+                    .build()
             )
+            .setMaxLines(intProp(1))
+            .setOverflow(LayoutElementBuilders.TEXT_OVERFLOW_ELLIPSIZE_END)
+            .build()
 
-            IconShape.ROUNDED_RECT -> iconBox(
-                iconText,
-                iconBgColor,
-                iconTxtColor,
-                iconTextSp,
-                24f,
-                24f,
-                24f * 0.35f
-            )
-            // RECT: sharp-edged horizontal bar (32×20dp), no rounding.
-            IconShape.RECT -> iconBox(iconText, iconBgColor, iconTxtColor, iconTextSp, 32f, 20f, 0f)
+        val timesRow = LayoutElementBuilders.Row.Builder()
+            .setWidth(DimensionBuilders.wrap())
+            .setHeight(DimensionBuilders.wrap())
+            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+
+        row.displayTimes.take(3).forEachIndexed { i, time ->
+            timesRow.addContent(timeText(time, row.delayColors.getOrNull(i) ?: COLOR_DIM))
+            if (i < 2 && i < row.displayTimes.size - 1) {
+                timesRow.addContent(hSpacer(8f))
+            }
         }
 
-        val headsign = LayoutElementBuilders.Box.Builder()
+        val textCol = LayoutElementBuilders.Column.Builder()
+            .setWidth(DimensionBuilders.expand())
+            .setHeight(DimensionBuilders.wrap())
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
+            .addContent(headsign)
+            .addContent(timesRow.build())
+            .build()
+
+        return LayoutElementBuilders.Row.Builder()
             .setWidth(DimensionBuilders.expand())
             .setHeight(DimensionBuilders.wrap())
             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
             .addContent(
-                LayoutElementBuilders.Text.Builder()
-                    .setText(strProp(row.headsign))
-                    .setFontStyle(
-                        LayoutElementBuilders.FontStyle.Builder()
-                            .setColor(ColorBuilders.argb(COLOR_WHITE))
-                            .setSize(DimensionBuilders.sp(13f))
-                            .build()
-                    )
-                    .setMaxLines(intProp(1))
-                    .setOverflow(LayoutElementBuilders.TEXT_OVERFLOW_ELLIPSIZE_END)
+                LayoutElementBuilders.Box.Builder()
+                    .setWidth(DimensionBuilders.dp(34f))
+                    .setHeight(DimensionBuilders.dp(28f))
+                    .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+                    .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+                    .addContent(icon)
                     .build()
             )
+            .addContent(hSpacer(8f))
+            .addContent(textCol)
             .build()
-
-        val rowBuilder = LayoutElementBuilders.Row.Builder()
-            .setWidth(DimensionBuilders.expand())
-            .setHeight(DimensionBuilders.wrap())
-            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-            .addContent(icon)
-            .addContent(hSpacer(4f))
-            .addContent(headsign)
-
-        repeat(3) { i ->
-            rowBuilder.addContent(
-                timeCell(
-                    row.displayTimes.getOrNull(i) ?: "—",
-                    row.delayColors.getOrNull(i) ?: COLOR_DIM
-                )
-            )
-        }
-
-        return rowBuilder.build()
     }
 
     // ── Footer ───────────────────────────────────────────────────────────────
@@ -330,7 +365,7 @@ object TransitTileRenderer {
                             .setOnClick(launchAction(context, "/action/go_mode_toggle"))
                             .build()
                     )
-                    .setPadding(edgePadding(device, top = 4f, bottom = 4f, isHeaderFooter = true))
+                    .setPadding(edgePadding(device, top = 4f, bottom = 0f, isHeaderFooter = true))
                     .build()
             )
             .addContent(
@@ -375,9 +410,9 @@ object TransitTileRenderer {
                 .build()
         }
 
-        val h = if (isHeaderFooter) 30f else 12f
-        val t = if (isHeaderFooter && top <= 2f) top + 12f else top + 6f
-        val b = if (isHeaderFooter) bottom + 12f else bottom
+        val h = if (isHeaderFooter) 28f else 24f
+        val t = if (isHeaderFooter && top <= 2f) 16f else top + 4f
+        val b = if (isHeaderFooter) 12f else bottom
 
         return ModifiersBuilders.Padding.Builder()
             .setTop(DimensionBuilders.dp(t))
@@ -430,22 +465,14 @@ object TransitTileRenderer {
             .build()
     }
 
-    private fun timeCell(time: String, color: Int): LayoutElementBuilders.LayoutElement =
-        LayoutElementBuilders.Box.Builder()
-            .setWidth(DimensionBuilders.dp(36f))
-            .setHeight(DimensionBuilders.wrap())
-            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-            .addContent(
-                LayoutElementBuilders.Text.Builder()
-                    .setText(strProp(time))
-                    .setFontStyle(
-                        LayoutElementBuilders.FontStyle.Builder()
-                            .setColor(ColorBuilders.argb(color))
-                            .setSize(DimensionBuilders.sp(13f))
-                            .setWeight(boldWeight())
-                            .build()
-                    )
+    private fun timeText(time: String, color: Int): LayoutElementBuilders.LayoutElement =
+        LayoutElementBuilders.Text.Builder()
+            .setText(strProp(time))
+            .setFontStyle(
+                LayoutElementBuilders.FontStyle.Builder()
+                    .setColor(ColorBuilders.argb(color))
+                    .setSize(DimensionBuilders.sp(12f))
+                    .setWeight(boldWeight())
                     .build()
             )
             .build()
@@ -461,21 +488,6 @@ object TransitTileRenderer {
                 LayoutElementBuilders.FontStyle.Builder()
                     .setColor(ColorBuilders.argb(color))
                     .setSize(DimensionBuilders.sp(sizeSp))
-                    .build()
-            )
-            .build()
-
-    private fun divider(): LayoutElementBuilders.LayoutElement =
-        LayoutElementBuilders.Box.Builder()
-            .setWidth(DimensionBuilders.expand())
-            .setHeight(DimensionBuilders.dp(1f))
-            .setModifiers(
-                ModifiersBuilders.Modifiers.Builder()
-                    .setBackground(
-                        ModifiersBuilders.Background.Builder()
-                            .setColor(ColorBuilders.argb(COLOR_DIVIDER))
-                            .build()
-                    )
                     .build()
             )
             .build()
@@ -519,5 +531,10 @@ object TransitTileRenderer {
     private fun boldWeight(): LayoutElementBuilders.FontWeightProp =
         LayoutElementBuilders.FontWeightProp.Builder()
             .setValue(LayoutElementBuilders.FONT_WEIGHT_BOLD)
+            .build()
+
+    private fun mediumWeight(): LayoutElementBuilders.FontWeightProp =
+        LayoutElementBuilders.FontWeightProp.Builder()
+            .setValue(LayoutElementBuilders.FONT_WEIGHT_MEDIUM)
             .build()
 }
