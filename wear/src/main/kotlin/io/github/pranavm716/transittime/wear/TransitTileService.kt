@@ -39,9 +39,16 @@ class TransitTileService : TileService() {
         val cache = WearLocalCache(this@TransitTileService)
         val stopIds = WearDataLayerReader.readStopIds(this@TransitTileService, cache)
         val tappedIndex = requestParams.currentState.lastClickableId.toIntOrNull()
-        val currentIndex = (tappedIndex ?: cache.getCurrentIndex())
-            .coerceIn(0, (stopIds.size - 1).coerceAtLeast(0))
-        if (tappedIndex != null) cache.saveCurrentIndex(currentIndex)
+        val currentIndex = if (tappedIndex != null) {
+            tappedIndex.coerceIn(0, (stopIds.size - 1).coerceAtLeast(0))
+        } else {
+            // Resolve by stop ID so the watch stays on the same stop when the list changes.
+            val savedStopId = cache.getCurrentStopId()
+            val resolvedByStopId = savedStopId?.let { stopIds.indexOf(it) }?.takeIf { it >= 0 }
+            resolvedByStopId ?: cache.getCurrentIndex().coerceIn(0, (stopIds.size - 1).coerceAtLeast(0))
+        }
+        cache.saveCurrentIndex(currentIndex)
+        stopIds.getOrNull(currentIndex)?.let { cache.saveCurrentStopId(it) }
         val nextIndex = if (stopIds.size > 1) (currentIndex + 1) % stopIds.size else 0
         val stopId = stopIds.getOrNull(currentIndex)
 
