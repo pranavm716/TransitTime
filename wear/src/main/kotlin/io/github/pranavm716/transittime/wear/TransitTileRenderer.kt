@@ -375,7 +375,7 @@ object TransitTileRenderer {
                             .setOnClick(launchAction(context, "/action/go_mode_toggle"))
                             .build()
                     )
-                    .setPadding(edgePadding(device, top = 4f, bottom = 0f, isHeaderFooter = true))
+                    .setPadding(edgePadding(device, top = 4f, bottom = 18f, isHeaderFooter = true))
                     .build()
             )
             .addContent(
@@ -480,7 +480,7 @@ object TransitTileRenderer {
 
         val h = if (isHeaderFooter) 34f else 24f
         val t = if (isHeaderFooter && top <= 2f) 16f else if (isHeaderFooter) top + 4f else top
-        val b = if (isHeaderFooter) 12f else bottom
+        val b = if (isHeaderFooter) (if (bottom > 0f) bottom else 12f) else bottom
 
         return ModifiersBuilders.Padding.Builder()
             .setTop(DimensionBuilders.dp(t))
