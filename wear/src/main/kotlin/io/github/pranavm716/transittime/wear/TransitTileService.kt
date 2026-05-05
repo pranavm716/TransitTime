@@ -76,10 +76,26 @@ class TransitTileService : TileService() {
     ): ListenableFuture<androidx.wear.tiles.ResourceBuilders.Resources> =
         CallbackToFutureAdapter.getFuture { completer ->
             completer.set(
-                androidx.wear.tiles.ResourceBuilders.Resources.Builder().setVersion("0").build()
+                androidx.wear.tiles.ResourceBuilders.Resources.Builder()
+                    .setVersion(TransitTileRenderer.RESOURCES_VERSION)
+                    .addIdToImageMapping("ic_bart", androidRes(R.drawable.ic_bart))
+                    .addIdToImageMapping("ic_muni", androidRes(R.drawable.ic_muni))
+                    .addIdToImageMapping("ic_caltrain", androidRes(R.drawable.ic_caltrain))
+                    .addIdToImageMapping("ic_refresh", androidRes(R.drawable.ic_refresh))
+                    .addIdToImageMapping("ic_go_mode_dot", androidRes(R.drawable.ic_go_mode_dot))
+                    .build()
             )
             "onResourcesRequest"
         }
+
+    private fun androidRes(resId: Int): androidx.wear.tiles.ResourceBuilders.ImageResource =
+        androidx.wear.tiles.ResourceBuilders.ImageResource.Builder()
+            .setAndroidResourceByResId(
+                androidx.wear.tiles.ResourceBuilders.AndroidImageResourceByResId.Builder()
+                    .setResourceId(resId)
+                    .build()
+            )
+            .build()
 
     override fun onDestroy() {
         super.onDestroy()
