@@ -134,7 +134,7 @@ object TransitTileRenderer {
                             .setOnClick(ActionBuilders.LoadAction.Builder().build())
                             .build()
                     )
-                    .setPadding(edgePadding(device, top = 0f, isHeaderFooter = true))
+                    .setPadding(edgePadding(device, top = 4f, isHeaderFooter = true))
                     .build()
             )
             .addContent(
@@ -145,7 +145,7 @@ object TransitTileRenderer {
                     .setContentScaleMode(LayoutElementBuilders.CONTENT_SCALE_MODE_FIT)
                     .build()
             )
-            .addContent(vSpacer(2f))
+            .addContent(vSpacer(8f))
             .addContent(
                 LayoutElementBuilders.Text.Builder()
                     .setText(strProp(snapshot.stopName))
@@ -161,7 +161,6 @@ object TransitTileRenderer {
                     .setOverflow(LayoutElementBuilders.TEXT_OVERFLOW_ELLIPSIZE_END)
                     .build()
             )
-            .addContent(vSpacer(2f))
             .build()
     }
 
@@ -223,7 +222,7 @@ object TransitTileRenderer {
                             .setOnClick(ActionBuilders.LoadAction.Builder().build())
                             .build()
                     )
-                    .setPadding(edgePadding(device, top = 2f, isHeaderFooter = false))
+                    .setPadding(edgePadding(device, top = 0f, isHeaderFooter = false))
                     .build()
             )
             .addContent(rowsCol.build())
@@ -417,7 +416,7 @@ object TransitTileRenderer {
         }
 
         val h = if (isHeaderFooter) 28f else 24f
-        val t = if (isHeaderFooter && top <= 2f) 16f else top + 4f
+        val t = if (isHeaderFooter && top <= 2f) 16f else if (isHeaderFooter) top + 4f else top
         val b = if (isHeaderFooter) 12f else bottom
 
         return ModifiersBuilders.Padding.Builder()
