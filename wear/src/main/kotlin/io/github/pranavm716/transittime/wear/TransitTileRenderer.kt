@@ -46,7 +46,7 @@ object TransitTileRenderer {
     ): TileBuilders.Tile =
         TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
-            .setFreshnessIntervalMillis(30_000L)
+            .setFreshnessIntervalMillis(15 * 60 * 1000L)
             .setTileTimeline(
                 TimelineBuilders.Timeline.Builder()
                     .addTimelineEntry(

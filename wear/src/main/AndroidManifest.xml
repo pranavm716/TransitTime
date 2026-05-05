@@ -21,6 +21,15 @@
             android:exported="true" />
 
         <service
+            android:name=".WearDataListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/tile_snapshot" />
+            </intent-filter>
+        </service>
+
+        <service
             android:name=".TransitTileService"
             android:exported="true"
             android:label="@string/tile_label"
