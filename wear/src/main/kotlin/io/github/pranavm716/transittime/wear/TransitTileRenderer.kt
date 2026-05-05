@@ -9,6 +9,8 @@ import androidx.wear.protolayout.LayoutElementBuilders
 import androidx.wear.protolayout.ModifiersBuilders
 import androidx.wear.protolayout.TimelineBuilders
 import androidx.wear.protolayout.TypeBuilders
+import androidx.wear.protolayout.expression.AnimationParameterBuilders
+import androidx.wear.protolayout.expression.DynamicBuilders
 import androidx.wear.protolayout.expression.ProtoLayoutExperimental
 import androidx.wear.tiles.TileBuilders
 import io.github.pranavm716.transittime.data.model.Agency
@@ -98,10 +100,6 @@ object TransitTileRenderer {
                     .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
                     .addContent(buildHeader(context, device, snapshot, nextIndex))
                     .addContent(buildContent(context, device, snapshot))
-                    .addContent(
-                        LayoutElementBuilders.Spacer.Builder().setHeight(DimensionBuilders.expand())
-                            .build()
-                    )
                     .addContent(buildFooter(context, device, snapshot))
                     .build()
             )
@@ -188,7 +186,7 @@ object TransitTileRenderer {
             }
 
             snapshot.rows.isEmpty() -> {
-                rowsCol.addContent(plainText("No departures", COLOR_DIM, 13f))
+                rowsCol.addContent(plainText("No departures found", COLOR_DIM, 13f))
             }
 
             else -> {
@@ -216,9 +214,15 @@ object TransitTileRenderer {
             }
         }
 
+        val hasRows = snapshot.errorLabel == null && snapshot.rows.isNotEmpty()
         return LayoutElementBuilders.Box.Builder()
             .setWidth(DimensionBuilders.expand())
-            .setHeight(DimensionBuilders.wrap())
+            .setHeight(DimensionBuilders.expand())
+            .setVerticalAlignment(
+                if (hasRows) LayoutElementBuilders.VERTICAL_ALIGN_TOP
+                else LayoutElementBuilders.VERTICAL_ALIGN_CENTER
+            )
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
             .setModifiers(
                 ModifiersBuilders.Modifiers.Builder()
                     .setClickable(
@@ -424,6 +428,14 @@ object TransitTileRenderer {
                     .build()
             )
 
+        val activateSpec = AnimationParameterBuilders.AnimationSpec.Builder()
+            .setAnimationParameters(
+                AnimationParameterBuilders.AnimationParameters.Builder()
+                    .setDurationMillis(350)
+                    .build()
+            )
+            .build()
+
         for (i in 0 until totalStops) {
             if (i > 0) {
                 arc.addContent(
@@ -437,14 +449,24 @@ object TransitTileRenderer {
             }
             // Segments are drawn clockwise from anchor, so i=0 lands on the right side
             // visually. Invert the mapping so stop 0 lights the leftmost dot.
-            val color = if (i == totalStops - 1 - currentIndex) COLOR_WHITE else 0x40FFFFFF
+            val isActive = i == totalStops - 1 - currentIndex
+            @OptIn(ProtoLayoutExperimental::class)
+            val colorProp = if (isActive) {
+                ColorBuilders.ColorProp.Builder(COLOR_WHITE)
+                    .setDynamicValue(
+                        DynamicBuilders.DynamicColor.animate(0x40FFFFFF, COLOR_WHITE, activateSpec)
+                    )
+                    .build()
+            } else {
+                ColorBuilders.argb(0x40FFFFFF)
+            }
             arc.addContent(
                 LayoutElementBuilders.ArcLine.Builder()
                     .setLength(
                         DimensionBuilders.DegreesProp.Builder().setValue(segDeg).build()
                     )
                     .setThickness(DimensionBuilders.dp(2.5f))
-                    .setColor(ColorBuilders.argb(color))
+                    .setColor(colorProp)
                     .setStrokeCap(
                         LayoutElementBuilders.StrokeCapProp.Builder()
                             .setValue(LayoutElementBuilders.STROKE_CAP_ROUND)
