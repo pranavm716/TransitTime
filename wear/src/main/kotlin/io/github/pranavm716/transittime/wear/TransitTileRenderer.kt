@@ -54,7 +54,9 @@ object TransitTileRenderer {
                                             context,
                                             deviceConfiguration,
                                             snapshot,
-                                            nextIndex
+                                            nextIndex,
+                                            currentIndex,
+                                            totalStops
                                         )
                                     )
                                     .build()
@@ -71,7 +73,9 @@ object TransitTileRenderer {
         context: Context,
         device: DeviceParametersBuilders.DeviceParameters,
         snapshot: TileSnapshot,
-        nextIndex: Int
+        nextIndex: Int,
+        currentIndex: Int,
+        totalStops: Int
     ): LayoutElementBuilders.LayoutElement =
         LayoutElementBuilders.Box.Builder()
             .setWidth(DimensionBuilders.expand())
@@ -101,6 +105,7 @@ object TransitTileRenderer {
                     .addContent(buildFooter(context, device, snapshot))
                     .build()
             )
+            .addContent(buildStopIndicatorArc(currentIndex, totalStops))
             .build()
 
     // ── Header ───────────────────────────────────────────────────────────────
@@ -393,6 +398,61 @@ object TransitTileRenderer {
                     .build()
             )
             .build()
+    }
+
+    // ── Stop indicator arc ───────────────────────────────────────────────────
+
+    private fun buildStopIndicatorArc(
+        currentIndex: Int,
+        totalStops: Int
+    ): LayoutElementBuilders.LayoutElement {
+        if (totalStops <= 1) return LayoutElementBuilders.Spacer.Builder()
+            .setWidth(DimensionBuilders.dp(0f))
+            .setHeight(DimensionBuilders.dp(0f))
+            .build()
+
+        val gapDeg = 5f
+        val segDeg = ((60f - (totalStops - 1) * gapDeg) / totalStops).coerceAtLeast(1f)
+
+        val arc = LayoutElementBuilders.Arc.Builder()
+            .setAnchorAngle(
+                DimensionBuilders.DegreesProp.Builder().setValue(180f).build()
+            )
+            .setAnchorType(
+                LayoutElementBuilders.ArcAnchorTypeProp.Builder()
+                    .setValue(LayoutElementBuilders.ARC_ANCHOR_CENTER)
+                    .build()
+            )
+
+        for (i in 0 until totalStops) {
+            if (i > 0) {
+                arc.addContent(
+                    LayoutElementBuilders.ArcSpacer.Builder()
+                        .setLength(
+                            DimensionBuilders.DegreesProp.Builder().setValue(gapDeg).build()
+                        )
+                        .setThickness(DimensionBuilders.dp(5f))
+                        .build()
+                )
+            }
+            val color = if (i == currentIndex) COLOR_WHITE else 0x40FFFFFF
+            arc.addContent(
+                LayoutElementBuilders.ArcLine.Builder()
+                    .setLength(
+                        DimensionBuilders.DegreesProp.Builder().setValue(segDeg).build()
+                    )
+                    .setThickness(DimensionBuilders.dp(5f))
+                    .setColor(ColorBuilders.argb(color))
+                    .setStrokeCap(
+                        LayoutElementBuilders.StrokeCapProp.Builder()
+                            .setValue(LayoutElementBuilders.STROKE_CAP_ROUND)
+                            .build()
+                    )
+                    .build()
+            )
+        }
+
+        return arc.build()
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
