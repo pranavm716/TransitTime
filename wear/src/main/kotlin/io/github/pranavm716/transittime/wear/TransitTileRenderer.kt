@@ -407,15 +407,16 @@ object TransitTileRenderer {
     ): ModifiersBuilders.Padding {
         val isRound = device.screenShape == DeviceParametersBuilders.SCREEN_SHAPE_ROUND
         if (!isRound) {
+            val squareH = if (isHeaderFooter) 10f else 0f
             return ModifiersBuilders.Padding.Builder()
                 .setTop(DimensionBuilders.dp(top))
                 .setBottom(DimensionBuilders.dp(bottom))
-                .setStart(DimensionBuilders.dp(start))
-                .setEnd(DimensionBuilders.dp(end))
+                .setStart(DimensionBuilders.dp(start + squareH))
+                .setEnd(DimensionBuilders.dp(end + squareH))
                 .build()
         }
 
-        val h = if (isHeaderFooter) 28f else 24f
+        val h = if (isHeaderFooter) 34f else 24f
         val t = if (isHeaderFooter && top <= 2f) 16f else if (isHeaderFooter) top + 4f else top
         val b = if (isHeaderFooter) 12f else bottom
 
