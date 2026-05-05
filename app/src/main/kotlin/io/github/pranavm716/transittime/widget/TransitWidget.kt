@@ -29,6 +29,7 @@ import io.github.pranavm716.transittime.util.RouteIconDrawer
 import io.github.pranavm716.transittime.util.getDelayColor
 import io.github.pranavm716.transittime.util.groupDepartures
 import io.github.pranavm716.transittime.wear.TileSnapshotPusher
+import io.github.pranavm716.transittime.wear.buildSnapshot
 import io.github.pranavm716.transittime.worker.FetchWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -559,6 +560,17 @@ class TransitWidget : AppWidgetProvider() {
                     }
                     configDao.upsertConfig(config.copy(displayMode = nextMode))
                     updateWidget(context, appWidgetManager, widgetId, now = lastRenderNow[widgetId])
+                    try {
+                        val latestConfig = configDao.getConfig(widgetId)
+                        if (latestConfig != null) {
+                            val goModeManager = GoModeManager(context)
+                            val deps = db.departureDao().getDeparturesForStop(latestConfig.stopId)
+                            val snapshot = buildSnapshot(latestConfig, deps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
+                            TileSnapshotPusher(context).pushSnapshot(snapshot)
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
             }
         } else if (intent.action == ACTION_TOGGLE_GO_MODE) {
