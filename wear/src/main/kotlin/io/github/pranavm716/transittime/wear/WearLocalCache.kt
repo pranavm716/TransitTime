@@ -47,6 +47,9 @@ class WearLocalCache(context: Context) {
 
     fun getStopIdsPushedAt(): Long = prefs.getLong(KEY_STOP_IDS_PUSHED_AT, 0L)
 
+    fun saveCurrentIndex(index: Int) = prefs.edit { putInt(KEY_CURRENT_INDEX, index) }
+    fun getCurrentIndex(): Int = prefs.getInt(KEY_CURRENT_INDEX, 0)
+
     private fun snapshotKey(stopId: String) = "snapshot_$stopId"
     private fun fetchedAtKey(stopId: String) = "fetched_at_$stopId"
 
@@ -55,5 +58,6 @@ class WearLocalCache(context: Context) {
         private const val PREFS_NAME = "wear_local_cache"
         private const val KEY_STOP_IDS = "stop_ids"
         private const val KEY_STOP_IDS_PUSHED_AT = "stop_ids_pushed_at"
+        private const val KEY_CURRENT_INDEX = "current_index"
     }
 }

@@ -38,8 +38,10 @@ class TransitTileService : TileService() {
     ): TileBuilders.Tile = withContext(Dispatchers.IO) {
         val cache = WearLocalCache(this@TransitTileService)
         val stopIds = WearDataLayerReader.readStopIds(this@TransitTileService, cache)
-        val currentIndex = (requestParams.currentState.lastClickableId.toIntOrNull() ?: 0)
+        val tappedIndex = requestParams.currentState.lastClickableId.toIntOrNull()
+        val currentIndex = (tappedIndex ?: cache.getCurrentIndex())
             .coerceIn(0, (stopIds.size - 1).coerceAtLeast(0))
+        if (tappedIndex != null) cache.saveCurrentIndex(currentIndex)
         val nextIndex = if (stopIds.size > 1) (currentIndex + 1) % stopIds.size else 0
         val stopId = stopIds.getOrNull(currentIndex)
 
