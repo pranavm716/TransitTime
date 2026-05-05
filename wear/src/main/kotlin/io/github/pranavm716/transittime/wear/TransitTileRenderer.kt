@@ -211,12 +211,7 @@ object TransitTileRenderer {
             .setHeight(DimensionBuilders.wrap())
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
 
-        val errorLabel = snapshot.errorLabel
         when {
-            errorLabel != null -> {
-                rowsCol.addContent(plainText(errorLabel, COLOR_ERROR, 13f))
-            }
-
             snapshot.rows.isEmpty() -> {
                 rowsCol.addContent(plainText("No departures found", COLOR_DIM, 13f))
             }
@@ -265,7 +260,7 @@ object TransitTileRenderer {
             }
         }
 
-        val hasRows = snapshot.errorLabel == null && snapshot.rows.isNotEmpty()
+        val hasRows = snapshot.rows.isNotEmpty()
         return LayoutElementBuilders.Box.Builder()
             .setWidth(DimensionBuilders.expand())
             .setHeight(DimensionBuilders.expand())
@@ -442,7 +437,7 @@ object TransitTileRenderer {
                     .setWidth(DimensionBuilders.wrap())
                     .setHeight(DimensionBuilders.wrap())
                     .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                    .addContent(plainText(timestamp, tsColor, 13f))
+                    .addContent(plainText(snapshot.errorLabel ?: timestamp, tsColor, 13f))
                     .addContent(hSpacer(4f))
                     .addContent(
                         LayoutElementBuilders.Image.Builder()
