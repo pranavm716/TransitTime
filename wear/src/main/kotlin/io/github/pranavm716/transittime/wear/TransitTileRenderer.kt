@@ -39,6 +39,7 @@ object TransitTileRenderer {
         deviceConfiguration: DeviceParametersBuilders.DeviceParameters,
         snapshot: TileSnapshot,
         currentIndex: Int,
+        prevIndex: Int,
         nextIndex: Int,
         totalStops: Int
     ): TileBuilders.Tile =
@@ -58,6 +59,7 @@ object TransitTileRenderer {
                                             snapshot,
                                             nextIndex,
                                             currentIndex,
+                                            prevIndex,
                                             totalStops
                                         )
                                     )
@@ -77,6 +79,7 @@ object TransitTileRenderer {
         snapshot: TileSnapshot,
         nextIndex: Int,
         currentIndex: Int,
+        prevIndex: Int,
         totalStops: Int
     ): LayoutElementBuilders.LayoutElement =
         LayoutElementBuilders.Box.Builder()
@@ -103,7 +106,7 @@ object TransitTileRenderer {
                     .addContent(buildFooter(context, device, snapshot))
                     .build()
             )
-            .addContent(buildStopIndicatorArc(currentIndex, totalStops))
+            .addContent(buildStopIndicatorArc(currentIndex, prevIndex, totalStops))
             .build()
 
     // ── Header ───────────────────────────────────────────────────────────────
@@ -406,8 +409,10 @@ object TransitTileRenderer {
 
     // ── Stop indicator arc ───────────────────────────────────────────────────
 
+    @OptIn(ProtoLayoutExperimental::class)
     private fun buildStopIndicatorArc(
         currentIndex: Int,
+        prevIndex: Int,
         totalStops: Int
     ): LayoutElementBuilders.LayoutElement {
         if (totalStops <= 1) return LayoutElementBuilders.Spacer.Builder()
@@ -417,56 +422,38 @@ object TransitTileRenderer {
 
         val gapDeg = 5f
         val segDeg = ((60f - (totalStops - 1) * gapDeg) / totalStops).coerceAtLeast(1f)
+        val pitch = segDeg + gapDeg
+        // Arc spans 60° centered at 180° (bottom center), so leftmost segment starts at 150°.
+        // Clockwise draw order means stop 0 maps to the highest drawing index (leftmost visually).
+        val arcStart = 150f
 
-        val arc = LayoutElementBuilders.Arc.Builder()
-            .setAnchorAngle(
-                DimensionBuilders.DegreesProp.Builder().setValue(180f).build()
-            )
+        fun segCenterAngle(stopIdx: Int): Float {
+            val drawIdx = totalStops - 1 - stopIdx
+            return arcStart + drawIdx * pitch + segDeg / 2f
+        }
+
+        // Background: all dim segments on the fixed track.
+        val trackArc = LayoutElementBuilders.Arc.Builder()
+            .setAnchorAngle(DimensionBuilders.DegreesProp.Builder().setValue(180f).build())
             .setAnchorType(
                 LayoutElementBuilders.ArcAnchorTypeProp.Builder()
                     .setValue(LayoutElementBuilders.ARC_ANCHOR_CENTER)
                     .build()
             )
-
-        val activateSpec = AnimationParameterBuilders.AnimationSpec.Builder()
-            .setAnimationParameters(
-                AnimationParameterBuilders.AnimationParameters.Builder()
-                    .setDurationMillis(350)
-                    .build()
-            )
-            .build()
-
         for (i in 0 until totalStops) {
             if (i > 0) {
-                arc.addContent(
+                trackArc.addContent(
                     LayoutElementBuilders.ArcSpacer.Builder()
-                        .setLength(
-                            DimensionBuilders.DegreesProp.Builder().setValue(gapDeg).build()
-                        )
+                        .setLength(DimensionBuilders.DegreesProp.Builder().setValue(gapDeg).build())
                         .setThickness(DimensionBuilders.dp(2.5f))
                         .build()
                 )
             }
-            // Segments are drawn clockwise from anchor, so i=0 lands on the right side
-            // visually. Invert the mapping so stop 0 lights the leftmost dot.
-            val isActive = i == totalStops - 1 - currentIndex
-            @OptIn(ProtoLayoutExperimental::class)
-            val colorProp = if (isActive) {
-                ColorBuilders.ColorProp.Builder(COLOR_WHITE)
-                    .setDynamicValue(
-                        DynamicBuilders.DynamicColor.animate(0x40FFFFFF, COLOR_WHITE, activateSpec)
-                    )
-                    .build()
-            } else {
-                ColorBuilders.argb(0x40FFFFFF)
-            }
-            arc.addContent(
+            trackArc.addContent(
                 LayoutElementBuilders.ArcLine.Builder()
-                    .setLength(
-                        DimensionBuilders.DegreesProp.Builder().setValue(segDeg).build()
-                    )
+                    .setLength(DimensionBuilders.DegreesProp.Builder().setValue(segDeg).build())
                     .setThickness(DimensionBuilders.dp(2.5f))
-                    .setColor(colorProp)
+                    .setColor(ColorBuilders.argb(0x40FFFFFF))
                     .setStrokeCap(
                         LayoutElementBuilders.StrokeCapProp.Builder()
                             .setValue(LayoutElementBuilders.STROKE_CAP_ROUND)
@@ -476,7 +463,52 @@ object TransitTileRenderer {
             )
         }
 
-        return arc.build()
+        // Foreground: single bright segment that slides to the active position.
+        val toAngle = segCenterAngle(currentIndex)
+        val fromAngle = segCenterAngle(prevIndex)
+        // Wrap (N-1 → 0) reverses direction, so snap without animation.
+        val isWrap = prevIndex == totalStops - 1 && currentIndex == 0
+        val slideSpec = AnimationParameterBuilders.AnimationSpec.Builder()
+            .setAnimationParameters(
+                AnimationParameterBuilders.AnimationParameters.Builder()
+                    .setDurationMillis(200)
+                    .build()
+            )
+            .build()
+        val anchorProp = if (!isWrap && fromAngle != toAngle) {
+            DimensionBuilders.DegreesProp.Builder()
+                .setValue(toAngle)
+                .setDynamicValue(DynamicBuilders.DynamicFloat.animate(fromAngle, toAngle, slideSpec))
+                .build()
+        } else {
+            DimensionBuilders.DegreesProp.Builder().setValue(toAngle).build()
+        }
+        val sliderArc = LayoutElementBuilders.Arc.Builder()
+            .setAnchorAngle(anchorProp)
+            .setAnchorType(
+                LayoutElementBuilders.ArcAnchorTypeProp.Builder()
+                    .setValue(LayoutElementBuilders.ARC_ANCHOR_CENTER)
+                    .build()
+            )
+            .addContent(
+                LayoutElementBuilders.ArcLine.Builder()
+                    .setLength(DimensionBuilders.DegreesProp.Builder().setValue(segDeg).build())
+                    .setThickness(DimensionBuilders.dp(2.5f))
+                    .setColor(ColorBuilders.argb(COLOR_WHITE))
+                    .setStrokeCap(
+                        LayoutElementBuilders.StrokeCapProp.Builder()
+                            .setValue(LayoutElementBuilders.STROKE_CAP_ROUND)
+                            .build()
+                    )
+                    .build()
+            )
+
+        return LayoutElementBuilders.Box.Builder()
+            .setWidth(DimensionBuilders.expand())
+            .setHeight(DimensionBuilders.expand())
+            .addContent(trackArc.build())
+            .addContent(sliderArc.build())
+            .build()
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -623,6 +655,7 @@ object TransitTileRenderer {
             .setValue(LayoutElementBuilders.FONT_WEIGHT_BOLD)
             .build()
 
+    @OptIn(ProtoLayoutExperimental::class)
     private fun mediumWeight(): LayoutElementBuilders.FontWeightProp =
         LayoutElementBuilders.FontWeightProp.Builder()
             .setValue(LayoutElementBuilders.FONT_WEIGHT_MEDIUM)
