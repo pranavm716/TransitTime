@@ -111,9 +111,9 @@ object TransitTileRenderer {
             Agency.CALTRAIN -> "ic_caltrain"
         }
         val stopNameSp = when {
-            snapshot.stopName.length <= 16 -> 17f
-            snapshot.stopName.length <= 24 -> 15f
-            else -> 13f
+            snapshot.stopName.length <= 16 -> 16f
+            snapshot.stopName.length <= 24 -> 14f
+            else -> 12f
         }
         return LayoutElementBuilders.Column.Builder()
             .setWidth(DimensionBuilders.expand())
@@ -375,14 +375,8 @@ object TransitTileRenderer {
                 .build()
         }
 
-        // On round screens, headers and footers need significantly more horizontal padding
-        // because the circle is narrowest at the top and bottom.
-        // We use 30dp to ensure 2-line stop names don't clip on Galaxy Watch 7.
         val h = if (isHeaderFooter) 30f else 12f
-
-        // Vertical "safe zones" for round screens.
-        // Reverting top gap to 4dp as requested ("keep spacing above logo the same").
-        val t = if (isHeaderFooter && top <= 2f) top + 4f else top + 6f
+        val t = if (isHeaderFooter && top <= 2f) top + 12f else top + 6f
         val b = if (isHeaderFooter) bottom + 12f else bottom
 
         return ModifiersBuilders.Padding.Builder()
