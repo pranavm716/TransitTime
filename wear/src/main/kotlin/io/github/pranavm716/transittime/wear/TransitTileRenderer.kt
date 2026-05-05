@@ -190,7 +190,7 @@ object TransitTileRenderer {
                 val visible = snapshot.rows.take(3)
                 visible.forEachIndexed { i, row ->
                     rowsCol.addContent(buildDepartureRow(device, row))
-                    if (i < visible.lastIndex) rowsCol.addContent(vSpacer(3f))
+                    if (i < visible.lastIndex) rowsCol.addContent(vSpacer(6f))
                 }
                 val overflow = snapshot.rows.size - 3
                 if (overflow > 0) {
