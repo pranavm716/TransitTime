@@ -274,11 +274,17 @@ object TransitTileRenderer {
             }
         }
 
+        val adjustedFontSize = when {
+            iconText.length <= 2 -> fontSize
+            iconText.length == 3 -> fontSize * 0.85f
+            else -> fontSize * 0.69f
+        }
+
         val icon = iconBox(
             iconText,
             iconBgColor,
             iconTxtColor,
-            fontSize,
+            adjustedFontSize,
             badgeWidth,
             badgeHeight,
             cornerRadius
