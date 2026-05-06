@@ -18,17 +18,18 @@ object RouteIconDrawer {
             this.style = Paint.Style.FILL
         }
 
-        val textSize = when (text.length) {
-            1 -> sizePx * 0.45f
-            2 -> sizePx * 0.40f
-            else -> sizePx * 0.32f
-        }
-
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = style.textColor
             typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
-            this.textSize = textSize
+        }
+
+        val baseTextSize = sizePx * 0.45f
+        textPaint.textSize = baseTextSize
+        val measuredWidth = textPaint.measureText(text)
+        val maxWidth = sizePx * 0.85f
+        if (measuredWidth > maxWidth) {
+            textPaint.textSize = baseTextSize * (maxWidth / measuredWidth)
         }
 
         val bounds = RectF(0f, 0f, sizePx.toFloat(), sizePx.toFloat())

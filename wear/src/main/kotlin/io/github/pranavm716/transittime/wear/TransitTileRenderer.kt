@@ -248,7 +248,7 @@ object TransitTileRenderer {
                 }.minOrNull()?.coerceIn(0f, 20f)?.toInt()?.toFloat() ?: 8f
 
                 visible.forEachIndexed { i, row ->
-                    rowsCol.addContent(buildDepartureRow(device, row, gapDp))
+                    rowsCol.addContent(buildDepartureRow(context, device, row, gapDp))
                     if (i < visible.lastIndex) rowsCol.addContent(vSpacer(6f))
                 }
                 val overflow = snapshot.rows.size - 3
@@ -296,6 +296,7 @@ object TransitTileRenderer {
     }
 
     private fun buildDepartureRow(
+        context: Context,
         device: DeviceParametersBuilders.DeviceParameters,
         row: TileRow,
         gapDp: Float
@@ -340,10 +341,21 @@ object TransitTileRenderer {
             }
         }
 
-        val adjustedFontSize = when {
-            iconText.length <= 2 -> fontSize
-            iconText.length == 3 -> fontSize * 0.85f
-            else -> fontSize * 0.69f
+        val dm = context.resources.displayMetrics
+        val paint = android.graphics.Paint().apply {
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            textSize = android.util.TypedValue.applyDimension(
+                android.util.TypedValue.COMPLEX_UNIT_SP, fontSize, dm
+            )
+        }
+        val measuredWidthPx = paint.measureText(iconText)
+        val measuredWidthDp = measuredWidthPx / dm.density
+        val maxWidthDp = badgeWidth * 0.85f
+
+        val adjustedFontSize = if (measuredWidthDp > maxWidthDp) {
+            fontSize * (maxWidthDp / measuredWidthDp)
+        } else {
+            fontSize
         }
 
         val icon = iconBox(
