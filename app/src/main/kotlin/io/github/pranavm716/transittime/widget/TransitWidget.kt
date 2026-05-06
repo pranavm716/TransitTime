@@ -184,18 +184,6 @@ class TransitWidget : AppWidgetProvider() {
             )
             views.setOnClickPendingIntent(R.id.llHeaderInfo, cycleModePendingIntent)
 
-            val toggleGoModeIntent = Intent(context, TransitWidget::class.java).apply {
-                action = ACTION_TOGGLE_GO_MODE
-                putExtra(EXTRA_WIDGET_ID, widgetId)
-            }
-            val toggleGoModePendingIntent = PendingIntent.getBroadcast(
-                context,
-                widgetId + 20_000,
-                toggleGoModeIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.llGoMode, toggleGoModePendingIntent)
-
             withContext(Dispatchers.IO) {
                 val db = TransitDatabase.getInstance(context)
                 val config = db.widgetConfigDao().getConfig(widgetId) ?: run {
@@ -204,6 +192,18 @@ class TransitWidget : AppWidgetProvider() {
                     appWidgetManager.updateAppWidget(widgetId, views)
                     return@withContext
                 }
+
+                val toggleGoModeIntent = Intent(context, TransitWidget::class.java).apply {
+                    action = ACTION_TOGGLE_GO_MODE
+                    putExtra(EXTRA_WIDGET_ID, widgetId)
+                }
+                val toggleGoModePendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    widgetId + 20_000,
+                    toggleGoModeIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.llGoMode, toggleGoModePendingIntent)
 
                 val allDepartures = db.departureDao().getDeparturesForStop(config.stopId)
                 val nowVal = config.lastFetchedAt.takeIf { it > 0L }
@@ -580,11 +580,14 @@ class TransitWidget : AppWidgetProvider() {
             }
         } else if (intent.action == ACTION_TOGGLE_GO_MODE) {
             val goModeManager = GoModeManager(context)
+            val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
             if (goModeManager.isGoModeActive) {
                 goModeManager.goModeExpiresAt = 0
+                goModeManager.goModeWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
             } else {
                 goModeManager.goModeExpiresAt =
                     System.currentTimeMillis() + GoModeManager.GO_MODE_DURATION_MS
+                goModeManager.goModeWidgetId = widgetId
             }
             if (goModeManager.isGoModeActive) {
                 triggerFetch(context)

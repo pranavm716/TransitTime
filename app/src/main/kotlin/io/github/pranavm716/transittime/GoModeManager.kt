@@ -1,5 +1,6 @@
 package io.github.pranavm716.transittime
 
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
@@ -42,11 +43,19 @@ class GoModeManager(context: Context) {
     val isGoModeActive: Boolean
         get() = goModeExpiresAt > System.currentTimeMillis()
 
+    var goModeWidgetId: Int
+        get() = prefs.getInt(KEY_WIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+        set(value) {
+            Log.d("LiveNotif", "goModeWidgetId set: $value")
+            prefs.edit { putInt(KEY_WIDGET_ID, value) }
+        }
+
     companion object {
         const val GO_MODE_DURATION_MS: Long = 20 * 60 * 1000L
         const val GO_MODE_INTERVAL_MS: Long = 30 * 1000L
         private const val TAG = "TransitWear"
         private const val PREFS_NAME = "transit_go_mode_prefs"
         private const val KEY_EXPIRES_AT = "go_mode_expires_at"
+        private const val KEY_WIDGET_ID = "go_mode_widget_id"
     }
 }

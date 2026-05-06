@@ -57,8 +57,14 @@ class ActionActivity : Activity() {
                 val phone = nodes.firstOrNull()
                 if (phone != null) {
                     Log.d("ActionActivity", "sending message path=$action to phone=${phone.displayName}")
+                    val payload = if (action == "/action/go_mode_toggle") {
+                        if (cache.getLocalGoModeOverride() == true) {
+                            android.util.Log.d("LiveNotif", "go_mode_toggle activating for stopId=$currentStopId")
+                        }
+                        currentStopId?.toByteArray(Charsets.UTF_8)
+                    } else null
                     Wearable.getMessageClient(this@ActionActivity)
-                        .sendMessage(phone.id, action, null)
+                        .sendMessage(phone.id, action, payload)
                         .await()
                     Log.d("ActionActivity", "message sent successfully")
                 } else {
