@@ -220,11 +220,28 @@ object TransitTileRenderer {
                 val visible = snapshot.rows.take(3)
                 // Compute available horizontal space
                 val isRound = device.screenShape == DeviceParametersBuilders.SCREEN_SHAPE_ROUND
-                val sidePaddingDp = if (isRound) 24f else 0f
+                val sidePaddingDp = if (isRound) 16f else 0f
                 val iconAreaDp = 42f  // 34dp icon box + 8dp spacer
-                val timesAvailableDp = device.screenWidthDp - 2 * sidePaddingDp - iconAreaDp
+                // Use device.screenWidthDp so timesAvailableDp is in the same dp space that
+                // ProtoLayout uses for layout. Subtract 2dp safety buffer to absorb any
+                // residual mismatch between Paint measurement and ProtoLayout's text renderer.
+                val timesAvailableDp = device.screenWidthDp - 2 * sidePaddingDp - iconAreaDp - 2f
 
-                val gapDp = 10f
+                val dm = context.resources.displayMetrics
+                val paint = android.graphics.Paint().apply {
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    textSize = android.util.TypedValue.applyDimension(
+                        android.util.TypedValue.COMPLEX_UNIT_SP, 12f, dm
+                    )
+                }
+                val gapDp = visible.mapNotNull { row ->
+                    val times = row.displayTimes.take(3)
+                    val numGaps = times.size - 1
+                    if (numGaps <= 0) return@mapNotNull null
+                    val textWidthPx = times.sumOf { paint.measureText(it).toDouble() }
+                    val textWidthDp = (textWidthPx / dm.density).toFloat()
+                    (timesAvailableDp - textWidthDp) / numGaps
+                }.minOrNull()?.coerceIn(0f, 20f)?.toInt()?.toFloat() ?: 8f
 
                 visible.forEachIndexed { i, row ->
                     rowsCol.addContent(buildDepartureRow(device, row, gapDp))
@@ -574,7 +591,7 @@ object TransitTileRenderer {
                 .build()
         }
 
-        val h = if (isHeaderFooter) 34f else 16f
+        val h = if (isHeaderFooter) 34f else 14f
         val t = if (isHeaderFooter && top <= 2f) 16f else if (isHeaderFooter) top + 4f else top
         val b = if (isHeaderFooter) (if (bottom > 0f) bottom else 12f) else bottom
 
