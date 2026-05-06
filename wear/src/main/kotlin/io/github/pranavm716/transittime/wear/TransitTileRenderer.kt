@@ -362,7 +362,7 @@ object TransitTileRenderer {
                 badgeWidth = 34f
                 badgeHeight = 20f
                 cornerRadius = 0f
-                iconFontSize = 10f
+                iconFontSize = 12f
             }
         }
 
