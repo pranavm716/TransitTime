@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches :app colors.xml exactly so copied drawables resolve their @color references. -->
+    <color name="accent_color">#238636</color>
+    <color name="widget_color_secondary">#AAAAAA</color>
+    <color name="widget_color_placeholder">#BDC1C7</color>
+    <color name="widget_color_on_time">#FFC107</color>
+    <color name="widget_color_late">#dc3545</color>
+    <color name="widget_color_early">#28a745</color>
+
+    <!-- Ripple overlay (semi-transparent white) -->
+    <color name="ripple_overlay">#33FFFFFF</color>
+</resources>

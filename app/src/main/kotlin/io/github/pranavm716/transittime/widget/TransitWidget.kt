@@ -1,6 +1,7 @@
 package io.github.pranavm716.transittime.widget
 
 import android.app.PendingIntent
+import android.util.Log
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
@@ -25,6 +26,10 @@ import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.util.RouteIconDrawer
+import io.github.pranavm716.transittime.util.getDelayColor
+import io.github.pranavm716.transittime.util.groupDepartures
+import io.github.pranavm716.transittime.wear.TileSnapshotPusher
+import io.github.pranavm716.transittime.wear.buildSnapshot
 import io.github.pranavm716.transittime.worker.FetchWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,10 +53,9 @@ class TransitWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        val now = System.currentTimeMillis()
         for (widgetId in appWidgetIds) {
             CoroutineScope(Dispatchers.IO).launch {
-                updateWidget(context, appWidgetManager, widgetId, now = now)
+                updateWidget(context, appWidgetManager, widgetId)
             }
         }
     }
@@ -63,6 +67,7 @@ class TransitWidget : AppWidgetProvider() {
             val departureDao = db.departureDao()
             val allConfigs = configDao.getAllConfigs()
             val deletedWidgetIds = appWidgetIds.toSet()
+            val clearedStopIds = mutableSetOf<String>()
             for (widgetId in appWidgetIds) {
                 val config = allConfigs.find { it.widgetId == widgetId } ?: continue
                 configDao.deleteConfig(widgetId)
@@ -70,7 +75,25 @@ class TransitWidget : AppWidgetProvider() {
                     allConfigs.filter { it.widgetId !in deletedWidgetIds && it.stopId == config.stopId }
                 if (remaining.isEmpty()) {
                     departureDao.deleteDeparturesForStop(config.stopId)
+                    clearedStopIds.add(config.stopId)
                 }
+            }
+            val pusher = TileSnapshotPusher(context)
+            // Scenario (3): widget deleted — remove snapshots for cleared stops
+            for (stopId in clearedStopIds) {
+                try {
+                    Log.d("TransitWear", "TransitWidget.onDeleted: deleting snapshot for stopId=$stopId")
+                    pusher.deleteSnapshot(stopId)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            try {
+                val remainingStopIds = configDao.getAllConfigs().map { it.stopId }.distinct()
+                Log.d("TransitWear", "TransitWidget.onDeleted: pushing stop index, stopIds=$remainingStopIds")
+                pusher.pushStopIndex(remainingStopIds)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
@@ -82,7 +105,7 @@ class TransitWidget : AppWidgetProvider() {
         newOptions: Bundle
     ) {
         CoroutineScope(Dispatchers.IO).launch {
-            updateWidget(context, appWidgetManager, appWidgetId, now = lastRenderNow[appWidgetId])
+            updateWidget(context, appWidgetManager, appWidgetId)
         }
     }
 
@@ -109,7 +132,6 @@ class TransitWidget : AppWidgetProvider() {
             return 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
         }
 
-        private val lastRenderNow = mutableMapOf<Int, Long>()
         private val spinningJobs = mutableMapOf<Int, Job>()
         private val spinStep = mutableMapOf<Int, Int>()
         private val pulsingJobs = mutableMapOf<Int, Job>()
@@ -118,12 +140,17 @@ class TransitWidget : AppWidgetProvider() {
         suspend fun updateWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,
-            widgetId: Int,
-            now: Long? = null
+            widgetId: Int
         ) {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
-            val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
-            val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+            // Initial dimensions from the launcher are often 0 or the manifest minimums (110x250),
+            // which causes a "split-second" glitch with tiny fonts and missing rows.
+            // We use 360x180 as a safe "ideal" default for the initial 3x2 placement.
+            val rawHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+            val rawWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+            val minHeight = if (rawHeight <= 110) 180 else rawHeight
+            val minWidth = if (rawWidth <= 250) 360 else rawWidth
+
             val res = context.resources
             val dm = res.displayMetrics
             val headerDp = res.getDimension(R.dimen.widget_header_height) / dm.density
@@ -178,8 +205,11 @@ class TransitWidget : AppWidgetProvider() {
                     return@withContext
                 }
 
-                val nowVal = (now ?: System.currentTimeMillis()).also { lastRenderNow[widgetId] = it }
-                val (grouped, overflow) = loadGroupedDepartures(db, config, nowVal, maxRows)
+                val allDepartures = db.departureDao().getDeparturesForStop(config.stopId)
+                val nowVal = config.lastFetchedAt.takeIf { it > 0L }
+                    ?: allDepartures.maxOfOrNull { it.fetchedAt }
+                    ?: System.currentTimeMillis()
+                val (grouped, overflow) = groupDepartures(allDepartures, config.filteredHeadsigns, config.maxDepartures, nowVal, maxRows)
 
                 val freshnessText = resolveFreshnessText(db, config)
                 applyHeader(views, config, context, minWidth, freshnessText)
@@ -281,48 +311,6 @@ class TransitWidget : AppWidgetProvider() {
             )
         }
 
-        private suspend fun loadGroupedDepartures(
-            db: TransitDatabase,
-            config: WidgetConfig,
-            now: Long,
-            maxRows: Int
-        ): Pair<List<List<Departure>>, Int> {
-            val allGroups = db.departureDao()
-                .getDeparturesForStop(config.stopId)
-                .filter { departure ->
-                    (departure.departureTimestamp ?: departure.arrivalTimestamp
-                    ?: Long.MIN_VALUE) > now &&
-                            (config.filteredHeadsigns.isEmpty() ||
-                                    "${departure.routeName}|${departure.headsign}" in config.filteredHeadsigns)
-                }
-                .groupBy { "${it.routeName}|${it.headsign}" }
-                .entries
-                .map { (_, departures) ->
-                    departures.sortedBy {
-                        it.arrivalTimestamp ?: it.departureTimestamp ?: Long.MAX_VALUE
-                    }
-                        .take(config.maxDepartures)
-                }
-                .sortedWith(
-                    compareBy(
-                        {
-                            it.first().arrivalTimestamp ?: it.first().departureTimestamp
-                            ?: Long.MAX_VALUE
-                        },
-                        {
-                            it.getOrNull(1)?.let { d -> d.arrivalTimestamp ?: d.departureTimestamp }
-                                ?: Long.MAX_VALUE
-                        },
-                        {
-                            it.getOrNull(2)?.let { d -> d.arrivalTimestamp ?: d.departureTimestamp }
-                                ?: Long.MAX_VALUE
-                        },
-                        { it.first().routeName }
-                    ))
-            val overflow = (allGroups.size - maxRows).coerceAtLeast(0)
-            return allGroups.take(maxRows) to overflow
-        }
-
         private fun applyDepartures(
             context: Context,
             views: RemoteViews,
@@ -398,64 +386,15 @@ class TransitWidget : AppWidgetProvider() {
             for (i in 0 until maxDepartures) {
                 val text = times.getOrNull(i) ?: "—"
                 val departure = departures.getOrNull(i)
-                val color = if (departure != null) delayColor(
-                    departure,
+                val color = if (departure != null) getDelayColor(
+                    departure.delaySeconds,
+                    departure.isScheduled,
                     delayColorMode
                 ) else context.getColor(R.color.widget_color_placeholder)
                 rowViews.setTextViewText(timeCells[i], text)
                 rowViews.setTextColor(timeCells[i], color)
             }
             return rowViews
-        }
-
-        private fun delayColor(
-            departure: Departure,
-            mode: DelayColorMode,
-            onTimeColor: Int = COLOR_ON_TIME,
-            lateColor: Int = COLOR_LATE,
-            earlyColor: Int = COLOR_EARLY,
-            lateDeadZoneSeconds: Int = 60,
-            earlyDeadZoneSeconds: Int = 60,
-            lateCapSeconds: Int = 300,
-            earlyCapSeconds: Int = 180,
-        ): Int {
-            fun dimmed(color: Int): Int {
-                val dim = 0.62f
-                val r = ((color shr 16 and 0xFF) * dim).roundToInt()
-                val g = ((color shr 8 and 0xFF) * dim).roundToInt()
-                val b = ((color and 0xFF) * dim).roundToInt()
-                return 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
-            }
-
-            if (mode == DelayColorMode.NONE) {
-                return if (departure.isScheduled) dimmed(onTimeColor) else onTimeColor
-            }
-
-            if (departure.isScheduled) return dimmed(onTimeColor)
-
-            val delay = departure.delaySeconds
-            if (delay == null || delay in -earlyDeadZoneSeconds..lateDeadZoneSeconds) return onTimeColor
-
-            if (mode == DelayColorMode.FLAT) {
-                return if (delay > lateDeadZoneSeconds) lateColor else earlyColor
-            }
-
-            // GRADIENT
-            return if (delay > lateDeadZoneSeconds) {
-                val t =
-                    ((delay - lateDeadZoneSeconds).toFloat() / (lateCapSeconds - lateDeadZoneSeconds)).coerceIn(
-                        0f,
-                        1f
-                    )
-                lerp(onTimeColor, lateColor, t)
-            } else {
-                val t =
-                    ((-delay - earlyDeadZoneSeconds).toFloat() / (earlyCapSeconds - earlyDeadZoneSeconds)).coerceIn(
-                        0f,
-                        1f
-                    )
-                lerp(onTimeColor, earlyColor, t)
-            }
         }
 
         private fun calcTimeFontSizeSp(
@@ -574,6 +513,7 @@ class TransitWidget : AppWidgetProvider() {
         }
 
         fun triggerFetch(context: Context) {
+            Log.d("TransitWidget", "triggerFetch: enqueuing manual FetchWorker")
             val request = OneTimeWorkRequestBuilder<FetchWorker>()
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
@@ -624,7 +564,18 @@ class TransitWidget : AppWidgetProvider() {
                         DisplayMode.HYBRID -> DisplayMode.RELATIVE
                     }
                     configDao.upsertConfig(config.copy(displayMode = nextMode))
-                    updateWidget(context, appWidgetManager, widgetId, now = lastRenderNow[widgetId])
+                    updateWidget(context, appWidgetManager, widgetId)
+                    try {
+                        val latestConfig = configDao.getConfig(widgetId)
+                        if (latestConfig != null) {
+                            val goModeManager = GoModeManager(context)
+                            val deps = db.departureDao().getDeparturesForStop(latestConfig.stopId)
+                            val snapshot = buildSnapshot(latestConfig, deps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
+                            TileSnapshotPusher(context).pushSnapshot(snapshot)
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
             }
         } else if (intent.action == ACTION_TOGGLE_GO_MODE) {
@@ -659,12 +610,10 @@ class TransitWidget : AppWidgetProvider() {
             val ids = appWidgetManager.getAppWidgetIds(
                 ComponentName(context, TransitWidget::class.java)
             )
-            val now = System.currentTimeMillis()
             for (widgetId in ids) {
                 CoroutineScope(Dispatchers.IO).launch {
                     updateWidget(
-                        context, appWidgetManager, widgetId,
-                        now = now
+                        context, appWidgetManager, widgetId
                     )
                 }
             }

@@ -66,6 +66,9 @@ dependencies {
     implementation(libs.logging.interceptor)
     implementation(libs.gtfs.realtime.bindings)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.protobuf.java)
     implementation(libs.androidx.appcompat)
+    implementation(libs.play.services.wearable)
+    implementation(project(":shared"))
 }

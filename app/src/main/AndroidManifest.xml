@@ -39,6 +39,16 @@
                 android:resource="@xml/widget_info" />
         </receiver>
 
+        <!-- Wear OS Data Layer -->
+        <service
+            android:name=".wear.WearMessageListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data android:scheme="wear" android:host="*" android:pathPrefix="/action/" />
+            </intent-filter>
+        </service>
+
         <!-- WorkManager initializer -->
         <provider
             android:name="androidx.startup.InitializationProvider"
