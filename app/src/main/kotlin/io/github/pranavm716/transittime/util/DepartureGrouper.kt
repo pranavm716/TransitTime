@@ -11,7 +11,7 @@ fun groupDepartures(
 ): Pair<List<List<Departure>>, Int> {
     val allGroups = departures
         .filter { departure ->
-            (departure.departureTimestamp ?: departure.arrivalTimestamp ?: Long.MIN_VALUE) > now &&
+            (departure.departureTimestamp ?: departure.arrivalTimestamp ?: Long.MIN_VALUE) >= now &&
                 (filteredHeadsigns.isEmpty() ||
                     "${departure.routeName}|${departure.headsign}" in filteredHeadsigns)
         }

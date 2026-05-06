@@ -51,7 +51,12 @@ class FetchWorker(
         }
 
         val allConfigs = configDao.getAllConfigs()
-        val staleConfigs = allConfigs.filter { it.widgetId !in activeIds }
+        val now = System.currentTimeMillis()
+        val staleConfigs = allConfigs.filter { 
+            it.widgetId !in activeIds && 
+            it.lastFetchedAt > 0 && 
+            (now - it.lastFetchedAt > 60000) // 1 minute grace period for new/updating widgets
+        }
         val clearedStopIds = mutableSetOf<String>()
         if (staleConfigs.isNotEmpty()) {
             val removedStopIds = staleConfigs.map { it.stopId }.toSet()

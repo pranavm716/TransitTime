@@ -383,18 +383,6 @@ class TransitWidgetConfig : AppCompatActivity() {
             val filtered = if (checkedHeadsigns == allRouteHeadsigns) emptyList()
             else checkedHeadsigns.toList()
 
-            val config = WidgetConfig(
-                widgetId = widgetId,
-                stopId = stopId,
-                stopName = stopName,
-                agency = agency,
-                filteredHeadsigns = filtered,
-                maxDepartures = maxDepartures,
-                displayMode = displayMode,
-                hybridThresholdMinutes = hybridThresholdMinutes,
-                delayColorMode = delayColorMode
-            )
-
             CoroutineScope(Dispatchers.IO).launch {
                 val db = TransitDatabase.getInstance(applicationContext)
                 val configDao = db.widgetConfigDao()
@@ -403,6 +391,19 @@ class TransitWidgetConfig : AppCompatActivity() {
                 val prevConfig = configDao.getConfig(widgetId)
                 val oldStopId = prevConfig?.stopId
                 val isNewWidget = prevConfig == null
+
+                var finalConfig = WidgetConfig(
+                    widgetId = widgetId,
+                    stopId = stopId,
+                    stopName = stopName,
+                    agency = agency,
+                    filteredHeadsigns = filtered,
+                    maxDepartures = maxDepartures,
+                    displayMode = displayMode,
+                    hybridThresholdMinutes = hybridThresholdMinutes,
+                    delayColorMode = delayColorMode,
+                    lastFetchedAt = if (oldStopId == stopId) prevConfig.lastFetchedAt else 0L
+                )
 
                 if (oldStopId != null && oldStopId != stopId) {
                     val remaining = configDao.getAllConfigs()
@@ -419,14 +420,33 @@ class TransitWidgetConfig : AppCompatActivity() {
                     }
                 }
 
-                configDao.upsertConfig(config)
+                configDao.upsertConfig(finalConfig)
+
+                // If it's a new widget/stop, perform an initial fetch immediately so updateWidget has data
+                if (finalConfig.lastFetchedAt == 0L) {
+                    try {
+                        val handler = AgencyRegistry.get(agency)
+                        handler.loadStaticData(applicationContext)
+                        val fetchedAt = System.currentTimeMillis()
+                        val result = handler.fetchDepartures(setOf(stopId), fetchedAt)
+                        val stopDepartures = result.departures.filter { it.stopId == stopId }
+                        if (stopDepartures.isNotEmpty()) {
+                            departureDao.upsertDepartures(stopDepartures)
+                            finalConfig = finalConfig.copy(lastFetchedAt = fetchedAt)
+                            configDao.upsertConfig(finalConfig)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("TransitWidgetConfig", "Initial fetch failed", e)
+                    }
+                }
 
                 // Scenario (1) new widget / Scenario (2) updated widget — push snapshot + index
                 try {
                     val goModeManager = GoModeManager(applicationContext)
-                    val snapshot = buildSnapshot(config, emptyList(), goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
+                    val snapshotDeps = departureDao.getDeparturesForStop(stopId)
+                    val snapshot = buildSnapshot(finalConfig, snapshotDeps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
                     val label = if (isNewWidget) "widget added" else "widget updated"
-                    Log.d("TransitWear", "TransitWidgetConfig: $label, pushing snapshot for stopId=${config.stopId}")
+                    Log.d("TransitWear", "TransitWidgetConfig: $label, pushing snapshot for stopId=${finalConfig.stopId}")
                     val pusher = TileSnapshotPusher(applicationContext)
                     pusher.pushSnapshot(snapshot)
                     val allStopIds = configDao.getAllConfigs().map { it.stopId }.distinct()
@@ -436,12 +456,12 @@ class TransitWidgetConfig : AppCompatActivity() {
                 }
 
                 withContext(Dispatchers.Main) {
-                    TransitWidget.triggerFetch(applicationContext)
                     TransitWidget.updateWidget(
                         applicationContext,
                         AppWidgetManager.getInstance(applicationContext),
                         widgetId
                     )
+                    TransitWidget.triggerFetch(applicationContext)
                     val resultIntent = Intent().apply {
                         putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
                     }

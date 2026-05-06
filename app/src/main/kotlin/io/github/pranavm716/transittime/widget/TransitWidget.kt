@@ -143,8 +143,14 @@ class TransitWidget : AppWidgetProvider() {
             widgetId: Int
         ) {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
-            val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
-            val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+            // Initial dimensions from the launcher are often 0 or the manifest minimums (110x250),
+            // which causes a "split-second" glitch with tiny fonts and missing rows.
+            // We use 360x180 as a safe "ideal" default for the initial 3x2 placement.
+            val rawHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+            val rawWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+            val minHeight = if (rawHeight <= 110) 180 else rawHeight
+            val minWidth = if (rawWidth <= 250) 360 else rawWidth
+
             val res = context.resources
             val dm = res.displayMetrics
             val headerDp = res.getDimension(R.dimen.widget_header_height) / dm.density
@@ -199,8 +205,10 @@ class TransitWidget : AppWidgetProvider() {
                     return@withContext
                 }
 
-                val nowVal = config.lastFetchedAt.takeIf { it > 0L } ?: System.currentTimeMillis()
                 val allDepartures = db.departureDao().getDeparturesForStop(config.stopId)
+                val nowVal = config.lastFetchedAt.takeIf { it > 0L }
+                    ?: allDepartures.maxOfOrNull { it.fetchedAt }
+                    ?: System.currentTimeMillis()
                 val (grouped, overflow) = groupDepartures(allDepartures, config.filteredHeadsigns, config.maxDepartures, nowVal, maxRows)
 
                 val freshnessText = resolveFreshnessText(db, config)
