@@ -38,6 +38,8 @@ class FetchWorker(
         ).toSet()
 
         val goModeManager = GoModeManager(context)
+        val pusher = TileSnapshotPusher(context)
+
         if (goModeManager.isGoModeActive) {
             for (id in activeIds) {
                 TransitWidget.animateGoModeDot(context, manager, id)
@@ -67,7 +69,6 @@ class FetchWorker(
 
         val configs = if (staleConfigs.isNotEmpty()) configDao.getAllConfigs() else allConfigs
         val fetchedAt = System.currentTimeMillis()
-        val pusher = TileSnapshotPusher(context)
 
         for (stopId in clearedStopIds) {
             try {
@@ -86,6 +87,18 @@ class FetchWorker(
                 e.printStackTrace()
             }
             return Result.success()
+        }
+
+        // Signal fetch in progress by pushing loading snapshots with isRefreshing=true.
+        for (config in configs) {
+            try {
+                val deps = departureDao.getDeparturesForStop(config.stopId)
+                val loading = buildSnapshot(config, deps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt, isRefreshing = true)
+                Log.d(TAG, "FetchWorker: pushing loading snapshot for stopId=${config.stopId}")
+                pusher.pushSnapshot(loading)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
 
         configs.groupBy { it.agency }.forEach { (agency, agencyConfigs) ->
@@ -133,7 +146,7 @@ class FetchWorker(
                             val deps = departureDao.getDeparturesForStop(latestConfig.stopId)
                             val snapshot = buildSnapshot(latestConfig, deps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
                             Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId}")
-                            pusher.pushSnapshot(snapshot)
+                            pusher.pushSnapshot(snapshot, isFetchResult = true)
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -154,7 +167,7 @@ class FetchWorker(
                             val deps = departureDao.getDeparturesForStop(latestConfig.stopId)
                             val snapshot = buildSnapshot(latestConfig, deps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
                             Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId} (agency error)")
-                            pusher.pushSnapshot(snapshot)
+                            pusher.pushSnapshot(snapshot, isFetchResult = true)
                         }
                     } catch (e2: Exception) {
                         e2.printStackTrace()

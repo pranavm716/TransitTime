@@ -12,7 +12,9 @@ data class TileSnapshot(
     val errorLabel: String?,
     val goModeActive: Boolean,
     val goModeExpiresAt: Long,
-    val rows: List<TileRow>
+    val rows: List<TileRow>,
+    // Nullable so old Gson-cached snapshots without this field deserialize safely.
+    val isRefreshing: Boolean? = false
 )
 
 data class TileRow(

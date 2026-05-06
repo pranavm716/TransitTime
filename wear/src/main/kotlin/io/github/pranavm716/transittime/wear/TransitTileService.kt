@@ -61,7 +61,7 @@ class TransitTileService : TileService() {
             "tileRequestInternal: stopIds=$stopIds, index=$currentIndex, stopId=$stopId"
         )
 
-        val isRefreshing = stopId?.let { cache.getRefreshingStartTime(it) > 0 } ?: false
+        val localIsRefreshing = stopId?.let { cache.getRefreshingStartTime(it) > 0 } ?: false
 
         val snapshot: TileSnapshot? = if (stopId != null) {
             WearDataLayerReader.readSnapshot(this@TransitTileService, stopId, cache)
@@ -78,6 +78,9 @@ class TransitTileService : TileService() {
             rows = emptyList()
         )
 
+        val isRefreshing = localIsRefreshing || (effectiveSnapshot.isRefreshing == true)
+        val effectiveGoModeActive = cache.getLocalGoModeOverride() ?: effectiveSnapshot.goModeActive
+
         TransitTileRenderer.renderTile(
             context = this@TransitTileService,
             deviceConfiguration = requestParams.deviceConfiguration,
@@ -86,7 +89,8 @@ class TransitTileService : TileService() {
             prevIndex = prevIndex,
             nextIndex = nextIndex,
             totalStops = stopIds.size,
-            isRefreshing = isRefreshing
+            isRefreshing = isRefreshing,
+            goModeActive = effectiveGoModeActive
         )
     }
 

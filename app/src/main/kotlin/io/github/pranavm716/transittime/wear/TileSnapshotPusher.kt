@@ -18,12 +18,13 @@ class TileSnapshotPusher(context: Context) {
         private const val TAG = "TransitWear"
     }
 
-    suspend fun pushSnapshot(snapshot: TileSnapshot) {
-        Log.d(TAG, "pushSnapshot: stopId=${snapshot.stopId}, rows=${snapshot.rows.size}")
+    suspend fun pushSnapshot(snapshot: TileSnapshot, isFetchResult: Boolean = false) {
+        Log.d(TAG, "pushSnapshot: stopId=${snapshot.stopId}, rows=${snapshot.rows.size}, isFetchResult=$isFetchResult")
         val request = PutDataMapRequest.create("/tile_snapshot/${snapshot.stopId}").apply {
             dataMap.putString("snapshot", gson.toJson(snapshot))
             dataMap.putLong("fetchedAt", snapshot.fetchedAt)
             dataMap.putLong("pushedAt", System.currentTimeMillis())
+            dataMap.putBoolean("isFetchResult", isFetchResult)
         }
         dataClient.putDataItem(request.asPutDataRequest().setUrgent()).await()
         Log.d(TAG, "pushSnapshot: succeeded for stopId=${snapshot.stopId}")

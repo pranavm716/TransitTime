@@ -31,7 +31,25 @@ class ActionActivity : Activity() {
                 val cache = WearLocalCache(this@ActionActivity)
                 val currentStopId = cache.getCurrentStopId()
                 if (action == "/action/refresh" && currentStopId != null) {
-                    cache.setRefreshing(currentStopId, true)
+                    val localOverride = cache.getLocalGoModeOverride()
+                    val snapshot = cache.getSnapshot(currentStopId)
+                    val effectiveGoModeActive = localOverride ?: (snapshot?.goModeActive ?: false)
+                    if (!effectiveGoModeActive) {
+                        cache.setRefreshing(currentStopId, true)
+                    }
+                } else if (action == "/action/go_mode_toggle" && currentStopId != null) {
+                    val localOverride = cache.getLocalGoModeOverride()
+                    val snapshot = cache.getSnapshot(currentStopId)
+                    val effectiveGoModeActive = localOverride ?: (snapshot?.goModeActive ?: false)
+                    if (!effectiveGoModeActive) {
+                        // Activating: show green dot pulsing immediately
+                        cache.setLocalGoModeOverride(true)
+                        cache.setRefreshing(currentStopId, true)
+                    } else {
+                        // Deactivating: show refresh icon immediately, no animation
+                        cache.setLocalGoModeOverride(false)
+                        cache.setRefreshing(currentStopId, false)
+                    }
                 }
 
                 val nodes = Wearable.getNodeClient(this@ActionActivity).connectedNodes.await()

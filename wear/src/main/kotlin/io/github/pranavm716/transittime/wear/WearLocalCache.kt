@@ -65,6 +65,19 @@ class WearLocalCache(context: Context) {
 
     fun getRefreshingStartTime(stopId: String): Long = prefs.getLong(refreshingKey(stopId), 0L)
 
+    // null = use snapshot value, true = force green dot, false = force refresh icon
+    fun setLocalGoModeOverride(value: Boolean?) {
+        prefs.edit {
+            if (value == null) remove(KEY_LOCAL_GO_MODE_OVERRIDE)
+            else putInt(KEY_LOCAL_GO_MODE_OVERRIDE, if (value) 1 else 0)
+        }
+    }
+
+    fun getLocalGoModeOverride(): Boolean? {
+        val v = prefs.getInt(KEY_LOCAL_GO_MODE_OVERRIDE, -1)
+        return if (v == -1) null else v == 1
+    }
+
     private fun snapshotKey(stopId: String) = "snapshot_$stopId"
     private fun pushedAtKey(stopId: String) = "pushed_at_$stopId"
     private fun refreshingKey(stopId: String) = "refreshing_$stopId"
@@ -76,5 +89,6 @@ class WearLocalCache(context: Context) {
         private const val KEY_STOP_IDS_PUSHED_AT = "stop_ids_pushed_at"
         private const val KEY_CURRENT_INDEX = "current_index"
         private const val KEY_CURRENT_STOP_ID = "current_stop_id"
+        private const val KEY_LOCAL_GO_MODE_OVERRIDE = "local_go_mode_override"
     }
 }

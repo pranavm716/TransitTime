@@ -43,10 +43,11 @@ object TransitTileRenderer {
         prevIndex: Int,
         nextIndex: Int,
         totalStops: Int,
-        isRefreshing: Boolean
+        isRefreshing: Boolean,
+        goModeActive: Boolean
     ): TileBuilders.Tile {
         val root = if (totalStops == 0) buildNoStopsLayout() else buildRoot(
-            context, deviceConfiguration, snapshot, nextIndex, currentIndex, prevIndex, totalStops, isRefreshing
+            context, deviceConfiguration, snapshot, nextIndex, currentIndex, prevIndex, totalStops, isRefreshing, goModeActive
         )
         return TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
@@ -110,7 +111,8 @@ object TransitTileRenderer {
         currentIndex: Int,
         prevIndex: Int,
         totalStops: Int,
-        isRefreshing: Boolean
+        isRefreshing: Boolean,
+        goModeActive: Boolean
     ): LayoutElementBuilders.LayoutElement =
         LayoutElementBuilders.Box.Builder()
             .setWidth(DimensionBuilders.expand())
@@ -133,7 +135,7 @@ object TransitTileRenderer {
                     .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
                     .addContent(buildHeader(context, device, snapshot, nextIndex))
                     .addContent(buildContent(context, device, snapshot))
-                    .addContent(buildFooter(context, device, snapshot, isRefreshing))
+                    .addContent(buildFooter(context, device, snapshot, isRefreshing, goModeActive))
                     .build()
             )
             .addContent(buildStopIndicatorArc(currentIndex, prevIndex, totalStops))
@@ -412,7 +414,8 @@ object TransitTileRenderer {
         context: Context,
         device: DeviceParametersBuilders.DeviceParameters,
         snapshot: TileSnapshot,
-        isRefreshing: Boolean
+        isRefreshing: Boolean,
+        goModeActive: Boolean
     ): LayoutElementBuilders.LayoutElement {
         val timestamp = if (snapshot.fetchedAt > 0L)
             SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(snapshot.fetchedAt))
@@ -420,15 +423,15 @@ object TransitTileRenderer {
 
         val tsColor = when {
             snapshot.errorLabel != null -> COLOR_ERROR
-            snapshot.goModeActive -> COLOR_GO_MODE
+            goModeActive -> COLOR_GO_MODE
             else -> COLOR_DIM
         }
 
-        val iconId = if (snapshot.goModeActive) "ic_go_mode_dot" else "ic_refresh"
+        val iconId = if (goModeActive) "ic_go_mode_dot" else "ic_refresh"
 
         val transformation = ModifiersBuilders.Transformation.Builder()
         if (isRefreshing) {
-            if (snapshot.goModeActive) {
+            if (goModeActive) {
                 // Pulse: 1.0 -> 1.5 -> 1.0 in ~480ms total cycle.
                 // ProtoLayout: animate 1.0 to 1.5 with REVERSE mode.
                 val pulseSpec = AnimationParameterBuilders.AnimationSpec.Builder()

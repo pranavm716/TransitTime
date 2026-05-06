@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.wear.tiles.TileService
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
+import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.WearableListenerService
 
 class WearDataListenerService : WearableListenerService() {
@@ -16,12 +17,18 @@ class WearDataListenerService : WearableListenerService() {
             val path = event.dataItem.uri.path ?: continue
             Log.d("WearDataListener", "type=${event.type} path=$path")
             if (event.type == DataEvent.TYPE_CHANGED) {
-                if (path.startsWith("/tile_snapshot/")) {
-                    val stopId = path.substringAfter("/tile_snapshot/")
-                    cache.setRefreshing(stopId, false)
-                    shouldRefresh = true
-                } else if (path == "/tile_snapshot_index") {
-                    shouldRefresh = true
+                when {
+                    path.startsWith("/tile_snapshot/") -> {
+                        val stopId = path.substringAfter("/tile_snapshot/")
+                        val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
+                        val isFetchResult = dataMap.getBoolean("isFetchResult", false)
+                        if (isFetchResult) cache.setRefreshing(stopId, false)
+                        cache.setLocalGoModeOverride(null)
+                        shouldRefresh = true
+                    }
+                    path == "/tile_snapshot_index" -> {
+                        shouldRefresh = true
+                    }
                 }
             }
         }
