@@ -22,7 +22,11 @@ class WearDataListenerService : WearableListenerService() {
                         val stopId = path.substringAfter("/tile_snapshot/")
                         val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
                         val isFetchResult = dataMap.getBoolean("isFetchResult", false)
-                        if (isFetchResult) cache.setRefreshing(stopId, false)
+                        if (isFetchResult) {
+                            cache.setRefreshing(stopId, false)
+                        } else if (dataMap.getBoolean("isRefreshing", false)) {
+                            cache.setRefreshing(stopId, true)
+                        }
                         cache.setLocalGoModeOverride(null)
                         shouldRefresh = true
                     }

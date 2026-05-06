@@ -25,6 +25,7 @@ class TileSnapshotPusher(context: Context) {
             dataMap.putLong("fetchedAt", snapshot.fetchedAt)
             dataMap.putLong("pushedAt", System.currentTimeMillis())
             dataMap.putBoolean("isFetchResult", isFetchResult)
+            dataMap.putBoolean("isRefreshing", snapshot.isRefreshing ?: false)
         }
         dataClient.putDataItem(request.asPutDataRequest().setUrgent()).await()
         Log.d(TAG, "pushSnapshot: succeeded for stopId=${snapshot.stopId}")
