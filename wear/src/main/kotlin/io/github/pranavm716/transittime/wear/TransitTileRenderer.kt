@@ -224,18 +224,7 @@ object TransitTileRenderer {
                 val iconAreaDp = 42f  // 34dp icon box + 8dp spacer
                 val timesAvailableDp = device.screenWidthDp - 2 * sidePaddingDp - iconAreaDp
 
-                // Simplified gap calculation: find the max gap that fits all visible rows
-                val fontScale = if (device.fontScale > 0) device.fontScale else 1f
-                val paint = android.graphics.Paint().apply {
-                    typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
-                    textSize = 13f * fontScale // Measured at 13sp for a small buffer
-                }
-                val gapDp = visible.map { row ->
-                    val times = row.displayTimes.take(3)
-                    val textWidth = times.sumOf { paint.measureText(it).toDouble() }.toFloat()
-                    val numGaps = (times.size - 1).coerceAtLeast(0)
-                    if (numGaps > 0) (timesAvailableDp - textWidth) / numGaps else 15f
-                }.minOrNull()?.coerceIn(4f, 15f) ?: 15f
+                val gapDp = 10f
 
                 visible.forEachIndexed { i, row ->
                     rowsCol.addContent(buildDepartureRow(device, row, gapDp))
@@ -585,7 +574,7 @@ object TransitTileRenderer {
                 .build()
         }
 
-        val h = if (isHeaderFooter) 34f else 24f
+        val h = if (isHeaderFooter) 34f else 16f
         val t = if (isHeaderFooter && top <= 2f) 16f else if (isHeaderFooter) top + 4f else top
         val b = if (isHeaderFooter) (if (bottom > 0f) bottom else 12f) else bottom
 
