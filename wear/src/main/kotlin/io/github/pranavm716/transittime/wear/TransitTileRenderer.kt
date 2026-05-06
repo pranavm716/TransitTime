@@ -224,31 +224,54 @@ object TransitTileRenderer {
                 val visible = snapshot.rows.take(3)
                 // Compute available horizontal space
                 val isRound = device.screenShape == DeviceParametersBuilders.SCREEN_SHAPE_ROUND
-                val sidePaddingDp = if (isRound) 16f else 0f
+                val sidePaddingDp = if (isRound) 14f else 0f
                 val iconAreaDp = 42f  // 34dp icon box + 8dp spacer
                 // Use device.screenWidthDp so timesAvailableDp is in the same dp space that
-                // ProtoLayout uses for layout. Subtract 2dp safety buffer to absorb any
+                // ProtoLayout uses for layout. Subtract 4dp safety buffer to absorb any
                 // residual mismatch between Paint measurement and ProtoLayout's text renderer.
-                val timesAvailableDp = device.screenWidthDp - 2 * sidePaddingDp - iconAreaDp - 2f
+                val timesAvailableDp = device.screenWidthDp - 2 * sidePaddingDp - iconAreaDp - 4f
 
                 val dm = context.resources.displayMetrics
+                var fontSize = 12f
                 val paint = android.graphics.Paint().apply {
-                    typeface = android.graphics.Typeface.DEFAULT_BOLD
-                    textSize = android.util.TypedValue.applyDimension(
-                        android.util.TypedValue.COMPLEX_UNIT_SP, 12f, dm
-                    )
+                    typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
                 }
-                val gapDp = visible.mapNotNull { row ->
-                    val times = row.displayTimes.take(3)
-                    val numGaps = times.size - 1
-                    if (numGaps <= 0) return@mapNotNull null
-                    val textWidthPx = times.sumOf { paint.measureText(it).toDouble() }
-                    val textWidthDp = (textWidthPx / dm.density).toFloat()
-                    (timesAvailableDp - textWidthDp) / numGaps
-                }.minOrNull()?.coerceIn(0f, 20f)?.toInt()?.toFloat() ?: 8f
+
+                fun getWidths(fSize: Float): FloatArray {
+                    paint.textSize = android.util.TypedValue.applyDimension(
+                        android.util.TypedValue.COMPLEX_UNIT_SP, fSize, dm
+                    )
+                    val widths = FloatArray(3)
+                    visible.forEach { row ->
+                        row.displayTimes.take(3).forEachIndexed { j, time ->
+                            val wDp = paint.measureText(time) / dm.density
+                            if (wDp > widths[j]) widths[j] = wDp
+                        }
+                    }
+                    // Add a generous safety buffer to each column to avoid truncation
+                    for (idx in widths.indices) if (widths[idx] > 0) widths[idx] += 6f
+                    return widths
+                }
+
+                var colWidthsDp = getWidths(fontSize)
+                val maxCols = visible.maxOfOrNull { it.displayTimes.take(3).size } ?: 0
+                val numGaps = (maxCols - 1).coerceAtLeast(0)
+                val sumColWidths = colWidthsDp.sum()
+                val minGapDp = 4f
+                val totalNeeded = sumColWidths + numGaps * minGapDp
+
+                if (totalNeeded > timesAvailableDp) {
+                    val scale = timesAvailableDp / totalNeeded
+                    fontSize = (fontSize * scale).coerceAtLeast(9f)
+                    colWidthsDp = getWidths(fontSize)
+                }
+
+                val gapDp = if (numGaps > 0) {
+                    ((timesAvailableDp - colWidthsDp.sum()) / numGaps).coerceIn(minGapDp, 20f)
+                } else 8f
 
                 visible.forEachIndexed { i, row ->
-                    rowsCol.addContent(buildDepartureRow(context, device, row, gapDp))
+                    rowsCol.addContent(buildDepartureRow(context, device, row, gapDp, colWidthsDp, fontSize))
                     if (i < visible.lastIndex) rowsCol.addContent(vSpacer(6f))
                 }
                 val overflow = snapshot.rows.size - 3
@@ -299,7 +322,9 @@ object TransitTileRenderer {
         context: Context,
         device: DeviceParametersBuilders.DeviceParameters,
         row: TileRow,
-        gapDp: Float
+        gapDp: Float,
+        colWidthsDp: FloatArray,
+        timeFontSize: Float
     ): LayoutElementBuilders.LayoutElement {
         val iconText = row.iconText?.takeIf { it.isNotEmpty() } ?: "?"
         val iconBgColor = row.iconBgColor
@@ -309,35 +334,35 @@ object TransitTileRenderer {
         val badgeWidth: Float
         val badgeHeight: Float
         val cornerRadius: Float
-        val fontSize: Float
+        val iconFontSize: Float
 
         when (iconShape) {
             IconShape.SQUARE -> {
                 badgeWidth = 28f
                 badgeHeight = 28f
                 cornerRadius = 5f
-                fontSize = 13f
+                iconFontSize = 13f
             }
 
             IconShape.CIRCLE -> {
                 badgeWidth = 28f
                 badgeHeight = 28f
                 cornerRadius = 14f
-                fontSize = 13f
+                iconFontSize = 13f
             }
 
             IconShape.ROUNDED_RECT -> {
                 badgeWidth = 28f
                 badgeHeight = 28f
                 cornerRadius = 10f
-                fontSize = 13f
+                iconFontSize = 13f
             }
 
             IconShape.RECT -> {
                 badgeWidth = 34f
                 badgeHeight = 20f
                 cornerRadius = 0f
-                fontSize = 10f
+                iconFontSize = 10f
             }
         }
 
@@ -345,7 +370,7 @@ object TransitTileRenderer {
         val paint = android.graphics.Paint().apply {
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             textSize = android.util.TypedValue.applyDimension(
-                android.util.TypedValue.COMPLEX_UNIT_SP, fontSize, dm
+                android.util.TypedValue.COMPLEX_UNIT_SP, iconFontSize, dm
             )
         }
         val measuredWidthPx = paint.measureText(iconText)
@@ -353,9 +378,9 @@ object TransitTileRenderer {
         val maxWidthDp = badgeWidth * 0.85f
 
         val adjustedFontSize = if (measuredWidthDp > maxWidthDp) {
-            fontSize * (maxWidthDp / measuredWidthDp)
+            iconFontSize * (maxWidthDp / measuredWidthDp)
         } else {
-            fontSize
+            iconFontSize
         }
 
         val icon = iconBox(
@@ -388,7 +413,14 @@ object TransitTileRenderer {
 
         val times = row.displayTimes.take(3)
         times.forEachIndexed { i, time ->
-            timesRow.addContent(timeText(time, row.delayColors.getOrNull(i) ?: COLOR_DIM))
+            val tElt = timeText(time, row.delayColors.getOrNull(i) ?: COLOR_DIM, timeFontSize)
+            timesRow.addContent(
+                LayoutElementBuilders.Box.Builder()
+                    .setWidth(DimensionBuilders.dp(colWidthsDp[i]))
+                    .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+                    .addContent(tElt)
+                    .build()
+            )
             if (i < times.lastIndex) {
                 timesRow.addContent(hSpacer(gapDp))
             }
@@ -705,16 +737,17 @@ object TransitTileRenderer {
             .build()
     }
 
-    private fun timeText(time: String, color: Int): LayoutElementBuilders.LayoutElement =
+    private fun timeText(time: String, color: Int, sizeSp: Float): LayoutElementBuilders.LayoutElement =
         LayoutElementBuilders.Text.Builder()
             .setText(strProp(time))
             .setFontStyle(
                 LayoutElementBuilders.FontStyle.Builder()
                     .setColor(ColorBuilders.argb(color))
-                    .setSize(DimensionBuilders.sp(12f))
+                    .setSize(DimensionBuilders.sp(sizeSp))
                     .setWeight(boldWeight())
                     .build()
             )
+            .setOverflow(LayoutElementBuilders.TEXT_OVERFLOW_ELLIPSIZE_END)
             .build()
 
     private fun plainText(
