@@ -22,6 +22,7 @@ wearTiles = "1.6.0"
 wearProtolayout = "1.4.0"
 playServicesWearable = "18.2.0"
 concurrentFutures = "1.2.0"
+wearOngoing = "1.1.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -52,6 +53,7 @@ androidx-wear-protolayout-material = { module = "androidx.wear.protolayout:proto
 androidx-wear-protolayout-expression = { module = "androidx.wear.protolayout:protolayout-expression", version.ref = "wearProtolayout" }
 play-services-wearable = { module = "com.google.android.gms:play-services-wearable", version.ref = "playServicesWearable" }
 androidx-concurrent-futures = { module = "androidx.concurrent:concurrent-futures-ktx", version.ref = "concurrentFutures" }
+androidx-wear-ongoing = { module = "androidx.wear:wear-ongoing", version.ref = "wearOngoing" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

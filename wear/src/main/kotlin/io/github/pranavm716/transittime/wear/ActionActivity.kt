@@ -1,8 +1,13 @@
 package io.github.pranavm716.transittime.wear
 
+import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.Gravity
+import android.widget.TextView
 import androidx.wear.tiles.TileService
 import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.CoroutineScope
@@ -25,6 +30,45 @@ class ActionActivity : Activity() {
         super.onCreate(savedInstanceState)
         val action = intent.getStringExtra(EXTRA_ACTION) ?: run { finish(); return }
         Log.d("ActionActivity", "onCreate: action=$action")
+
+        if (action == "open_app") {
+            Log.d("LiveNotif", "ActionActivity: open_app received, showing status")
+            val tv = TextView(this).apply {
+                text = "Go Mode Active\nSwipe to dismiss"
+                gravity = Gravity.CENTER
+                textSize = 18f
+            }
+            setContentView(tv)
+            return
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+                return
+            }
+        }
+
+        startAction()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        if (requestCode == 101 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            startAction()
+        } else {
+            finish()
+        }
+    }
+
+    private fun startAction() {
+        val action = intent.getStringExtra(EXTRA_ACTION) ?: run { finish(); return }
+        
+        Log.d("LiveNotif", "ActionActivity.startAction: action=$action, triggering service update")
+        GoModeNotificationService.update(this@ActionActivity)
 
         scope.launch {
             try {
@@ -50,6 +94,7 @@ class ActionActivity : Activity() {
                         cache.setLocalGoModeOverride(false)
                         cache.setRefreshing(currentStopId, false)
                     }
+                    GoModeNotificationService.update(this@ActionActivity)
                 }
 
                 val nodes = Wearable.getNodeClient(this@ActionActivity).connectedNodes.await()
