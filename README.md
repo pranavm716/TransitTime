@@ -22,7 +22,7 @@
 
 ## Overview
 
-TransitTime is a widget-only Android app and corresponding Wear OS watch tile that shows real-time
+TransitTime is a widget-only Android app and companion Wear OS watch tile that shows real-time
 departure times for BART, Muni, and
 Caltrain directly on your home screen.
 
