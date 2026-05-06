@@ -28,6 +28,12 @@ class ActionActivity : Activity() {
 
         scope.launch {
             try {
+                val cache = WearLocalCache(this@ActionActivity)
+                val currentStopId = cache.getCurrentStopId()
+                if (action == "/action/refresh" && currentStopId != null) {
+                    cache.setRefreshing(currentStopId, true)
+                }
+
                 val nodes = Wearable.getNodeClient(this@ActionActivity).connectedNodes.await()
                 Log.d("ActionActivity", "connectedNodes=${nodes.map { it.displayName }}")
                 val phone = nodes.firstOrNull()

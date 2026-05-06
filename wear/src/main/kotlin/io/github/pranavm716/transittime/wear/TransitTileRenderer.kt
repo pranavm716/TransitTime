@@ -42,10 +42,11 @@ object TransitTileRenderer {
         currentIndex: Int,
         prevIndex: Int,
         nextIndex: Int,
-        totalStops: Int
+        totalStops: Int,
+        isRefreshing: Boolean
     ): TileBuilders.Tile {
         val root = if (totalStops == 0) buildNoStopsLayout() else buildRoot(
-            context, deviceConfiguration, snapshot, nextIndex, currentIndex, prevIndex, totalStops
+            context, deviceConfiguration, snapshot, nextIndex, currentIndex, prevIndex, totalStops, isRefreshing
         )
         return TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
@@ -108,7 +109,8 @@ object TransitTileRenderer {
         nextIndex: Int,
         currentIndex: Int,
         prevIndex: Int,
-        totalStops: Int
+        totalStops: Int,
+        isRefreshing: Boolean
     ): LayoutElementBuilders.LayoutElement =
         LayoutElementBuilders.Box.Builder()
             .setWidth(DimensionBuilders.expand())
@@ -131,7 +133,7 @@ object TransitTileRenderer {
                     .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
                     .addContent(buildHeader(context, device, snapshot, nextIndex))
                     .addContent(buildContent(context, device, snapshot))
-                    .addContent(buildFooter(context, device, snapshot))
+                    .addContent(buildFooter(context, device, snapshot, isRefreshing))
                     .build()
             )
             .addContent(buildStopIndicatorArc(currentIndex, prevIndex, totalStops))
@@ -409,7 +411,8 @@ object TransitTileRenderer {
     private fun buildFooter(
         context: Context,
         device: DeviceParametersBuilders.DeviceParameters,
-        snapshot: TileSnapshot
+        snapshot: TileSnapshot,
+        isRefreshing: Boolean
     ): LayoutElementBuilders.LayoutElement {
         val timestamp = if (snapshot.fetchedAt > 0L)
             SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(snapshot.fetchedAt))
@@ -419,6 +422,44 @@ object TransitTileRenderer {
             snapshot.errorLabel != null -> COLOR_ERROR
             snapshot.goModeActive -> COLOR_GO_MODE
             else -> COLOR_DIM
+        }
+
+        val iconId = if (snapshot.goModeActive) "ic_go_mode_dot" else "ic_refresh"
+
+        val transformation = ModifiersBuilders.Transformation.Builder()
+        if (isRefreshing) {
+            if (snapshot.goModeActive) {
+                // Pulse: 1.0 -> 1.5 -> 1.0 in ~480ms total cycle.
+                // ProtoLayout: animate 1.0 to 1.5 with REVERSE mode.
+                val pulseSpec = AnimationParameterBuilders.AnimationSpec.Builder()
+                    .setAnimationParameters(
+                        AnimationParameterBuilders.AnimationParameters.Builder()
+                            .setDurationMillis(240) // 240ms one way, 480ms round trip
+                            .build()
+                    )
+                    .setRepeatable(AnimationParameterBuilders.Repeatable.INFINITE_REPEATABLE_WITH_REVERSE)
+                    .build()
+                val scale = TypeBuilders.FloatProp.Builder()
+                    .setValue(1f)
+                    .setDynamicValue(DynamicBuilders.DynamicFloat.animate(1f, 1.5f, pulseSpec))
+                    .build()
+                transformation.setScaleX(scale).setScaleY(scale)
+            } else {
+                // Spin: 0 -> 360 in 480ms.
+                val spinSpec = AnimationParameterBuilders.AnimationSpec.Builder()
+                    .setAnimationParameters(
+                        AnimationParameterBuilders.AnimationParameters.Builder()
+                            .setDurationMillis(480)
+                            .build()
+                    )
+                    .setRepeatable(AnimationParameterBuilders.Repeatable.INFINITE_REPEATABLE_WITH_RESTART)
+                    .build()
+                val rotation = DimensionBuilders.DegreesProp.Builder()
+                    .setValue(0f)
+                    .setDynamicValue(DynamicBuilders.DynamicFloat.animate(0f, 360f, spinSpec))
+                    .build()
+                transformation.setRotation(rotation)
+            }
         }
 
         return LayoutElementBuilders.Box.Builder()
@@ -447,12 +488,15 @@ object TransitTileRenderer {
                     .addContent(hSpacer(4f))
                     .addContent(
                         LayoutElementBuilders.Image.Builder()
-                            .setResourceId(
-                                if (snapshot.goModeActive) "ic_go_mode_dot" else "ic_refresh"
-                            )
+                            .setResourceId(iconId)
                             .setWidth(DimensionBuilders.dp(14f))
                             .setHeight(DimensionBuilders.dp(14f))
                             .setContentScaleMode(LayoutElementBuilders.CONTENT_SCALE_MODE_FIT)
+                            .setModifiers(
+                                ModifiersBuilders.Modifiers.Builder()
+                                    .setTransformation(transformation.build())
+                                    .build()
+                            )
                             .build()
                     )
                     .build()
@@ -714,6 +758,7 @@ object TransitTileRenderer {
             .setValue(LayoutElementBuilders.FONT_WEIGHT_BOLD)
             .build()
 
+    @OptIn(ProtoLayoutExperimental::class)
     private fun mediumWeight(): LayoutElementBuilders.FontWeightProp =
         LayoutElementBuilders.FontWeightProp.Builder()
             .setValue(LayoutElementBuilders.FONT_WEIGHT_MEDIUM)

@@ -53,8 +53,21 @@ class WearLocalCache(context: Context) {
     fun saveCurrentStopId(stopId: String) = prefs.edit { putString(KEY_CURRENT_STOP_ID, stopId) }
     fun getCurrentStopId(): String? = prefs.getString(KEY_CURRENT_STOP_ID, null)
 
+    fun setRefreshing(stopId: String, refreshing: Boolean) {
+        prefs.edit {
+            if (refreshing) {
+                putLong(refreshingKey(stopId), System.currentTimeMillis())
+            } else {
+                remove(refreshingKey(stopId))
+            }
+        }
+    }
+
+    fun getRefreshingStartTime(stopId: String): Long = prefs.getLong(refreshingKey(stopId), 0L)
+
     private fun snapshotKey(stopId: String) = "snapshot_$stopId"
     private fun pushedAtKey(stopId: String) = "pushed_at_$stopId"
+    private fun refreshingKey(stopId: String) = "refreshing_$stopId"
 
     companion object {
         private const val TAG = "TransitWear"

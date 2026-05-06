@@ -10,14 +10,19 @@ class WearDataListenerService : WearableListenerService() {
 
     override fun onDataChanged(dataEvents: DataEventBuffer) {
         Log.d("WearDataListener", "onDataChanged: ${dataEvents.count} event(s)")
+        val cache = WearLocalCache(this)
         var shouldRefresh = false
         for (event in dataEvents) {
             val path = event.dataItem.uri.path ?: continue
             Log.d("WearDataListener", "type=${event.type} path=$path")
-            if (event.type == DataEvent.TYPE_CHANGED &&
-                (path.startsWith("/tile_snapshot/") || path == "/tile_snapshot_index")
-            ) {
-                shouldRefresh = true
+            if (event.type == DataEvent.TYPE_CHANGED) {
+                if (path.startsWith("/tile_snapshot/")) {
+                    val stopId = path.substringAfter("/tile_snapshot/")
+                    cache.setRefreshing(stopId, false)
+                    shouldRefresh = true
+                } else if (path == "/tile_snapshot_index") {
+                    shouldRefresh = true
+                }
             }
         }
         dataEvents.release()
