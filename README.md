@@ -2,27 +2,28 @@
 
 <div align="center">
   <div>
-    <img src="screenshots/sample_1.jpg" width="400"/>
+    <img src="screenshots/phone_sample_1.jpg" width="400"/>
     &nbsp;&nbsp;&nbsp;&nbsp;
-    <img src="screenshots/sample_2.jpg" width="400"/>
+    <img src="screenshots/phone_sample_2.jpg" width="400"/>
   </div>
   <div>
     <em>Widgets on the home screen</em>
   </div>
   <br/>
   <div>
-    <img src="screenshots/config_1.jpg" width="400"/>
+    <img src="screenshots/watch_sample_1.png" width="400"/>
     &nbsp;&nbsp;&nbsp;&nbsp;
-    <img src="screenshots/config_2.jpg" width="400"/>
+    <img src="screenshots/watch_sample_2.png" width="400"/>
   </div>
   <div>
-    <em>Configuration process</em>
+    <em>Wear OS tile</em>
   </div>
 </div>
 
 ## Overview
 
-TransitTime is a widget-only Android app that shows real-time departure times for BART, Muni, and
+TransitTime is a widget-only Android app and corresponding Wear OS watch tile that shows real-time
+departure times for BART, Muni, and
 Caltrain directly on your home screen.
 
 Each widget is configured for a single stop and displays upcoming departures by route, with support
@@ -36,13 +37,25 @@ for filtering by specific headsigns, multiple display modes, and color-coded del
 
 ## Features
 
-- Tap anywhere below the header to manually refresh the widget. The widget will still auto-refresh
+**Phone widget features**
+
+- Tap anywhere below the header (on the departure info) to manually refresh the widget. The widget
+  will still auto-refresh
   every 15 minutes.
 - Tap the agency logo or station name to cycle between relative → absolute → hybrid display modes.
-- Tap the last refreshed timestamp or the refresh icon to activate **Go Mode**.
+- Tap the last refreshed timestamp area to toggle **Go Mode**.
     - Go Mode will automatically refresh all widgets frequently for 20 minutes.
     - This is useful when you are on the way to a station - you can see the status of your bus/train
       in real time without needing to manually refresh.
+
+**Watch tile features**
+
+- Tap anywhere in the middle (on the departure info) to manually refresh the tile.
+- Tap the agency logo or station name to cycle between configured stops.
+- Tap the last refreshed timestamp area to toggle **Go Mode**.
+
+Note: The phone and watch will remain synced at all times. Triggering a refresh or toggling Go Mode
+on one device will update the other.
 
 ## How to install
 
@@ -85,7 +98,21 @@ transit511.api.key=YOUR_511_KEY
 **6. Add a widget**
 
 - Long press your home screen → Widgets → TransitTime → Real Time Departures
-- Configure your stop, agency, routes, and display options
+- Configure the following:
+    - Agency
+    - Stop
+    - Routes
+    - Display options
+        - Relative - Show the number of minutes until departure (ex. "3min")
+        - Absolute - Show the exact departure time (ex. "2:35PM")
+        - Hybrid - Show relative times for departures less than 60min away, else show absolute
+          times. The exact threshold is
+          configurable.
+    - Delay information - Color is used to indicate delay status
+        - None - All times will display in the same color
+        - Flat - Early, on time, and late times each use a distinct color
+        - Gradient - Color shifts gradually based on delay amount
+    - Max departures per line (1 - 3)
 
 ## Limitations
 
