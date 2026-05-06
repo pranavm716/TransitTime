@@ -53,10 +53,9 @@ class TransitWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
-        val now = System.currentTimeMillis()
         for (widgetId in appWidgetIds) {
             CoroutineScope(Dispatchers.IO).launch {
-                updateWidget(context, appWidgetManager, widgetId, now = now)
+                updateWidget(context, appWidgetManager, widgetId)
             }
         }
     }
@@ -106,7 +105,7 @@ class TransitWidget : AppWidgetProvider() {
         newOptions: Bundle
     ) {
         CoroutineScope(Dispatchers.IO).launch {
-            updateWidget(context, appWidgetManager, appWidgetId, now = lastRenderNow[appWidgetId])
+            updateWidget(context, appWidgetManager, appWidgetId)
         }
     }
 
@@ -133,7 +132,6 @@ class TransitWidget : AppWidgetProvider() {
             return 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
         }
 
-        private val lastRenderNow = mutableMapOf<Int, Long>()
         private val spinningJobs = mutableMapOf<Int, Job>()
         private val spinStep = mutableMapOf<Int, Int>()
         private val pulsingJobs = mutableMapOf<Int, Job>()
@@ -142,8 +140,7 @@ class TransitWidget : AppWidgetProvider() {
         suspend fun updateWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,
-            widgetId: Int,
-            now: Long? = null
+            widgetId: Int
         ) {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
@@ -202,7 +199,7 @@ class TransitWidget : AppWidgetProvider() {
                     return@withContext
                 }
 
-                val nowVal = (now ?: System.currentTimeMillis()).also { lastRenderNow[widgetId] = it }
+                val nowVal = config.lastFetchedAt.takeIf { it > 0L } ?: System.currentTimeMillis()
                 val allDepartures = db.departureDao().getDeparturesForStop(config.stopId)
                 val (grouped, overflow) = groupDepartures(allDepartures, config.filteredHeadsigns, config.maxDepartures, nowVal, maxRows)
 
@@ -559,7 +556,7 @@ class TransitWidget : AppWidgetProvider() {
                         DisplayMode.HYBRID -> DisplayMode.RELATIVE
                     }
                     configDao.upsertConfig(config.copy(displayMode = nextMode))
-                    updateWidget(context, appWidgetManager, widgetId, now = lastRenderNow[widgetId])
+                    updateWidget(context, appWidgetManager, widgetId)
                     try {
                         val latestConfig = configDao.getConfig(widgetId)
                         if (latestConfig != null) {
@@ -605,12 +602,10 @@ class TransitWidget : AppWidgetProvider() {
             val ids = appWidgetManager.getAppWidgetIds(
                 ComponentName(context, TransitWidget::class.java)
             )
-            val now = System.currentTimeMillis()
             for (widgetId in ids) {
                 CoroutineScope(Dispatchers.IO).launch {
                     updateWidget(
-                        context, appWidgetManager, widgetId,
-                        now = now
+                        context, appWidgetManager, widgetId
                     )
                 }
             }

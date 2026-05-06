@@ -125,7 +125,7 @@ class FetchWorker(
                     } else {
                         configDao.upsertConfig(config.copy(lastFetchedAt = fetchedAt, lastErrorLabel = null))
                     }
-                    TransitWidget.updateWidget(context, manager, config.widgetId, now = fetchedAt)
+                    TransitWidget.updateWidget(context, manager, config.widgetId)
                     // Scenario (4): widget refreshed — push updated snapshot
                     try {
                         val latestConfig = configDao.getConfig(config.widgetId)
@@ -146,7 +146,7 @@ class FetchWorker(
                     val current = configDao.getConfig(config.widgetId) ?: continue
                     if (current.lastFetchedAt > config.lastFetchedAt) continue
                     configDao.upsertConfig(current.copy(lastErrorLabel = error.label))
-                    TransitWidget.updateWidget(context, manager, config.widgetId, now = fetchedAt)
+                    TransitWidget.updateWidget(context, manager, config.widgetId)
                     // Scenario (4): agency error path — push snapshot with error label
                     try {
                         val latestConfig = configDao.getConfig(config.widgetId)
