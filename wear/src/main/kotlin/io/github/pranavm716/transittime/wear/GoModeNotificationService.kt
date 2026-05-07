@@ -8,12 +8,24 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.IBinder
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.wear.ongoing.OngoingActivity
 import androidx.wear.ongoing.Status
+import io.github.pranavm716.transittime.model.IconShape
+import io.github.pranavm716.transittime.model.TileRow
+import io.github.pranavm716.transittime.model.TileSnapshot
 
 class GoModeNotificationService : Service() {
 
@@ -25,21 +37,30 @@ class GoModeNotificationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d("LiveNotif", "GoModeNotificationService.onStartCommand")
+        val stopId = intent?.getStringExtra("stopId")
+        if (stopId == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        
+        val cache = WearLocalCache(this)
+        val snapshot = cache.getSnapshot(stopId)
+        val soonestRow = snapshot?.rows?.firstOrNull()
+
+        Log.d("LiveNotif", "GoModeNotificationService.onStartCommand: stopId=$stopId")
 
         val pendingIntent = PendingIntent.getActivity(
             this,
             888,
             Intent(this, ActionActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                putExtra(ActionActivity.EXTRA_ACTION, "open_app")
+                putExtra(ActionActivity.EXTRA_ACTION, "open_stop")
+                putExtra("stopId", stopId)
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("TransitTime")
-            .setContentText("Go Mode Active")
             .setSmallIcon(R.drawable.ic_ongoing_dot)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setContentIntent(pendingIntent)
@@ -48,23 +69,70 @@ class GoModeNotificationService : Service() {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(false)
 
-        val status = Status.Builder()
-            .addTemplate("Activated")
-            .build()
+        val statusBuilder = Status.Builder()
 
-        val ongoingActivity = OngoingActivity.Builder(
-            applicationContext, NOTIFICATION_ID, builder
-        )
-            .setStaticIcon(R.drawable.ic_ongoing_dot)
-            .setTouchIntent(pendingIntent)
-            .setStatus(status)
-            .build()
-
-        ongoingActivity.apply(applicationContext)
+        if (snapshot != null && soonestRow != null) {
+            val soonestTime = soonestRow.displayTimes.firstOrNull() ?: "—"
+            val soonestColor = soonestRow.delayColors.firstOrNull() ?: 0xFFAAAAAA.toInt()
+            
+            val contentText = SpannableString(soonestTime).apply {
+                setSpan(ForegroundColorSpan(soonestColor), 0, length, 0)
+            }
+            
+            builder.setContentTitle(snapshot.stopName)
+            builder.setContentText(contentText)
+            
+            statusBuilder.addTemplate("#time#").addPart("time", Status.TextPart(soonestTime))
+            
+            val routeIcon = drawRouteIcon(soonestRow)
+            val ongoingActivity = OngoingActivity.Builder(applicationContext, NOTIFICATION_ID, builder)
+                .setStaticIcon(Icon.createWithBitmap(routeIcon))
+                .setTouchIntent(pendingIntent)
+                .setStatus(statusBuilder.build())
+                .build()
+            ongoingActivity.apply(applicationContext)
+        } else {
+            builder.setContentTitle("TransitTime")
+            builder.setContentText("Loading...")
+            statusBuilder.addTemplate("Loading...")
+            
+            val ongoingActivity = OngoingActivity.Builder(applicationContext, NOTIFICATION_ID, builder)
+                .setStaticIcon(R.drawable.ic_ongoing_dot)
+                .setTouchIntent(pendingIntent)
+                .setStatus(statusBuilder.build())
+                .build()
+            ongoingActivity.apply(applicationContext)
+        }
 
         startForeground(NOTIFICATION_ID, builder.build())
-
         return START_STICKY
+    }
+
+    private fun drawRouteIcon(row: TileRow): Bitmap {
+        val size = 48
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        paint.color = row.iconBgColor
+        val rect = RectF(0f, 0f, size.toFloat(), size.toFloat())
+        val radius = when (row.iconShape) {
+            IconShape.SQUARE -> size * 0.1f
+            IconShape.CIRCLE -> size / 2f
+            IconShape.ROUNDED_RECT -> size * 0.3f
+            else -> 0f
+        }
+        canvas.drawRoundRect(rect, radius, radius, paint)
+
+        paint.color = if (row.iconTextColor != 0) row.iconTextColor else Color.WHITE
+        paint.textSize = size * 0.5f
+        paint.typeface = Typeface.DEFAULT_BOLD
+        paint.textAlign = Paint.Align.CENTER
+        val x = size / 2f
+        val y = size / 2f - (paint.descent() + paint.ascent()) / 2f
+        canvas.drawText(row.iconText ?: "", x, y, paint)
+
+        return bitmap
     }
 
     override fun onDestroy() {
@@ -84,10 +152,10 @@ class GoModeNotificationService : Service() {
 
     companion object {
         private const val NOTIFICATION_ID = 888
-        private const val CHANNEL_ID = "go_mode_channel_v2"
+        private const val CHANNEL_ID = "go_mode_channel_v3"
         
         @Volatile
-        private var isServiceRunning = false
+        private var lastRunningStopId: String? = null
 
         fun update(context: Context) {
             val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -95,37 +163,63 @@ class GoModeNotificationService : Service() {
             } else true
 
             val cache = WearLocalCache(context)
-            val stopIds = cache.getStopIds()
             val localOverride = cache.getLocalGoModeOverride()
             
-            var goModeActive = localOverride ?: false
-            if (localOverride == null) {
-                for (stopId in stopIds) {
-                    val snapshot = cache.getSnapshot(stopId)
-                    if (snapshot?.goModeActive == true) {
-                        goModeActive = true
-                        break
+            var activeStopId: String? = null
+
+            when (localOverride) {
+                true -> {
+                    // Force the current stop being viewed on the watch
+                    activeStopId = cache.getCurrentStopId()
+                    Log.d("LiveNotif", "update: following local override (active) for stopId=$activeStopId")
+                }
+                false -> {
+                    // Force deactivation
+                    activeStopId = null
+                    Log.d("LiveNotif", "update: following local override (inactive)")
+                }
+                null -> {
+                    // Fall back to searching snapshots, but check current stop first
+                    val currentStopId = cache.getCurrentStopId()
+                    val currentSnapshot = currentStopId?.let { cache.getSnapshot(it) }
+                    if (currentSnapshot?.goModeActive == true && currentSnapshot.rows.isNotEmpty()) {
+                        activeStopId = currentStopId
+                        Log.d("LiveNotif", "update: current stop confirmed active by snapshot: $activeStopId")
+                    } else {
+                        val stopIds = cache.getStopIds()
+                        for (stopId in stopIds) {
+                            if (stopId == currentStopId) continue
+                            val snapshot = cache.getSnapshot(stopId)
+                            if (snapshot?.goModeActive == true && snapshot.rows.isNotEmpty()) {
+                                activeStopId = stopId
+                                break
+                            }
+                        }
+                        Log.d("LiveNotif", "update: searched other snapshots, found stopId=$activeStopId")
                     }
                 }
             }
 
-            Log.d("LiveNotif", "update: active=$goModeActive, isRunning=$isServiceRunning")
-            
-            if (goModeActive == isServiceRunning) return
-
-            val intent = Intent(context, GoModeNotificationService::class.java)
-            if (goModeActive) {
-                if (hasPermission) {
-                    try {
-                        context.startForegroundService(intent)
-                        isServiceRunning = true
-                    } catch (e: Exception) {
-                        Log.e("LiveNotif", "startForegroundService failed", e)
-                    }
+            val shouldBeRunning = activeStopId != null
+            if (!shouldBeRunning) {
+                if (lastRunningStopId != null) {
+                    Log.d("LiveNotif", "update: stopping service (previously running for $lastRunningStopId)")
+                    context.stopService(Intent(context, GoModeNotificationService::class.java))
+                    lastRunningStopId = null
                 }
-            } else {
-                context.stopService(intent)
-                isServiceRunning = false
+                return
+            }
+
+            // If we should be running
+            if (hasPermission) {
+                try {
+                    val intent = Intent(context, GoModeNotificationService::class.java)
+                    intent.putExtra("stopId", activeStopId)
+                    context.startForegroundService(intent)
+                    lastRunningStopId = activeStopId
+                } catch (e: Exception) {
+                    Log.e("LiveNotif", "startForegroundService failed", e)
+                }
             }
         }
     }

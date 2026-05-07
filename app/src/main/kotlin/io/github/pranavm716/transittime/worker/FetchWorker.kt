@@ -11,6 +11,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import io.github.pranavm716.transittime.GoModeManager
 import io.github.pranavm716.transittime.data.db.TransitDatabase
+import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.transit.TransitError
 import io.github.pranavm716.transittime.wear.TileSnapshotPusher
@@ -52,10 +53,12 @@ class FetchWorker(
 
         val allConfigs = configDao.getAllConfigs()
         val now = System.currentTimeMillis()
+        val activeGoModeWidgetId = goModeManager.goModeWidgetId
+
         val staleConfigs = allConfigs.filter { 
             it.widgetId !in activeIds && 
             it.lastFetchedAt > 0 && 
-            (now - it.lastFetchedAt > 60000) // 1 minute grace period for new/updating widgets
+            (now - it.lastFetchedAt > 60000)
         }
         val clearedStopIds = mutableSetOf<String>()
         if (staleConfigs.isNotEmpty()) {
@@ -72,7 +75,7 @@ class FetchWorker(
             }
         }
 
-        val configs = if (staleConfigs.isNotEmpty()) configDao.getAllConfigs() else allConfigs
+        val configs = configDao.getAllConfigs()
         val fetchedAt = System.currentTimeMillis()
 
         for (stopId in clearedStopIds) {
@@ -94,12 +97,21 @@ class FetchWorker(
             return Result.success()
         }
 
+        // Helper to get only one config per stop ID for watch snapshots,
+        // preferring the one that matches goModeWidgetId.
+        fun getDeduplicatedConfigs(input: List<WidgetConfig>): List<WidgetConfig> {
+            return input.groupBy { it.stopId }.map { (_, stopConfigs) ->
+                stopConfigs.find { it.widgetId == activeGoModeWidgetId } ?: stopConfigs.first()
+            }
+        }
+
         // Signal fetch in progress by pushing loading snapshots with isRefreshing=true.
-        for (config in configs) {
+        for (config in getDeduplicatedConfigs(configs)) {
             try {
                 val deps = departureDao.getDeparturesForStop(config.stopId)
-                val loading = buildSnapshot(config, deps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt, isRefreshing = true)
-                Log.d(TAG, "FetchWorker: pushing loading snapshot for stopId=${config.stopId}")
+                val isActiveForPill = goModeManager.isGoModeActive && config.widgetId == activeGoModeWidgetId
+                val loading = buildSnapshot(config, deps, isActiveForPill, goModeManager.goModeExpiresAt, isRefreshing = true)
+                Log.d(TAG, "FetchWorker: pushing loading snapshot for stopId=${config.stopId}, active=$isActiveForPill")
                 pusher.pushSnapshot(loading)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -133,6 +145,9 @@ class FetchWorker(
                     }
                 }
 
+                val updatedConfigs = configDao.getAllConfigs()
+                val deduplicatedForSnapshots = getDeduplicatedConfigs(updatedConfigs)
+
                 for (config in agencyConfigs) {
                     val stopException = result.stopErrors[config.stopId]
                     if (stopException != null) {
@@ -144,45 +159,55 @@ class FetchWorker(
                         configDao.upsertConfig(config.copy(lastFetchedAt = fetchedAt, lastErrorLabel = null))
                     }
                     TransitWidget.updateWidget(context, manager, config.widgetId)
-                    // Scenario (4): widget refreshed — push updated snapshot
-                    try {
-                        val latestConfig = configDao.getConfig(config.widgetId)
-                        if (latestConfig != null) {
-                            val deps = departureDao.getDeparturesForStop(latestConfig.stopId)
-                            val snapshot = buildSnapshot(latestConfig, deps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
-                            Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId}")
-                            pusher.pushSnapshot(snapshot, isFetchResult = true)
+
+                    // Scenario (4): widget refreshed — push updated snapshot IF it's the chosen one for this stop
+                    if (deduplicatedForSnapshots.any { it.widgetId == config.widgetId }) {
+                        try {
+                            val latestConfig = configDao.getConfig(config.widgetId)
+                            if (latestConfig != null) {
+                                val deps = departureDao.getDeparturesForStop(latestConfig.stopId)
+                                val isActiveForPill = goModeManager.isGoModeActive && latestConfig.widgetId == activeGoModeWidgetId
+                                val snapshot = buildSnapshot(latestConfig, deps, isActiveForPill, goModeManager.goModeExpiresAt)
+                                Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId}, active=$isActiveForPill")
+                                pusher.pushSnapshot(snapshot, isFetchResult = true)
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
                         }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
                     }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
                 val error = TransitError.fromException(e)
+                val updatedConfigs = configDao.getAllConfigs()
+                val deduplicatedForSnapshots = getDeduplicatedConfigs(updatedConfigs)
+
                 for (config in agencyConfigs) {
                     val current = configDao.getConfig(config.widgetId) ?: continue
                     if (current.lastFetchedAt > config.lastFetchedAt) continue
                     configDao.upsertConfig(current.copy(lastErrorLabel = error.label))
                     TransitWidget.updateWidget(context, manager, config.widgetId)
-                    // Scenario (4): agency error path — push snapshot with error label
-                    try {
-                        val latestConfig = configDao.getConfig(config.widgetId)
-                        if (latestConfig != null) {
-                            val deps = departureDao.getDeparturesForStop(latestConfig.stopId)
-                            val snapshot = buildSnapshot(latestConfig, deps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
-                            Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId} (agency error)")
-                            pusher.pushSnapshot(snapshot, isFetchResult = true)
+
+                    if (deduplicatedForSnapshots.any { it.widgetId == config.widgetId }) {
+                        try {
+                            val latestConfig = configDao.getConfig(config.widgetId)
+                            if (latestConfig != null) {
+                                val deps = departureDao.getDeparturesForStop(latestConfig.stopId)
+                                val isActiveForPill = goModeManager.isGoModeActive && latestConfig.widgetId == activeGoModeWidgetId
+                                val snapshot = buildSnapshot(latestConfig, deps, isActiveForPill, goModeManager.goModeExpiresAt)
+                                Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId} (agency error), active=$isActiveForPill")
+                                pusher.pushSnapshot(snapshot, isFetchResult = true)
+                            }
+                        } catch (e2: Exception) {
+                            e2.printStackTrace()
                         }
-                    } catch (e2: Exception) {
-                        e2.printStackTrace()
                     }
                 }
             }
         }
 
         try {
-            val allStopIds = configs.map { it.stopId }.distinct()
+            val allStopIds = configDao.getAllConfigs().map { it.stopId }.distinct()
             Log.d(TAG, "FetchWorker: pushing stop index, stopIds=$allStopIds")
             pusher.pushStopIndex(allStopIds)
         } catch (e: Exception) {

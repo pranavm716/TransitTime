@@ -570,7 +570,8 @@ class TransitWidget : AppWidgetProvider() {
                         if (latestConfig != null) {
                             val goModeManager = GoModeManager(context)
                             val deps = db.departureDao().getDeparturesForStop(latestConfig.stopId)
-                            val snapshot = buildSnapshot(latestConfig, deps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
+                            val isActiveForPill = goModeManager.isGoModeActive && latestConfig.widgetId == goModeManager.goModeWidgetId
+                            val snapshot = buildSnapshot(latestConfig, deps, isActiveForPill, goModeManager.goModeExpiresAt)
                             TileSnapshotPusher(context).pushSnapshot(snapshot)
                         }
                     } catch (e: Exception) {
@@ -581,7 +582,11 @@ class TransitWidget : AppWidgetProvider() {
         } else if (intent.action == ACTION_TOGGLE_GO_MODE) {
             val goModeManager = GoModeManager(context)
             val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
-            if (goModeManager.isGoModeActive) {
+            
+            // If already active for THIS widget, turn it off.
+            // If active for a DIFFERENT widget, switch to this one.
+            // If not active, turn it on.
+            if (goModeManager.isGoModeActive && goModeManager.goModeWidgetId == widgetId) {
                 goModeManager.goModeExpiresAt = 0
                 goModeManager.goModeWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
             } else {

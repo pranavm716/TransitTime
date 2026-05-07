@@ -42,6 +42,23 @@ class ActionActivity : Activity() {
             return
         }
 
+        if (action == "open_stop") {
+            val stopId = intent.getStringExtra("stopId")
+            Log.d("LiveNotif", "ActionActivity: open_stop received for stopId=$stopId")
+            if (stopId != null) {
+                val cache = WearLocalCache(this)
+                cache.saveCurrentStopId(stopId)
+                val stopIds = cache.getStopIds()
+                val index = stopIds.indexOf(stopId)
+                if (index != -1) {
+                    cache.saveCurrentIndex(index)
+                }
+                TileService.getUpdater(this).requestUpdate(TransitTileService::class.java)
+            }
+            finish()
+            return
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
