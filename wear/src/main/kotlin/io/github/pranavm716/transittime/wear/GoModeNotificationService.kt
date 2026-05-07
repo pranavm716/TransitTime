@@ -40,7 +40,7 @@ class GoModeNotificationService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        
+
         val cache = WearLocalCache(this)
         val snapshot = cache.getSnapshot(stopId)
         val soonestRow = snapshot?.rows?.firstOrNull()
@@ -77,19 +77,26 @@ class GoModeNotificationService : Service() {
         if (snapshot != null && soonestRow != null) {
             val soonestTime = soonestRow.displayTimes.firstOrNull() ?: "—"
             val soonestColor = soonestRow.delayColors.firstOrNull() ?: 0xFFAAAAAA.toInt()
-            
+
             val contentText = SpannableString(soonestTime).apply {
                 setSpan(ForegroundColorSpan(soonestColor), 0, length, 0)
             }
-            
+
             builder.setContentTitle(snapshot.stopName)
             builder.setContentText(contentText)
-            
-            statusBuilder.addTemplate("#time#").addPart("time", Status.TextPart(soonestTime))
-            
+
+            statusBuilder.addTemplate("#time# • #headsign#")
+                .addPart("headsign", Status.TextPart(soonestRow.headsign))
+                .addPart("time", Status.TextPart(soonestTime))
+
             val routeIcon = drawRouteIcon(soonestRow)
-            builder.setSmallIcon(androidx.core.graphics.drawable.IconCompat.createFromIcon(this, routeIcon))
-            
+            builder.setSmallIcon(
+                androidx.core.graphics.drawable.IconCompat.createFromIcon(
+                    this,
+                    routeIcon
+                )
+            )
+
             val ongoingActivity = OngoingActivity.Builder(this, NOTIFICATION_ID, builder)
                 .setStaticIcon(routeIcon)
                 .setTouchIntent(pendingIntent)
@@ -102,7 +109,7 @@ class GoModeNotificationService : Service() {
             builder.setContentTitle("TransitTime")
             builder.setContentText("Loading...")
             statusBuilder.addTemplate("Loading...")
-            
+
             val ongoingActivity = OngoingActivity.Builder(this, NOTIFICATION_ID, builder)
                 .setStaticIcon(R.drawable.ic_ongoing_dot)
                 .setTouchIntent(pendingIntent)
@@ -165,7 +172,7 @@ class GoModeNotificationService : Service() {
     companion object {
         private const val NOTIFICATION_ID = 888
         private const val CHANNEL_ID = "go_mode_channel_v5"
-        
+
         @Volatile
         private var lastRunningStopId: String? = null
 
@@ -176,20 +183,25 @@ class GoModeNotificationService : Service() {
 
             val cache = WearLocalCache(context)
             val localOverride = cache.getLocalGoModeOverride()
-            
+
             var activeStopId: String? = null
 
             when (localOverride) {
                 true -> {
                     // Force the current stop being viewed on the watch
                     activeStopId = cache.getCurrentStopId()
-                    Log.d("LiveNotif", "update: following local override (active) for stopId=$activeStopId")
+                    Log.d(
+                        "LiveNotif",
+                        "update: following local override (active) for stopId=$activeStopId"
+                    )
                 }
+
                 false -> {
                     // Force deactivation
                     activeStopId = null
                     Log.d("LiveNotif", "update: following local override (inactive)")
                 }
+
                 null -> {
                     // Search for the explicit target stop first
                     val stopIds = cache.getStopIds()
@@ -197,7 +209,10 @@ class GoModeNotificationService : Service() {
                         val snapshot = cache.getSnapshot(stopId)
                         if (snapshot?.goModeTarget == true && snapshot.rows.isNotEmpty()) {
                             activeStopId = stopId
-                            Log.d("LiveNotif", "update: found explicit goModeTarget snapshot: $activeStopId")
+                            Log.d(
+                                "LiveNotif",
+                                "update: found explicit goModeTarget snapshot: $activeStopId"
+                            )
                             break
                         }
                     }
@@ -208,7 +223,10 @@ class GoModeNotificationService : Service() {
                         val currentSnapshot = currentStopId?.let { cache.getSnapshot(it) }
                         if (currentSnapshot?.goModeActive == true && currentSnapshot.rows.isNotEmpty()) {
                             activeStopId = currentStopId
-                            Log.d("LiveNotif", "update: current stop confirmed active by snapshot: $activeStopId")
+                            Log.d(
+                                "LiveNotif",
+                                "update: current stop confirmed active by snapshot: $activeStopId"
+                            )
                         } else {
                             for (stopId in stopIds) {
                                 if (stopId == currentStopId) continue
@@ -218,7 +236,10 @@ class GoModeNotificationService : Service() {
                                     break
                                 }
                             }
-                            Log.d("LiveNotif", "update: searched other snapshots, found stopId=$activeStopId")
+                            Log.d(
+                                "LiveNotif",
+                                "update: searched other snapshots, found stopId=$activeStopId"
+                            )
                         }
                     }
                 }
@@ -227,7 +248,10 @@ class GoModeNotificationService : Service() {
             val shouldBeRunning = activeStopId != null
             if (!shouldBeRunning) {
                 if (lastRunningStopId != null) {
-                    Log.d("LiveNotif", "update: stopping service (previously running for $lastRunningStopId)")
+                    Log.d(
+                        "LiveNotif",
+                        "update: stopping service (previously running for $lastRunningStopId)"
+                    )
                     context.stopService(Intent(context, GoModeNotificationService::class.java))
                     lastRunningStopId = null
                 }
