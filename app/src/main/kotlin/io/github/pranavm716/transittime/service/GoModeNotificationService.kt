@@ -69,7 +69,7 @@ class GoModeNotificationService : Service() {
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Go Mode",
-            NotificationManager.IMPORTANCE_HIGH
+            NotificationManager.IMPORTANCE_LOW
         ).apply {
             description = "Real-time transit departures for Go Mode"
             setShowBadge(false)
@@ -85,7 +85,7 @@ class GoModeNotificationService : Service() {
 
     companion object {
         private const val NOTIFICATION_ID = 1001
-        private const val CHANNEL_ID = "go_mode_channel"
+        private const val CHANNEL_ID = "go_mode_channel_v2"
         private const val EXTRA_WIDGET_ID = "widget_id"
 
         fun update(context: Context) {

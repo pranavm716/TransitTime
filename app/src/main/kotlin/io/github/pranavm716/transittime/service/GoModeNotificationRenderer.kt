@@ -23,7 +23,7 @@ import io.github.pranavm716.transittime.widget.TransitWidget
 
 object GoModeNotificationRenderer {
 
-    private const val CHANNEL_ID = "go_mode_channel"
+    private const val CHANNEL_ID = "go_mode_channel_v2"
 
     fun render(
         context: Context,
