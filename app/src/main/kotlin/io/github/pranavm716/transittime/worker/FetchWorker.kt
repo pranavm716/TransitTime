@@ -12,6 +12,7 @@ import androidx.work.WorkerParameters
 import io.github.pranavm716.transittime.GoModeManager
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.WidgetConfig
+import io.github.pranavm716.transittime.service.GoModeNotificationService
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.transit.TransitError
 import io.github.pranavm716.transittime.wear.TileSnapshotPusher
@@ -77,6 +78,8 @@ class FetchWorker(
 
         val configs = configDao.getAllConfigs()
         val fetchedAt = System.currentTimeMillis()
+
+        GoModeNotificationService.update(context)
 
         for (stopId in clearedStopIds) {
             try {

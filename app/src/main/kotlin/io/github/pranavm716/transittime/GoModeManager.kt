@@ -5,6 +5,7 @@ import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
 import io.github.pranavm716.transittime.data.db.TransitDatabase
+import io.github.pranavm716.transittime.service.GoModeNotificationService
 import io.github.pranavm716.transittime.wear.TileSnapshotPusher
 import io.github.pranavm716.transittime.wear.buildSnapshot
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +22,7 @@ class GoModeManager(context: Context) {
         get() = prefs.getLong(KEY_EXPIRES_AT, 0L)
         set(value) {
             prefs.edit { putLong(KEY_EXPIRES_AT, value) }
+            GoModeNotificationService.update(appContext)
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val db = TransitDatabase.getInstance(appContext)
@@ -56,6 +58,7 @@ class GoModeManager(context: Context) {
         set(value) {
             Log.d("LiveNotif", "goModeWidgetId set: $value")
             prefs.edit { putInt(KEY_WIDGET_ID, value) }
+            GoModeNotificationService.update(appContext)
         }
 
     companion object {

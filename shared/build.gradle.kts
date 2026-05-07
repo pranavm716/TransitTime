@@ -14,6 +14,10 @@ android {
     }
 }
 
+dependencies {
+    implementation(libs.androidx.core.ktx)
+}
+
 kotlin {
     jvmToolchain(17)
 }
