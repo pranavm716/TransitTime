@@ -12,7 +12,6 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Icon
 import android.os.Build
@@ -21,10 +20,10 @@ import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.LocusIdCompat
 import androidx.wear.ongoing.OngoingActivity
 import androidx.wear.ongoing.Status
 import io.github.pranavm716.transittime.model.TileRow
-import io.github.pranavm716.transittime.model.TileSnapshot
 
 class GoModeNotificationService : Service() {
 
@@ -60,14 +59,19 @@ class GoModeNotificationService : Service() {
         )
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_transparent)
-            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+            .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(false)
+            .setShowWhen(false)
+            .setLocalOnly(true)
+            .setOnlyAlertOnce(true)
+            .setColorized(true)
+            .setWhen(0)
             .setColor(soonestRow?.iconBgColor ?: Color.GRAY)
+            .setLocusId(LocusIdCompat("go_mode"))
 
         val statusBuilder = Status.Builder()
 
@@ -85,23 +89,28 @@ class GoModeNotificationService : Service() {
             statusBuilder.addTemplate("#time#").addPart("time", Status.TextPart(soonestTime))
             
             val routeIcon = drawRouteIcon(soonestRow)
-            val ongoingActivity = OngoingActivity.Builder(applicationContext, NOTIFICATION_ID, builder)
+            builder.setSmallIcon(androidx.core.graphics.drawable.IconCompat.createFromIcon(this, routeIcon))
+            
+            val ongoingActivity = OngoingActivity.Builder(this, NOTIFICATION_ID, builder)
                 .setStaticIcon(routeIcon)
                 .setTouchIntent(pendingIntent)
                 .setStatus(statusBuilder.build())
+                .setLocusId(LocusIdCompat("go_mode"))
                 .build()
-            ongoingActivity.apply(applicationContext)
+            ongoingActivity.apply(this)
         } else {
+            builder.setSmallIcon(R.drawable.ic_ongoing_dot)
             builder.setContentTitle("TransitTime")
             builder.setContentText("Loading...")
             statusBuilder.addTemplate("Loading...")
             
-            val ongoingActivity = OngoingActivity.Builder(applicationContext, NOTIFICATION_ID, builder)
+            val ongoingActivity = OngoingActivity.Builder(this, NOTIFICATION_ID, builder)
                 .setStaticIcon(R.drawable.ic_ongoing_dot)
                 .setTouchIntent(pendingIntent)
                 .setStatus(statusBuilder.build())
+                .setLocusId(LocusIdCompat("go_mode"))
                 .build()
-            ongoingActivity.apply(applicationContext)
+            ongoingActivity.apply(this)
         }
 
         startForeground(NOTIFICATION_ID, builder.build())
@@ -148,7 +157,7 @@ class GoModeNotificationService : Service() {
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Go Mode",
-            NotificationManager.IMPORTANCE_LOW
+            NotificationManager.IMPORTANCE_HIGH
         )
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(channel)
@@ -156,7 +165,7 @@ class GoModeNotificationService : Service() {
 
     companion object {
         private const val NOTIFICATION_ID = 888
-        private const val CHANNEL_ID = "go_mode_channel_v3"
+        private const val CHANNEL_ID = "go_mode_channel_v5"
         
         @Volatile
         private var lastRunningStopId: String? = null
