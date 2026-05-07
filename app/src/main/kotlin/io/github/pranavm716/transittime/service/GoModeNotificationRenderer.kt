@@ -46,9 +46,10 @@ object GoModeNotificationRenderer {
             Color.rgb(r, g, if (b < 255) b + 1 else b - 1)
         } else baseColor
 
-        val shortText = "|  $displayTime • $headsign"
+        val shortText = "$displayTime • $headsign"
         val contentTitle = snapshot.stopName
-        val contentText = if (soonestRow != null) "$displayTime to $headsign" else "No upcoming departures"
+        val contentText =
+            if (soonestRow != null) "$displayTime to $headsign" else "No upcoming departures"
 
         val toggleIntent = Intent(TransitWidget.ACTION_TOGGLE_GO_MODE).apply {
             setPackage(context.packageName)
