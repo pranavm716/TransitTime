@@ -31,8 +31,8 @@ class WearDataListenerService : WearableListenerService() {
                                 cache.saveSnapshot(snapshot, pushedAt)
                                 
                                 val localOverride = cache.getLocalGoModeOverride()
-                                if (localOverride != null && localOverride == snapshot.goModeActive) {
-                                    Log.d("LiveNotif", "Snapshot for ${snapshot.stopId} confirms goModeActive=${snapshot.goModeActive}, clearing local override")
+                                if (localOverride != null) {
+                                    Log.d("LiveNotif", "Snapshot received for ${snapshot.stopId}, clearing local override ($localOverride) in favor of phone state (${snapshot.goModeActive})")
                                     cache.setLocalGoModeOverride(null)
                                 }
                             } catch (e: Exception) {

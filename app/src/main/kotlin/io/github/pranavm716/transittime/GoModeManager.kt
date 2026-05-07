@@ -27,11 +27,19 @@ class GoModeManager(context: Context) {
                     val configs = db.widgetConfigDao().getAllConfigs()
                     val departureDao = db.departureDao()
                     val pusher = TileSnapshotPusher(appContext)
-                    val isActive = value > System.currentTimeMillis()
+                    val isGlobalActive = value > System.currentTimeMillis()
+                    val activeWidgetId = goModeWidgetId
                     for (config in configs) {
                         val departures = departureDao.getDeparturesForStop(config.stopId)
-                        val snapshot = buildSnapshot(config, departures, isActive, value)
-                        Log.d(TAG, "GoModeManager: pushing snapshot for stopId=${config.stopId}, goModeActive=$isActive")
+                        val isTarget = isGlobalActive && config.widgetId == activeWidgetId
+                        val snapshot = buildSnapshot(
+                            config = config,
+                            departures = departures,
+                            goModeActive = isGlobalActive,
+                            goModeExpiresAt = value,
+                            goModeTarget = isTarget
+                        )
+                        Log.d(TAG, "GoModeManager: pushing snapshot for stopId=${config.stopId}, goModeActive=$isGlobalActive, isTarget=$isTarget")
                         pusher.pushSnapshot(snapshot)
                     }
                 } catch (e: Exception) {

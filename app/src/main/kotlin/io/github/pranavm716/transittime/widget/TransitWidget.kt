@@ -570,8 +570,15 @@ class TransitWidget : AppWidgetProvider() {
                         if (latestConfig != null) {
                             val goModeManager = GoModeManager(context)
                             val deps = db.departureDao().getDeparturesForStop(latestConfig.stopId)
-                            val isActiveForPill = goModeManager.isGoModeActive && latestConfig.widgetId == goModeManager.goModeWidgetId
-                            val snapshot = buildSnapshot(latestConfig, deps, isActiveForPill, goModeManager.goModeExpiresAt)
+                            val isGlobalActive = goModeManager.isGoModeActive
+                            val isTarget = isGlobalActive && latestConfig.widgetId == goModeManager.goModeWidgetId
+                            val snapshot = buildSnapshot(
+                                config = latestConfig,
+                                departures = deps,
+                                goModeActive = isGlobalActive,
+                                goModeExpiresAt = goModeManager.goModeExpiresAt,
+                                goModeTarget = isTarget
+                            )
                             TileSnapshotPusher(context).pushSnapshot(snapshot)
                         }
                     } catch (e: Exception) {
@@ -586,13 +593,15 @@ class TransitWidget : AppWidgetProvider() {
             // If already active for THIS widget, turn it off.
             // If active for a DIFFERENT widget, switch to this one.
             // If not active, turn it on.
-            if (goModeManager.isGoModeActive && goModeManager.goModeWidgetId == widgetId) {
-                goModeManager.goModeExpiresAt = 0
+            if (goModeManager.isGoModeActive) {
+                // Any toggle while active turns it off globally
                 goModeManager.goModeWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+                goModeManager.goModeExpiresAt = 0
             } else {
+                // Turn on globally for this stop
+                goModeManager.goModeWidgetId = widgetId
                 goModeManager.goModeExpiresAt =
                     System.currentTimeMillis() + GoModeManager.GO_MODE_DURATION_MS
-                goModeManager.goModeWidgetId = widgetId
             }
             if (goModeManager.isGoModeActive) {
                 triggerFetch(context)

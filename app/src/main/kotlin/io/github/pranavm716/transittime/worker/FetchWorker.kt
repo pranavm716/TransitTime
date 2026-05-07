@@ -109,9 +109,17 @@ class FetchWorker(
         for (config in getDeduplicatedConfigs(configs)) {
             try {
                 val deps = departureDao.getDeparturesForStop(config.stopId)
-                val isActiveForPill = goModeManager.isGoModeActive && config.widgetId == activeGoModeWidgetId
-                val loading = buildSnapshot(config, deps, isActiveForPill, goModeManager.goModeExpiresAt, isRefreshing = true)
-                Log.d(TAG, "FetchWorker: pushing loading snapshot for stopId=${config.stopId}, active=$isActiveForPill")
+                val isGlobalActive = goModeManager.isGoModeActive
+                val isTarget = isGlobalActive && config.widgetId == activeGoModeWidgetId
+                val loading = buildSnapshot(
+                    config = config,
+                    departures = deps,
+                    goModeActive = isGlobalActive,
+                    goModeExpiresAt = goModeManager.goModeExpiresAt,
+                    isRefreshing = true,
+                    goModeTarget = isTarget
+                )
+                Log.d(TAG, "FetchWorker: pushing loading snapshot for stopId=${config.stopId}, active=$isGlobalActive, target=$isTarget")
                 pusher.pushSnapshot(loading)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -166,9 +174,16 @@ class FetchWorker(
                             val latestConfig = configDao.getConfig(config.widgetId)
                             if (latestConfig != null) {
                                 val deps = departureDao.getDeparturesForStop(latestConfig.stopId)
-                                val isActiveForPill = goModeManager.isGoModeActive && latestConfig.widgetId == activeGoModeWidgetId
-                                val snapshot = buildSnapshot(latestConfig, deps, isActiveForPill, goModeManager.goModeExpiresAt)
-                                Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId}, active=$isActiveForPill")
+                                val isGlobalActive = goModeManager.isGoModeActive
+                                val isTarget = isGlobalActive && latestConfig.widgetId == activeGoModeWidgetId
+                                val snapshot = buildSnapshot(
+                                    config = latestConfig,
+                                    departures = deps,
+                                    goModeActive = isGlobalActive,
+                                    goModeExpiresAt = goModeManager.goModeExpiresAt,
+                                    goModeTarget = isTarget
+                                )
+                                Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId}, active=$isGlobalActive, target=$isTarget")
                                 pusher.pushSnapshot(snapshot, isFetchResult = true)
                             }
                         } catch (e: Exception) {
@@ -193,9 +208,16 @@ class FetchWorker(
                             val latestConfig = configDao.getConfig(config.widgetId)
                             if (latestConfig != null) {
                                 val deps = departureDao.getDeparturesForStop(latestConfig.stopId)
-                                val isActiveForPill = goModeManager.isGoModeActive && latestConfig.widgetId == activeGoModeWidgetId
-                                val snapshot = buildSnapshot(latestConfig, deps, isActiveForPill, goModeManager.goModeExpiresAt)
-                                Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId} (agency error), active=$isActiveForPill")
+                                val isGlobalActive = goModeManager.isGoModeActive
+                                val isTarget = isGlobalActive && latestConfig.widgetId == activeGoModeWidgetId
+                                val snapshot = buildSnapshot(
+                                    config = latestConfig,
+                                    departures = deps,
+                                    goModeActive = isGlobalActive,
+                                    goModeExpiresAt = goModeManager.goModeExpiresAt,
+                                    goModeTarget = isTarget
+                                )
+                                Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId} (agency error), active=$isGlobalActive, target=$isTarget")
                                 pusher.pushSnapshot(snapshot, isFetchResult = true)
                             }
                         } catch (e2: Exception) {

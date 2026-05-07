@@ -14,7 +14,8 @@ data class TileSnapshot(
     val goModeExpiresAt: Long,
     val rows: List<TileRow>,
     // Nullable so old Gson-cached snapshots without this field deserialize safely.
-    val isRefreshing: Boolean? = false
+    val isRefreshing: Boolean? = false,
+    val goModeTarget: Boolean? = false
 )
 
 data class TileRow(

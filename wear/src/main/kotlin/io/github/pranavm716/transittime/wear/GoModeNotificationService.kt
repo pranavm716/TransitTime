@@ -192,23 +192,35 @@ class GoModeNotificationService : Service() {
                     Log.d("LiveNotif", "update: following local override (inactive)")
                 }
                 null -> {
-                    // Fall back to searching snapshots, but check current stop first
-                    val currentStopId = cache.getCurrentStopId()
-                    val currentSnapshot = currentStopId?.let { cache.getSnapshot(it) }
-                    if (currentSnapshot?.goModeActive == true && currentSnapshot.rows.isNotEmpty()) {
-                        activeStopId = currentStopId
-                        Log.d("LiveNotif", "update: current stop confirmed active by snapshot: $activeStopId")
-                    } else {
-                        val stopIds = cache.getStopIds()
-                        for (stopId in stopIds) {
-                            if (stopId == currentStopId) continue
-                            val snapshot = cache.getSnapshot(stopId)
-                            if (snapshot?.goModeActive == true && snapshot.rows.isNotEmpty()) {
-                                activeStopId = stopId
-                                break
-                            }
+                    // Search for the explicit target stop first
+                    val stopIds = cache.getStopIds()
+                    for (stopId in stopIds) {
+                        val snapshot = cache.getSnapshot(stopId)
+                        if (snapshot?.goModeTarget == true && snapshot.rows.isNotEmpty()) {
+                            activeStopId = stopId
+                            Log.d("LiveNotif", "update: found explicit goModeTarget snapshot: $activeStopId")
+                            break
                         }
-                        Log.d("LiveNotif", "update: searched other snapshots, found stopId=$activeStopId")
+                    }
+
+                    // Fallback to searching snapshots with goModeActive (if no target found)
+                    if (activeStopId == null) {
+                        val currentStopId = cache.getCurrentStopId()
+                        val currentSnapshot = currentStopId?.let { cache.getSnapshot(it) }
+                        if (currentSnapshot?.goModeActive == true && currentSnapshot.rows.isNotEmpty()) {
+                            activeStopId = currentStopId
+                            Log.d("LiveNotif", "update: current stop confirmed active by snapshot: $activeStopId")
+                        } else {
+                            for (stopId in stopIds) {
+                                if (stopId == currentStopId) continue
+                                val snapshot = cache.getSnapshot(stopId)
+                                if (snapshot?.goModeActive == true && snapshot.rows.isNotEmpty()) {
+                                    activeStopId = stopId
+                                    break
+                                }
+                            }
+                            Log.d("LiveNotif", "update: searched other snapshots, found stopId=$activeStopId")
+                        }
                     }
                 }
             }
