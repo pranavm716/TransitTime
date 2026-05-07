@@ -52,8 +52,7 @@ class GoModeNotificationService : Service() {
             888,
             Intent(this, ActionActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                putExtra(ActionActivity.EXTRA_ACTION, "open_stop")
-                putExtra("stopId", stopId)
+                putExtra(ActionActivity.EXTRA_ACTION, "/action/go_mode_toggle")
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
