@@ -19,6 +19,7 @@ import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.util.RouteIconDrawer
 import io.github.pranavm716.transittime.util.getDisplayTime
+import io.github.pranavm716.transittime.util.groupDepartures
 import io.github.pranavm716.transittime.widget.TransitWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -56,14 +57,22 @@ class GoModeNotificationService : Service() {
         val db = TransitDatabase.getInstance(this)
         val config = db.widgetConfigDao().getConfig(widgetId) ?: return
         val departures = db.departureDao().getDeparturesForStop(config.stopId)
-        val soonest = departures.firstOrNull() ?: return
+
+        val now = System.currentTimeMillis()
+        val (groups, _) = groupDepartures(
+            departures = departures,
+            filteredHeadsigns = config.filteredHeadsigns,
+            maxDepartures = config.maxDepartures,
+            now = now,
+            maxRows = 1
+        )
+        val soonest = groups.firstOrNull()?.firstOrNull() ?: return
 
         val handler = AgencyRegistry.get(config.agency)
         val routeStyle = handler.getRouteStyle(soonest.routeName)
         val iconText = handler.getIconText(soonest.routeName)
         val icon = RouteIconDrawer.draw(routeStyle, iconText, 96)
 
-        val now = System.currentTimeMillis()
         val displayTime = getDisplayTime(
             arrivalTimestamp = soonest.arrivalTimestamp,
             departureTimestamp = soonest.departureTimestamp,
