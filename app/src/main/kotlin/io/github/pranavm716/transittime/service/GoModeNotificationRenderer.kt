@@ -4,7 +4,11 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
@@ -56,7 +60,7 @@ object GoModeNotificationRenderer {
             hybridThresholdMinutes = config.hybridThresholdMinutes
         )
 
-        val shortText = "$displayTime • ${soonest.headsign}"
+        val shortText = "• $displayTime • ${soonest.headsign}"
         val contentTitle = config.stopName
         val contentText = "$displayTime to ${soonest.headsign}"
 
@@ -73,16 +77,17 @@ object GoModeNotificationRenderer {
 
         return if (Build.VERSION.SDK_INT >= 36) { // Android 16
             Notification.Builder(context, CHANNEL_ID)
-                .setSmallIcon(Icon.createWithBitmap(icon))
-                .setLargeIcon(icon)
+                // We "trick" the OS by making the icon just the text with no shape around it.
+                // This removes the empty gap at the front while following the requested format.
+                .setSmallIcon(drawTextIcon(iconText, routeStyle.textColor))
                 .setContentTitle(contentTitle)
                 .setContentText(contentText)
                 .setOngoing(true)
                 .setContentIntent(pendingIntent)
                 .setCategory(Notification.CATEGORY_NAVIGATION)
                 .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
-                // Set the pill background to black as requested
-                .setColor(Color.BLACK)
+                // Set the pill background to the route color as requested
+                .setColor(baseColor)
                 .addExtras(Bundle().apply {
                     putCharSequence("android.shortCriticalText", shortText)
                     putBoolean("android.requestPromotedOngoing", true)
@@ -101,5 +106,28 @@ object GoModeNotificationRenderer {
                 .setColor(baseColor)
                 .build()
         }
+    }
+
+    private fun drawTextIcon(text: String, color: Int): Icon {
+        val size = 96
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = color
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+            textAlign = Paint.Align.CENTER
+            textSize = size * 0.8f
+        }
+
+        val maxWidth = size * 1.0f
+        val measuredWidth = paint.measureText(text)
+        if (measuredWidth > maxWidth) {
+            paint.textSize *= (maxWidth / measuredWidth)
+        }
+
+        val x = size / 2f
+        val y = size / 2f - (paint.descent() + paint.ascent()) / 2f
+        canvas.drawText(text, x, y, paint)
+        return Icon.createWithBitmap(bitmap)
     }
 }
