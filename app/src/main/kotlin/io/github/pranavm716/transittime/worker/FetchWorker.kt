@@ -79,8 +79,6 @@ class FetchWorker(
         val configs = configDao.getAllConfigs()
         val fetchedAt = System.currentTimeMillis()
 
-        GoModeNotificationService.update(context)
-
         for (stopId in clearedStopIds) {
             try {
                 Log.d(TAG, "FetchWorker: deleting snapshot for cleared stopId=$stopId")
@@ -240,6 +238,7 @@ class FetchWorker(
         }
 
         if (goModeManager.isGoModeActive) {
+            GoModeNotificationService.update(context)
             WorkManager.getInstance(context).enqueueUniqueWork(
                 TransitWidget.GO_MODE_FETCH_WORK_NAME,
                 ExistingWorkPolicy.REPLACE,

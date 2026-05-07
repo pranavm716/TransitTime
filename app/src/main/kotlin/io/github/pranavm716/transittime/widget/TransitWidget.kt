@@ -18,6 +18,7 @@ import androidx.work.WorkManager
 import io.github.pranavm716.transittime.GoModeManager
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.TransitApplication
+import io.github.pranavm716.transittime.service.GoModeNotificationService
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.DelayColorMode
@@ -206,9 +207,7 @@ class TransitWidget : AppWidgetProvider() {
                 views.setOnClickPendingIntent(R.id.llGoMode, toggleGoModePendingIntent)
 
                 val allDepartures = db.departureDao().getDeparturesForStop(config.stopId)
-                val nowVal = config.lastFetchedAt.takeIf { it > 0L }
-                    ?: allDepartures.maxOfOrNull { it.fetchedAt }
-                    ?: System.currentTimeMillis()
+                val nowVal = System.currentTimeMillis()
                 val (grouped, overflow) = groupDepartures(allDepartures, config.filteredHeadsigns, config.maxDepartures, nowVal, maxRows)
 
                 val freshnessText = resolveFreshnessText(db, config)
@@ -565,6 +564,7 @@ class TransitWidget : AppWidgetProvider() {
                     }
                     configDao.upsertConfig(config.copy(displayMode = nextMode))
                     updateWidget(context, appWidgetManager, widgetId)
+                    GoModeNotificationService.update(context)
                     try {
                         val latestConfig = configDao.getConfig(widgetId)
                         if (latestConfig != null) {

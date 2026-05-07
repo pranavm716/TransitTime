@@ -18,7 +18,6 @@ import io.github.pranavm716.transittime.data.model.Departure
 import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.util.RouteIconDrawer
-import io.github.pranavm716.transittime.util.getDisplayTime
 import io.github.pranavm716.transittime.widget.TransitWidget
 
 object GoModeNotificationRenderer {
@@ -35,10 +34,9 @@ object GoModeNotificationRenderer {
         val handler = AgencyRegistry.get(config.agency)
         val routeStyle = handler.getRouteStyle(soonest.routeName)
         val iconText = handler.getIconText(soonest.routeName)
-
-        // Draw the icon as it appears on the widget.
-        // We "poison" grayscale colors to prevent Android 16 from auto-tinting it as a template.
         val baseColor = routeStyle.backgroundColor
+
+        // We "poison" grayscale colors to prevent Android 16 from auto-tinting it as a template.
         val r = Color.red(baseColor)
         val g = Color.green(baseColor)
         val b = Color.blue(baseColor)
@@ -47,20 +45,14 @@ object GoModeNotificationRenderer {
             Color.rgb(r, g, if (b < 255) b + 1 else b - 1)
         } else baseColor
 
-        val styleForIcon = routeStyle.copy(backgroundColor = displayColor)
-        val icon = RouteIconDrawer.draw(styleForIcon, iconText, 96)
-
-        val displayTime = getDisplayTime(
-            arrivalTimestamp = soonest.arrivalTimestamp,
-            departureTimestamp = soonest.departureTimestamp,
-            isOriginStop = soonest.isOriginStop,
-            isScheduled = soonest.isScheduled,
+        val displayTime = soonest.getDisplayTime(
             now = now,
             displayMode = config.displayMode,
-            hybridThresholdMinutes = config.hybridThresholdMinutes
+            hybridThresholdMinutes = config.hybridThresholdMinutes,
+            departingWindowMillis = 60_000 // Match widget logic for Go Mode
         )
 
-        val shortText = "• $displayTime • ${soonest.headsign}"
+        val shortText = "|  $displayTime • ${soonest.headsign}"
         val contentTitle = config.stopName
         val contentText = "$displayTime to ${soonest.headsign}"
 
@@ -77,8 +69,6 @@ object GoModeNotificationRenderer {
 
         return if (Build.VERSION.SDK_INT >= 36) { // Android 16
             Notification.Builder(context, CHANNEL_ID)
-                // We "trick" the OS by making the icon just the text with no shape around it.
-                // This removes the empty gap at the front while following the requested format.
                 .setSmallIcon(drawTextIcon(iconText, routeStyle.textColor))
                 .setContentTitle(contentTitle)
                 .setContentText(contentText)
@@ -87,13 +77,15 @@ object GoModeNotificationRenderer {
                 .setCategory(Notification.CATEGORY_NAVIGATION)
                 .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
                 // Set the pill background to the route color as requested
-                .setColor(baseColor)
+                .setColor(displayColor)
                 .addExtras(Bundle().apply {
                     putCharSequence("android.shortCriticalText", shortText)
                     putBoolean("android.requestPromotedOngoing", true)
                 })
                 .build()
         } else {
+            val styleForIcon = routeStyle.copy(backgroundColor = displayColor)
+            val icon = RouteIconDrawer.draw(styleForIcon, iconText, 96)
             NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_ongoing_dot)
                 .setLargeIcon(icon)
@@ -103,7 +95,7 @@ object GoModeNotificationRenderer {
                 .setContentIntent(pendingIntent)
                 .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setColor(baseColor)
+                .setColor(displayColor)
                 .build()
         }
     }
