@@ -1,26 +1,17 @@
 package io.github.pranavm716.transittime.service
 
 import android.Manifest
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.IBinder
-import androidx.core.app.NotificationCompat
 import io.github.pranavm716.transittime.GoModeManager
-import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.data.db.TransitDatabase
-import io.github.pranavm716.transittime.transit.AgencyRegistry
-import io.github.pranavm716.transittime.util.RouteIconDrawer
-import io.github.pranavm716.transittime.util.getDisplayTime
 import io.github.pranavm716.transittime.util.groupDepartures
-import io.github.pranavm716.transittime.widget.TransitWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -68,68 +59,7 @@ class GoModeNotificationService : Service() {
         )
         val soonest = groups.firstOrNull()?.firstOrNull() ?: return
 
-        val handler = AgencyRegistry.get(config.agency)
-        val routeStyle = handler.getRouteStyle(soonest.routeName)
-        val iconText = handler.getIconText(soonest.routeName)
-        val icon = RouteIconDrawer.draw(routeStyle, iconText, 96)
-
-        val displayTime = getDisplayTime(
-            arrivalTimestamp = soonest.arrivalTimestamp,
-            departureTimestamp = soonest.departureTimestamp,
-            isOriginStop = soonest.isOriginStop,
-            isScheduled = soonest.isScheduled,
-            now = now,
-            displayMode = config.displayMode,
-            hybridThresholdMinutes = config.hybridThresholdMinutes
-        )
-
-        val shortText = "$displayTime • ${soonest.headsign}"
-        val contentTitle = config.stopName
-        val contentText = "$displayTime to ${soonest.headsign}"
-
-        val toggleIntent = Intent(TransitWidget.ACTION_TOGGLE_GO_MODE).apply {
-            setPackage(packageName)
-            putExtra(TransitWidget.EXTRA_WIDGET_ID, widgetId)
-        }
-        val pendingIntent = PendingIntent.getBroadcast(
-            this,
-            widgetId,
-            toggleIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val notificationColor = getColor(R.color.accent_color)
-        val smallIcon = Icon.createWithBitmap(icon).apply {
-            setTint(notificationColor)
-        }
-
-        val notification = if (Build.VERSION.SDK_INT >= 36) { // Android 16
-            Notification.Builder(this, CHANNEL_ID)
-                .setSmallIcon(smallIcon)
-                .setContentTitle(contentTitle)
-                .setContentText(contentText)
-                .setOngoing(true)
-                .setContentIntent(pendingIntent)
-                .setCategory(Notification.CATEGORY_NAVIGATION)
-                .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
-                // New Android 16 APIs (Using extras to bypass unresolved reference in older SDKs if needed)
-                .setColor(notificationColor)
-                .addExtras(android.os.Bundle().apply {
-                    putCharSequence("android.shortCriticalText", shortText)
-                    putBoolean("android.requestPromotedOngoing", true)
-                })
-                .build()
-        } else {
-            NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_ongoing_dot) // Fallback small icon
-                .setLargeIcon(icon)
-                .setContentTitle(contentTitle)
-                .setContentText(contentText)
-                .setOngoing(true)
-                .setContentIntent(pendingIntent)
-                .setCategory(NotificationCompat.CATEGORY_NAVIGATION)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .build()
-        }
+        val notification = GoModeNotificationRenderer.render(this, widgetId, config, soonest, now)
 
         withContext(Dispatchers.Main) {
             startForeground(NOTIFICATION_ID, notification)
