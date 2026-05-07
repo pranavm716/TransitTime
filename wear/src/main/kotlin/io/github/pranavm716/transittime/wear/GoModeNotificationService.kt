@@ -23,7 +23,6 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.wear.ongoing.OngoingActivity
 import androidx.wear.ongoing.Status
-import io.github.pranavm716.transittime.model.IconShape
 import io.github.pranavm716.transittime.model.TileRow
 import io.github.pranavm716.transittime.model.TileSnapshot
 
@@ -61,13 +60,14 @@ class GoModeNotificationService : Service() {
         )
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_ongoing_dot)
+            .setSmallIcon(R.drawable.ic_transparent)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(false)
+            .setColor(soonestRow?.iconBgColor ?: Color.GRAY)
 
         val statusBuilder = Status.Builder()
 
@@ -86,7 +86,7 @@ class GoModeNotificationService : Service() {
             
             val routeIcon = drawRouteIcon(soonestRow)
             val ongoingActivity = OngoingActivity.Builder(applicationContext, NOTIFICATION_ID, builder)
-                .setStaticIcon(Icon.createWithBitmap(routeIcon))
+                .setStaticIcon(routeIcon)
                 .setTouchIntent(pendingIntent)
                 .setStatus(statusBuilder.build())
                 .build()
@@ -108,31 +108,35 @@ class GoModeNotificationService : Service() {
         return START_STICKY
     }
 
-    private fun drawRouteIcon(row: TileRow): Bitmap {
-        val size = 48
+    private fun drawRouteIcon(row: TileRow): Icon {
+        val size = 96
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
+        // Draw a full-bleed circle background.
         paint.color = row.iconBgColor
-        val rect = RectF(0f, 0f, size.toFloat(), size.toFloat())
-        val radius = when (row.iconShape) {
-            IconShape.SQUARE -> size * 0.1f
-            IconShape.CIRCLE -> size / 2f
-            IconShape.ROUNDED_RECT -> size * 0.3f
-            else -> 0f
-        }
-        canvas.drawRoundRect(rect, radius, radius, paint)
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
 
+        val iconText = row.iconText ?: ""
+        val baseTextSize = size * 0.5f
         paint.color = if (row.iconTextColor != 0) row.iconTextColor else Color.WHITE
-        paint.textSize = size * 0.5f
         paint.typeface = Typeface.DEFAULT_BOLD
         paint.textAlign = Paint.Align.CENTER
+        paint.textSize = baseTextSize
+
+        // Scale text size down if it doesn't fit within 80% of the circle's diameter
+        val measuredWidth = paint.measureText(iconText)
+        val maxWidth = size * 0.8f
+        if (measuredWidth > maxWidth) {
+            paint.textSize = baseTextSize * (maxWidth / measuredWidth)
+        }
+
         val x = size / 2f
         val y = size / 2f - (paint.descent() + paint.ascent()) / 2f
-        canvas.drawText(row.iconText ?: "", x, y, paint)
+        canvas.drawText(iconText, x, y, paint)
 
-        return bitmap
+        return Icon.createWithBitmap(bitmap)
     }
 
     override fun onDestroy() {
