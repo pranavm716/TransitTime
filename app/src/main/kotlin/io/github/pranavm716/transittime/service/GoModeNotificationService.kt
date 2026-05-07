@@ -11,7 +11,7 @@ import android.os.Build
 import android.os.IBinder
 import io.github.pranavm716.transittime.GoModeManager
 import io.github.pranavm716.transittime.data.db.TransitDatabase
-import io.github.pranavm716.transittime.util.groupDepartures
+import io.github.pranavm716.transittime.wear.buildSnapshot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -49,17 +49,16 @@ class GoModeNotificationService : Service() {
         val config = db.widgetConfigDao().getConfig(widgetId) ?: return
         val departures = db.departureDao().getDeparturesForStop(config.stopId)
 
-        val now = System.currentTimeMillis()
-        val (groups, _) = groupDepartures(
+        val goModeManager = GoModeManager(this)
+        val snapshot = buildSnapshot(
+            config = config,
             departures = departures,
-            filteredHeadsigns = config.filteredHeadsigns,
-            maxDepartures = config.maxDepartures,
-            now = now,
-            maxRows = 1
+            goModeActive = goModeManager.isGoModeActive,
+            goModeExpiresAt = goModeManager.goModeExpiresAt,
+            goModeTarget = true // This widget is the target for the notification
         )
-        val soonest = groups.firstOrNull()?.firstOrNull() ?: return
 
-        val notification = GoModeNotificationRenderer.render(this, widgetId, config, soonest, now)
+        val notification = GoModeNotificationRenderer.render(this, widgetId, snapshot)
 
         withContext(Dispatchers.Main) {
             startForeground(NOTIFICATION_ID, notification)

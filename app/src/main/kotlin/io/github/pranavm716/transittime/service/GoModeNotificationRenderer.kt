@@ -14,10 +14,11 @@ import android.os.Build
 import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import io.github.pranavm716.transittime.R
-import io.github.pranavm716.transittime.data.model.Departure
-import io.github.pranavm716.transittime.data.model.WidgetConfig
-import io.github.pranavm716.transittime.transit.AgencyRegistry
+import io.github.pranavm716.transittime.model.IconShape
+import io.github.pranavm716.transittime.model.TileSnapshot
 import io.github.pranavm716.transittime.util.RouteIconDrawer
+import io.github.pranavm716.transittime.util.RouteShape
+import io.github.pranavm716.transittime.util.RouteStyle
 import io.github.pranavm716.transittime.widget.TransitWidget
 
 object GoModeNotificationRenderer {
@@ -27,14 +28,14 @@ object GoModeNotificationRenderer {
     fun render(
         context: Context,
         widgetId: Int,
-        config: WidgetConfig,
-        soonest: Departure,
-        now: Long
+        snapshot: TileSnapshot
     ): Notification {
-        val handler = AgencyRegistry.get(config.agency)
-        val routeStyle = handler.getRouteStyle(soonest.routeName)
-        val iconText = handler.getIconText(soonest.routeName)
-        val baseColor = routeStyle.backgroundColor
+        val soonestRow = snapshot.rows.firstOrNull()
+        val displayTime = soonestRow?.displayTimes?.firstOrNull() ?: "—"
+        val headsign = soonestRow?.headsign ?: "No departures"
+        val baseColor = soonestRow?.iconBgColor ?: Color.GRAY
+        val iconText = soonestRow?.iconText ?: soonestRow?.routeName ?: "?"
+        val iconTextColor = soonestRow?.iconTextColor ?: Color.WHITE
 
         // We "poison" grayscale colors to prevent Android 16 from auto-tinting it as a template.
         val r = Color.red(baseColor)
@@ -45,16 +46,9 @@ object GoModeNotificationRenderer {
             Color.rgb(r, g, if (b < 255) b + 1 else b - 1)
         } else baseColor
 
-        val displayTime = soonest.getDisplayTime(
-            now = now,
-            displayMode = config.displayMode,
-            hybridThresholdMinutes = config.hybridThresholdMinutes,
-            departingWindowMillis = 60_000 // Match widget logic for Go Mode
-        )
-
-        val shortText = "|  $displayTime • ${soonest.headsign}"
-        val contentTitle = config.stopName
-        val contentText = "$displayTime to ${soonest.headsign}"
+        val shortText = "|  $displayTime • $headsign"
+        val contentTitle = snapshot.stopName
+        val contentText = if (soonestRow != null) "$displayTime to $headsign" else "No upcoming departures"
 
         val toggleIntent = Intent(TransitWidget.ACTION_TOGGLE_GO_MODE).apply {
             setPackage(context.packageName)
@@ -69,7 +63,7 @@ object GoModeNotificationRenderer {
 
         return if (Build.VERSION.SDK_INT >= 36) { // Android 16
             Notification.Builder(context, CHANNEL_ID)
-                .setSmallIcon(drawTextIcon(iconText, routeStyle.textColor))
+                .setSmallIcon(drawTextIcon(iconText, iconTextColor))
                 .setContentTitle(contentTitle)
                 .setContentText(contentText)
                 .setOngoing(true)
@@ -84,7 +78,16 @@ object GoModeNotificationRenderer {
                 })
                 .build()
         } else {
-            val styleForIcon = routeStyle.copy(backgroundColor = displayColor)
+            val styleForIcon = RouteStyle(
+                backgroundColor = displayColor,
+                textColor = iconTextColor,
+                shape = when (soonestRow?.iconShape) {
+                    IconShape.SQUARE -> RouteShape.SQUARE
+                    IconShape.ROUNDED_RECT -> RouteShape.ROUNDED_RECT
+                    IconShape.RECT -> RouteShape.RECT
+                    else -> RouteShape.CIRCLE
+                }
+            )
             val icon = RouteIconDrawer.draw(styleForIcon, iconText, 96)
             NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_ongoing_dot)

@@ -597,11 +597,15 @@ class TransitWidget : AppWidgetProvider() {
                 // Any toggle while active turns it off globally
                 goModeManager.goModeWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
                 goModeManager.goModeExpiresAt = 0
+                // Immediately update to dismiss the notification
+                GoModeNotificationService.update(context)
             } else {
                 // Turn on globally for this stop
                 goModeManager.goModeWidgetId = widgetId
                 goModeManager.goModeExpiresAt =
                     System.currentTimeMillis() + GoModeManager.GO_MODE_DURATION_MS
+                // We do NOT call GoModeNotificationService.update here.
+                // Instead, triggerFetch will lead to FetchWorker starting it with fresh data.
             }
             if (goModeManager.isGoModeActive) {
                 triggerFetch(context)
