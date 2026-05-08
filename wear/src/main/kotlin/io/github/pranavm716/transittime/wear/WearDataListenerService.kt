@@ -41,18 +41,18 @@ class WearDataListenerService : WearableListenerService() {
                         val snapshotJson = dataMap.getString("snapshot")
                         if (snapshotJson != null) {
                             try {
-                                val snapshot = com.google.gson.Gson().fromJson(snapshotJson, io.github.pranavm716.transittime.model.TileSnapshot::class.java)
+                                val snapshot = com.google.gson.Gson().fromJson(
+                                    snapshotJson,
+                                    io.github.pranavm716.transittime.model.TileSnapshot::class.java
+                                )
                                 val pushedAt = dataMap.getLong("pushedAt")
                                 cache.saveSnapshot(snapshot, pushedAt)
-
-                                if (snapshot.goModeTarget == true) {
-                                    Log.d("WearDataListener", "Go Mode target received for ${snapshot.stopId}, focusing")
-                                    cache.saveCurrentStopId(snapshot.stopId)
-                                }
-
                                 val localOverride = cache.getLocalGoModeOverride()
                                 if (localOverride != null) {
-                                    Log.d("LiveNotif", "Snapshot received for ${snapshot.stopId}, clearing local override ($localOverride) in favor of phone state (${snapshot.goModeActive})")
+                                    Log.d(
+                                        "LiveNotif",
+                                        "Snapshot received for ${snapshot.stopId}, clearing local override ($localOverride) in favor of phone state (${snapshot.goModeActive})"
+                                    )
                                     cache.setLocalGoModeOverride(null)
                                 }
                             } catch (e: Exception) {
@@ -77,6 +77,7 @@ class WearDataListenerService : WearableListenerService() {
                         }
                         shouldRefresh = true
                     }
+
                     path == "/tile_snapshot_index" -> {
                         shouldRefresh = true
                     }
