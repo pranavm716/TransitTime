@@ -35,21 +35,23 @@ import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.DelayColorMode
 import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.data.model.WidgetConfig
-import io.github.pranavm716.transittime.service.GoModeNotificationService
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.transit.TransitError
 import io.github.pranavm716.transittime.wear.TileSnapshotPusher
 import io.github.pranavm716.transittime.wear.buildSnapshot
-import io.github.pranavm716.transittime.GoModeManager
 import android.util.Log
-import android.content.pm.PackageManager
-import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
+import io.github.pranavm716.transittime.util.PermissionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class TransitWidgetConfig : AppCompatActivity() {
+
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { PermissionManager(this).requestBatteryOptimizationOnFirstRun(this) }
 
     private var widgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var selectedStopId: String? = null
@@ -66,6 +68,9 @@ class TransitWidgetConfig : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setResult(RESULT_CANCELED)
+        val pm = PermissionManager(this)
+        val launchedNotif = pm.requestPermissionsOnFirstRun(permissionLauncher)
+        if (!launchedNotif) pm.requestBatteryOptimizationOnFirstRun(this)
         setContentView(R.layout.activity_widget_config)
 
         val scrollView = findViewById<NestedScrollView>(R.id.nestedScrollView)
@@ -112,7 +117,6 @@ class TransitWidgetConfig : AppCompatActivity() {
         val btnClearSearch = findViewById<ImageButton>(R.id.btnClearSearch)
         val tvSelectedStop = findViewById<TextView>(R.id.tvSelectedStop)
         val btnSave = findViewById<Button>(R.id.btnSave)
-        val rgDisplayMode = findViewById<RadioGroup>(R.id.rgDisplayMode)
         val rbRelative = findViewById<RadioButton>(R.id.rbRelative)
         val rbAbsolute = findViewById<RadioButton>(R.id.rbAbsolute)
         val rbHybrid = findViewById<RadioButton>(R.id.rbHybrid)
@@ -423,7 +427,6 @@ class TransitWidgetConfig : AppCompatActivity() {
                     .filter { it.stopId == oldStopId && it.widgetId != widgetId }
                 if (remaining.isEmpty()) {
                     departureDao.deleteDeparturesForStop(oldStopId)
-                    // Scenario (2): stopId changed — delete the old snapshot first
                     try {
                         Log.d("TransitWear", "TransitWidgetConfig: stopId changed, deleting snapshot for oldStopId=$oldStopId")
                         TileSnapshotPusher(applicationContext).deleteSnapshot(oldStopId)
@@ -435,7 +438,6 @@ class TransitWidgetConfig : AppCompatActivity() {
 
             configDao.upsertConfig(finalConfig)
 
-            // If it's a new widget/stop, perform an initial fetch immediately so updateWidget has data
             if (finalConfig.lastFetchedAt == 0L) {
                 try {
                     val handler = AgencyRegistry.get(agency)
@@ -453,11 +455,9 @@ class TransitWidgetConfig : AppCompatActivity() {
                 }
             }
 
-            // Scenario (1) new widget / Scenario (2) updated widget — push snapshot + index
             try {
-                val goModeManager = GoModeManager(applicationContext)
                 val snapshotDeps = departureDao.getDeparturesForStop(stopId)
-                val snapshot = buildSnapshot(finalConfig, snapshotDeps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
+                val snapshot = buildSnapshot(finalConfig, snapshotDeps, goModeActive = false, goModeExpiresAt = 0L)
                 val label = if (isNewWidget) "widget added" else "widget updated"
                 Log.d("TransitWear", "TransitWidgetConfig: $label, pushing snapshot for stopId=${finalConfig.stopId}")
                 val pusher = TileSnapshotPusher(applicationContext)
@@ -474,7 +474,6 @@ class TransitWidgetConfig : AppCompatActivity() {
                     AppWidgetManager.getInstance(applicationContext),
                     widgetId
                 )
-                GoModeNotificationService.update(applicationContext)
                 TransitWidget.triggerFetch(applicationContext)
                 val resultIntent = Intent().apply {
                     putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)

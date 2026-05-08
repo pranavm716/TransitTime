@@ -46,23 +46,12 @@
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="io.github.pranavm716.transittime.ACTION_REFRESH" />
                 <action android:name="io.github.pranavm716.transittime.ACTION_CYCLE_DISPLAY_MODE" />
-                <action android:name="io.github.pranavm716.transittime.ACTION_TOGGLE_GO_MODE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_info" />
         </receiver>
 
-        <!-- Go Mode Service -->
-        <service
-            android:name=".service.GoModeNotificationService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_TYPE"
-                android:value="Used to provide real-time transit departure updates in the status bar and notification shade during 'Go Mode' (active trip navigation)." />
-        </service>
 
         <!-- Wear OS Data Layer -->
         <service

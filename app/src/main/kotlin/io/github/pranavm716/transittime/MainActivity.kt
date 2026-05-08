@@ -1,25 +1,20 @@
 package io.github.pranavm716.transittime
 
-import android.content.Intent
-import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
-import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import io.github.pranavm716.transittime.service.GoModeNotificationService
 import io.github.pranavm716.transittime.util.PermissionManager
-import io.github.pranavm716.transittime.widget.TransitWidget
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var statusText: TextView
-    private lateinit var stopButton: Button
+    private lateinit var notifButton: Button
     private lateinit var batteryButton: Button
     private lateinit var permissionManager: PermissionManager
 
@@ -33,93 +28,53 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         permissionManager = PermissionManager(this)
 
+        val bgMain = ContextCompat.getColor(this, R.color.bg_main)
+        val textPrimary = ContextCompat.getColor(this, R.color.text_primary)
+        val textSecondary = ContextCompat.getColor(this, R.color.text_secondary)
+
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(64, 64, 64, 64)
-            setBackgroundColor(Color.WHITE)
+            setBackgroundColor(bgMain)
+            setPadding(dp(24), dp(40), dp(24), dp(40))
         }
 
-        val title = TextView(this).apply {
+        root.addView(TextView(this).apply {
             text = "TransitTime"
             textSize = 28f
             setTypeface(null, Typeface.BOLD)
-            setTextColor(Color.BLACK)
-        }
-        root.addView(title)
+            setTextColor(textPrimary)
+            setPadding(0, 0, 0, dp(32))
+        })
 
-        statusText = TextView(this).apply {
-            textSize = 18f
-            setPadding(0, 48, 0, 16)
-        }
-        root.addView(statusText)
+        root.addView(sectionLabel("PERMISSIONS", textSecondary))
 
-        stopButton = Button(this).apply {
-            text = "Stop Go Mode"
-            visibility = View.GONE
-            setOnClickListener {
-                val goModeManager = GoModeManager(this@MainActivity)
-                goModeManager.goModeExpiresAt = 0
-                GoModeNotificationService.update(this@MainActivity)
-                
-                val widgetId = goModeManager.goModeWidgetId
-                if (widgetId != -1) {
-                    val intent = Intent(TransitWidget.ACTION_REFRESH).apply {
-                        setPackage(packageName)
-                        putExtra(TransitWidget.EXTRA_WIDGET_ID, widgetId)
-                    }
-                    sendBroadcast(intent)
-                }
-                updateUI()
-            }
-        }
-        root.addView(stopButton)
-
-        val sectionTitle = TextView(this).apply {
-            text = "Optimization & Permissions"
-            textSize = 20f
-            setTypeface(null, Typeface.BOLD)
-            setPadding(0, 64, 0, 16)
-            setTextColor(Color.BLACK)
-        }
-        root.addView(sectionTitle)
-
-        val description = TextView(this).apply {
-            text = "For reliable background updates and real-time Go Mode notifications, please ensure the following are enabled:"
+        notifButton = Button(this).apply {
             textSize = 14f
-            setPadding(0, 0, 0, 32)
-            setTextColor(Color.DKGRAY)
-        }
-        root.addView(description)
-
-        val permissionButton = Button(this).apply {
-            text = "Grant Notification Permissions"
+            setTextColor(textPrimary)
             setOnClickListener {
-                if (permissionManager.hasNotificationPermissions()) {
-                    Toast.makeText(this@MainActivity, "Permissions already granted", Toast.LENGTH_SHORT).show()
-                } else {
+                if (!permissionManager.hasNotificationPermissions()) {
                     permissionManager.requestNotificationPermissions(requestPermissionLauncher)
                 }
             }
         }
-        root.addView(permissionButton)
+        root.addView(notifButton, matchWidth(bottomDp = 12))
 
         batteryButton = Button(this).apply {
-            text = "Disable Battery Optimization"
+            textSize = 14f
+            setTextColor(textPrimary)
             setOnClickListener {
                 startActivity(permissionManager.createBatteryOptimizationIntent())
             }
         }
-        root.addView(batteryButton)
+        root.addView(batteryButton, matchWidth())
 
-        val helpText = TextView(this).apply {
-            text = "\nTip: Add a TransitTime widget to your home screen to start tracking departures."
-            textSize = 14f
-            alpha = 0.7f
-            setTextColor(Color.GRAY)
-        }
-        root.addView(helpText)
+        setContentView(ScrollView(this).apply {
+            setBackgroundColor(bgMain)
+            addView(root)
+        })
 
-        setContentView(root)
+        val launchedNotif = permissionManager.requestPermissionsOnFirstRun(requestPermissionLauncher)
+        if (!launchedNotif) permissionManager.requestBatteryOptimizationOnFirstRun(this)
     }
 
     override fun onResume() {
@@ -128,23 +83,52 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateUI() {
-        val goModeManager = GoModeManager(this)
-        if (goModeManager.isGoModeActive) {
-            statusText.text = "Go Mode is ACTIVE"
-            statusText.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
-            stopButton.visibility = View.VISIBLE
-        } else {
-            statusText.text = "Go Mode is Inactive"
-            statusText.setTextColor(Color.GRAY)
-            stopButton.visibility = View.GONE
-        }
+        val accent = ContextCompat.getColor(this, R.color.accent_color)
+        val bgContainer = ContextCompat.getColor(this, R.color.bg_container)
+        val textPrimary = ContextCompat.getColor(this, R.color.text_primary)
 
-        if (permissionManager.isBatteryOptimizationIgnored()) {
-            batteryButton.text = "Battery: Unrestricted (Good)"
-            batteryButton.isEnabled = false
-        } else {
-            batteryButton.text = "Set Battery to Unrestricted"
-            batteryButton.isEnabled = true
-        }
+        val hasNotif = permissionManager.hasNotificationPermissions()
+        notifButton.text = if (hasNotif) "✓  Notifications Granted" else "Grant Notification Permissions"
+        notifButton.backgroundTintList = null
+        notifButton.background = if (hasNotif) outlined(bgContainer, accent) else filled(accent)
+        notifButton.setTextColor(if (hasNotif) accent else textPrimary)
+        notifButton.alpha = if (hasNotif) 0.7f else 1f
+
+        val hasBattery = permissionManager.isBatteryOptimizationIgnored()
+        batteryButton.text = if (hasBattery) "✓  Battery Unrestricted" else "Set Battery to Unrestricted"
+        batteryButton.backgroundTintList = null
+        batteryButton.background = if (hasBattery) outlined(bgContainer, accent) else filled(accent)
+        batteryButton.setTextColor(if (hasBattery) accent else textPrimary)
+        batteryButton.alpha = if (hasBattery) 0.7f else 1f
     }
+
+    private fun sectionLabel(text: String, color: Int) = TextView(this).apply {
+        this.text = text
+        textSize = 11f
+        letterSpacing = 0.12f
+        setTypeface(null, Typeface.BOLD)
+        setTextColor(color)
+        setPadding(0, dp(8), 0, dp(12))
+    }
+
+    private fun filled(color: Int) = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = dp(12).toFloat()
+        setColor(color)
+    }
+
+    private fun outlined(fill: Int, stroke: Int) = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = dp(12).toFloat()
+        setColor(fill)
+        setStroke(dp(1), stroke)
+    }
+
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+
+    private fun matchWidth(topDp: Int = 0, bottomDp: Int = 0) =
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { setMargins(0, dp(topDp), 0, dp(bottomDp)) }
 }

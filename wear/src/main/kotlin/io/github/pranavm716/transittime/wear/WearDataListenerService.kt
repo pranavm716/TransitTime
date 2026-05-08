@@ -29,12 +29,6 @@ class WearDataListenerService : WearableListenerService() {
                                 val snapshot = com.google.gson.Gson().fromJson(snapshotJson, io.github.pranavm716.transittime.model.TileSnapshot::class.java)
                                 val pushedAt = dataMap.getLong("pushedAt")
                                 cache.saveSnapshot(snapshot, pushedAt)
-                                
-                                val localOverride = cache.getLocalGoModeOverride()
-                                if (localOverride != null) {
-                                    Log.d("LiveNotif", "Snapshot received for ${snapshot.stopId}, clearing local override ($localOverride) in favor of phone state (${snapshot.goModeActive})")
-                                    cache.setLocalGoModeOverride(null)
-                                }
                             } catch (e: Exception) {
                                 Log.e("WearDataListener", "Failed to parse/save snapshot", e)
                             }
@@ -56,7 +50,6 @@ class WearDataListenerService : WearableListenerService() {
         dataEvents.release()
         if (shouldRefresh) {
             Log.d("WearDataListener", "new snapshot data — requesting tile update")
-            GoModeNotificationService.update(this)
             TileService.getUpdater(this).requestUpdate(TransitTileService::class.java)
         }
     }

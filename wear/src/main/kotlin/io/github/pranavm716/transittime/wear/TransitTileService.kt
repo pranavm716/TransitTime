@@ -1,7 +1,9 @@
 package io.github.pranavm716.transittime.wear
 
+import android.content.Intent
 import android.util.Log
 import androidx.concurrent.futures.CallbackToFutureAdapter
+import androidx.wear.tiles.EventBuilders
 import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders
 import androidx.wear.tiles.TileService
@@ -18,6 +20,24 @@ class TransitTileService : TileService() {
 
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
+
+    override fun onTileAddEvent(requestParams: EventBuilders.TileAddEvent) {
+        launchMainActivityForPermissions()
+    }
+
+    override fun onTileEnterEvent(requestParams: EventBuilders.TileEnterEvent) {
+        launchMainActivityForPermissions()
+    }
+
+    private fun launchMainActivityForPermissions() {
+        val pm = PermissionManager(this)
+        if (pm.hasNotificationPermission()) return
+        val prefs = getSharedPreferences("wear_prefs", MODE_PRIVATE)
+        if (prefs.getBoolean("has_prompted_permissions", false)) return
+        startActivity(Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        })
+    }
 
     override fun onTileRequest(
         requestParams: RequestBuilders.TileRequest
@@ -79,7 +99,6 @@ class TransitTileService : TileService() {
         )
 
         val isRefreshing = localIsRefreshing || (effectiveSnapshot.isRefreshing == true)
-        val effectiveGoModeActive = cache.getLocalGoModeOverride() ?: effectiveSnapshot.goModeActive
 
         TransitTileRenderer.renderTile(
             context = this@TransitTileService,
@@ -89,8 +108,7 @@ class TransitTileService : TileService() {
             prevIndex = prevIndex,
             nextIndex = nextIndex,
             totalStops = stopIds.size,
-            isRefreshing = isRefreshing,
-            goModeActive = effectiveGoModeActive
+            isRefreshing = isRefreshing
         )
     }
 

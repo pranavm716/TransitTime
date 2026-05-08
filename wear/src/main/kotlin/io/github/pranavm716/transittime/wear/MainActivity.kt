@@ -1,23 +1,24 @@
 package io.github.pranavm716.transittime.wear
 
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
-import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.wear.tiles.TileService
+import androidx.wear.widget.BoxInsetLayout
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var statusText: TextView
-    private lateinit var permissionButton: Button
-    private lateinit var batteryButton: Button
-    private lateinit var stopButton: Button
+    private lateinit var notifButton: Button
     private lateinit var permissionManager: PermissionManager
+    private var isOnboarding = false
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -28,49 +29,71 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         permissionManager = PermissionManager(this)
+        isOnboarding = intent.getBooleanExtra("EXTRA_FROM_TILE_ADD", false)
 
-        val root = LinearLayout(this).apply {
+        val scrollView = ScrollView(this).apply {
+            isVerticalScrollBarEnabled = true
+        }
+
+        val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(20, 20, 20, 20)
+            setPadding(0, dp(40), 0, dp(40))
         }
+        scrollView.addView(content)
 
-        statusText = TextView(this).apply {
-            gravity = Gravity.CENTER
+        content.addView(TextView(this).apply {
+            text = "TransitTime"
             textSize = 14f
+            setTypeface(null, Typeface.BOLD)
             setTextColor(Color.WHITE)
-        }
-        root.addView(statusText)
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(12))
+        })
 
-        permissionButton = Button(this).apply {
-            text = "Enable Notifications"
+        content.addView(TextView(this).apply {
+            text = "PERMISSIONS"
+            textSize = 9f
+            letterSpacing = 0.1f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.rgb(150, 150, 150))
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(6))
+        })
+
+        notifButton = Button(this).apply {
+            textSize = 10f
+            setTextColor(Color.WHITE)
             setOnClickListener {
-                permissionManager.requestNotificationPermission(requestPermissionLauncher)
+                if (!permissionManager.hasNotificationPermission()) {
+                    permissionManager.requestNotificationPermission(requestPermissionLauncher)
+                } else {
+                    Toast.makeText(this@MainActivity, "Notifications are ON", Toast.LENGTH_SHORT)
+                        .show()
+                }
             }
         }
-        root.addView(permissionButton)
+        content.addView(notifButton, matchWidth(bottomDp = 8, heightDp = 40))
 
-        batteryButton = Button(this).apply {
-            text = "Unrestrict Battery"
-            setOnClickListener {
-                startActivity(permissionManager.createBatteryOptimizationIntent())
-            }
+        val root = BoxInsetLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
         }
-        root.addView(batteryButton)
-
-        stopButton = Button(this).apply {
-            text = "Stop Go Mode"
-            setOnClickListener {
-                val cache = WearLocalCache(this@MainActivity)
-                cache.setLocalGoModeOverride(false)
-                GoModeNotificationService.update(this@MainActivity)
-                TileService.getUpdater(this@MainActivity).requestUpdate(TransitTileService::class.java)
-                updateUI()
-            }
-        }
-        root.addView(stopButton)
+        root.addView(
+            scrollView, BoxInsetLayout.LayoutParams(
+                BoxInsetLayout.LayoutParams.MATCH_PARENT,
+                BoxInsetLayout.LayoutParams.MATCH_PARENT
+            ).apply {
+                boxedEdges = BoxInsetLayout.LayoutParams.BOX_LEFT or
+                        BoxInsetLayout.LayoutParams.BOX_RIGHT
+                gravity = Gravity.CENTER
+            })
 
         setContentView(root)
+
+        permissionManager.requestPermissionsOnFirstRun(
+            requestPermissionLauncher,
+            force = isOnboarding
+        )
     }
 
     override fun onResume() {
@@ -79,21 +102,25 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun updateUI() {
-        val cache = WearLocalCache(this)
-        val currentStopId = cache.getCurrentStopId()
-        val snapshot = currentStopId?.let { cache.getSnapshot(it) }
-        val localOverride = cache.getLocalGoModeOverride()
-        val isActive = localOverride ?: (snapshot?.goModeActive ?: false)
-
-        statusText.text = if (isActive) {
-            "Go Mode: Active\n${snapshot?.stopName ?: "Tracking..."}"
-        } else {
-            "Go Mode: Inactive\nStart from Tile"
-        }
-
-        permissionButton.visibility = if (permissionManager.hasNotificationPermission()) View.GONE else View.VISIBLE
-        batteryButton.visibility = if (permissionManager.isBatteryOptimizationIgnored()) View.GONE else View.VISIBLE
-
-        stopButton.visibility = if (isActive) View.VISIBLE else View.GONE
+        val hasNotif = permissionManager.hasNotificationPermission()
+        notifButton.text = if (hasNotif) "✓  Notifications On" else "Enable Notifications"
+        notifButton.backgroundTintList = null
+        notifButton.background =
+            if (hasNotif) pillFilled(Color.rgb(35, 134, 54)) else pillFilled(Color.rgb(180, 100, 0))
+        notifButton.setTextColor(if (hasNotif) Color.rgb(200, 255, 200) else Color.WHITE)
+        notifButton.alpha = if (hasNotif) 0.8f else 1f
     }
+
+    private fun pillFilled(color: Int) = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = 100f
+        setColor(color)
+    }
+
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+
+    private fun matchWidth(bottomDp: Int = 0, heightDp: Int = -2) = LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        if (heightDp == -2) LinearLayout.LayoutParams.WRAP_CONTENT else dp(heightDp)
+    ).apply { setMargins(0, 0, 0, dp(bottomDp)) }
 }

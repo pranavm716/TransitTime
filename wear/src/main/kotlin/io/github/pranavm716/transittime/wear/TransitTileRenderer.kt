@@ -43,11 +43,10 @@ object TransitTileRenderer {
         prevIndex: Int,
         nextIndex: Int,
         totalStops: Int,
-        isRefreshing: Boolean,
-        goModeActive: Boolean
+        isRefreshing: Boolean
     ): TileBuilders.Tile {
         val root = if (totalStops == 0) buildNoStopsLayout() else buildRoot(
-            context, deviceConfiguration, snapshot, nextIndex, currentIndex, prevIndex, totalStops, isRefreshing, goModeActive
+            context, deviceConfiguration, snapshot, nextIndex, currentIndex, prevIndex, totalStops, isRefreshing
         )
         return TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
@@ -111,8 +110,7 @@ object TransitTileRenderer {
         currentIndex: Int,
         prevIndex: Int,
         totalStops: Int,
-        isRefreshing: Boolean,
-        goModeActive: Boolean
+        isRefreshing: Boolean
     ): LayoutElementBuilders.LayoutElement =
         LayoutElementBuilders.Box.Builder()
             .setWidth(DimensionBuilders.expand())
@@ -135,7 +133,7 @@ object TransitTileRenderer {
                     .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
                     .addContent(buildHeader(context, device, snapshot, nextIndex))
                     .addContent(buildContent(context, device, snapshot))
-                    .addContent(buildFooter(context, device, snapshot, isRefreshing, goModeActive))
+                    .addContent(buildFooter(context, device, snapshot, isRefreshing))
                     .build()
             )
             .addContent(buildStopIndicatorArc(currentIndex, prevIndex, totalStops))
@@ -458,55 +456,32 @@ object TransitTileRenderer {
         context: Context,
         device: DeviceParametersBuilders.DeviceParameters,
         snapshot: TileSnapshot,
-        isRefreshing: Boolean,
-        goModeActive: Boolean
+        isRefreshing: Boolean
     ): LayoutElementBuilders.LayoutElement {
         val timestamp = if (snapshot.fetchedAt > 0L)
             SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(snapshot.fetchedAt))
         else "—"
 
-        val tsColor = when {
-            snapshot.errorLabel != null -> COLOR_ERROR
-            goModeActive -> COLOR_GO_MODE
-            else -> COLOR_DIM
-        }
+        val tsColor = if (snapshot.errorLabel != null) COLOR_ERROR else COLOR_DIM
 
-        val iconId = if (goModeActive) "ic_go_mode_dot" else "ic_refresh"
+        val iconId = "ic_refresh"
 
         val transformation = ModifiersBuilders.Transformation.Builder()
         if (isRefreshing) {
-            if (goModeActive) {
-                // Pulse: 1.0 -> 1.5 -> 1.0 in ~480ms total cycle.
-                // ProtoLayout: animate 1.0 to 1.5 with REVERSE mode.
-                val pulseSpec = AnimationParameterBuilders.AnimationSpec.Builder()
-                    .setAnimationParameters(
-                        AnimationParameterBuilders.AnimationParameters.Builder()
-                            .setDurationMillis(240) // 240ms one way, 480ms round trip
-                            .build()
-                    )
-                    .setRepeatable(AnimationParameterBuilders.Repeatable.INFINITE_REPEATABLE_WITH_REVERSE)
-                    .build()
-                val scale = TypeBuilders.FloatProp.Builder()
-                    .setValue(1f)
-                    .setDynamicValue(DynamicBuilders.DynamicFloat.animate(1f, 1.5f, pulseSpec))
-                    .build()
-                transformation.setScaleX(scale).setScaleY(scale)
-            } else {
-                // Spin: 0 -> 360 in 480ms.
-                val spinSpec = AnimationParameterBuilders.AnimationSpec.Builder()
-                    .setAnimationParameters(
-                        AnimationParameterBuilders.AnimationParameters.Builder()
-                            .setDurationMillis(480)
-                            .build()
-                    )
-                    .setRepeatable(AnimationParameterBuilders.Repeatable.INFINITE_REPEATABLE_WITH_RESTART)
-                    .build()
-                val rotation = DimensionBuilders.DegreesProp.Builder()
-                    .setValue(0f)
-                    .setDynamicValue(DynamicBuilders.DynamicFloat.animate(0f, 360f, spinSpec))
-                    .build()
-                transformation.setRotation(rotation)
-            }
+            // Spin: 0 -> 360 in 480ms.
+            val spinSpec = AnimationParameterBuilders.AnimationSpec.Builder()
+                .setAnimationParameters(
+                    AnimationParameterBuilders.AnimationParameters.Builder()
+                        .setDurationMillis(480)
+                        .build()
+                )
+                .setRepeatable(AnimationParameterBuilders.Repeatable.INFINITE_REPEATABLE_WITH_RESTART)
+                .build()
+            val rotation = DimensionBuilders.DegreesProp.Builder()
+                .setValue(0f)
+                .setDynamicValue(DynamicBuilders.DynamicFloat.animate(0f, 360f, spinSpec))
+                .build()
+            transformation.setRotation(rotation)
         }
 
         return LayoutElementBuilders.Box.Builder()
@@ -518,8 +493,8 @@ object TransitTileRenderer {
                 ModifiersBuilders.Modifiers.Builder()
                     .setClickable(
                         ModifiersBuilders.Clickable.Builder()
-                            .setId("go_mode")
-                            .setOnClick(launchAction(context, "/action/go_mode_toggle"))
+                            .setId("refresh_footer")
+                            .setOnClick(launchAction(context, "/action/refresh"))
                             .setVisualFeedbackEnabled(true)
                             .build()
                     )
