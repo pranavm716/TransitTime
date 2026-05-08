@@ -433,6 +433,14 @@ class TransitWidget : AppWidgetProvider() {
             widgetId: Int
         ) {
             spinningJobs[widgetId]?.cancel()
+
+            // Immediate partial update to sync UI state
+            val initial = RemoteViews(context.packageName, R.layout.widget_layout)
+            initial.setViewVisibility(R.id.ivGoModeDot, View.GONE)
+            initial.setViewVisibility(R.id.ivRefreshIcon, View.VISIBLE)
+            initial.setTextColor(R.id.tvFreshnessText, context.getColor(R.color.widget_color_secondary))
+            appWidgetManager.partiallyUpdateAppWidget(widgetId, initial)
+
             spinningJobs[widgetId] = CoroutineScope(Dispatchers.IO).launch {
                 val steps = 12
                 val stepAngle = 360f / steps
@@ -453,6 +461,14 @@ class TransitWidget : AppWidgetProvider() {
             widgetId: Int
         ) {
             pulsingJobs[widgetId]?.cancel()
+
+            // Immediate partial update to sync UI state
+            val initial = RemoteViews(context.packageName, R.layout.widget_layout)
+            initial.setViewVisibility(R.id.ivGoModeDot, View.VISIBLE)
+            initial.setViewVisibility(R.id.ivRefreshIcon, View.GONE)
+            initial.setTextColor(R.id.tvFreshnessText, context.getColor(R.color.accent_color))
+            appWidgetManager.partiallyUpdateAppWidget(widgetId, initial)
+
             pulsingJobs[widgetId] = CoroutineScope(Dispatchers.IO).launch {
                 val steps = 11
                 while (isActive) {

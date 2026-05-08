@@ -23,4 +23,7 @@ interface WidgetConfigDao {
 
     @Query("SELECT * FROM widget_configs WHERE stopId = :stopId")
     suspend fun getConfigByStopId(stopId: String): WidgetConfig?
+
+    @Query("UPDATE widget_configs SET lastFetchedAt = :fetchedAt, lastErrorLabel = :errorLabel WHERE widgetId = :widgetId")
+    suspend fun updateFreshness(widgetId: Int, fetchedAt: Long, errorLabel: String?)
 }

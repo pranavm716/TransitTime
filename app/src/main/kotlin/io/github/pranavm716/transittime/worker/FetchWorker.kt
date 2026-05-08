@@ -44,6 +44,7 @@ class FetchWorker(
         val pusher = TileSnapshotPusher(context)
 
         for (id in activeIds) {
+            if (isStopped) return Result.retry()
             strategy.startAnimation(context, manager, id)
         }
 
@@ -101,6 +102,7 @@ class FetchWorker(
         }
 
         for (config in getDeduplicatedConfigs(configs)) {
+            if (isStopped) break
             try {
                 val deps = departureDao.getDeparturesForStop(config.stopId)
                 val isGlobalActive = goModeManager.isGoModeActive
@@ -121,6 +123,7 @@ class FetchWorker(
         }
 
         configs.groupBy { it.agency }.forEach { (agency, agencyConfigs) ->
+            if (isStopped) return@forEach
             val handler = AgencyRegistry.get(agency)
             try {
                 handler.loadStaticData(context)
@@ -129,6 +132,7 @@ class FetchWorker(
                 val departuresByStop = result.departures.groupBy { it.stopId }
 
                 for (stopId in stopIds) {
+                    if (isStopped) break
                     if (stopId in result.stopErrors) continue
                     val stopDepartures = departuresByStop[stopId] ?: emptyList()
                     val existing = departureDao.getDeparturesForStop(stopId)
@@ -147,18 +151,20 @@ class FetchWorker(
                     }
                 }
 
+                if (isStopped) return@forEach
                 val updatedConfigs = configDao.getAllConfigs()
                 val deduplicatedForSnapshots = getDeduplicatedConfigs(updatedConfigs)
 
                 for (config in agencyConfigs) {
+                    if (isStopped) break
                     val stopException = result.stopErrors[config.stopId]
                     if (stopException != null) {
                         val error = TransitError.fromException(stopException)
                         val current = configDao.getConfig(config.widgetId) ?: continue
                         if (current.lastFetchedAt > config.lastFetchedAt) continue
-                        configDao.upsertConfig(current.copy(lastErrorLabel = error.label))
+                        configDao.updateFreshness(config.widgetId, current.lastFetchedAt, error.label)
                     } else {
-                        configDao.upsertConfig(config.copy(lastFetchedAt = fetchedAt, lastErrorLabel = null))
+                        configDao.updateFreshness(config.widgetId, fetchedAt, null)
                     }
                     TransitWidget.updateWidget(context, manager, config.widgetId)
 
@@ -191,9 +197,10 @@ class FetchWorker(
                 val deduplicatedForSnapshots = getDeduplicatedConfigs(updatedConfigs)
 
                 for (config in agencyConfigs) {
+                    if (isStopped) break
                     val current = configDao.getConfig(config.widgetId) ?: continue
                     if (current.lastFetchedAt > config.lastFetchedAt) continue
-                    configDao.upsertConfig(current.copy(lastErrorLabel = error.label))
+                    configDao.updateFreshness(config.widgetId, current.lastFetchedAt, error.label)
                     TransitWidget.updateWidget(context, manager, config.widgetId)
 
                     if (deduplicatedForSnapshots.any { it.widgetId == config.widgetId }) {

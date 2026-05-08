@@ -62,12 +62,6 @@ class GoModeManager(context: Context) {
 
         GoModeNotificationService.update(appContext)
 
-        val manager = AppWidgetManager.getInstance(appContext)
-        val ids = manager.getAppWidgetIds(ComponentName(appContext, TransitWidget::class.java))
-        for (id in ids) {
-            TransitWidget.updateWidgetAsync(appContext, manager, id, skipAnimationCleanup = true)
-        }
-
         val workManager = WorkManager.getInstance(appContext)
         workManager.enqueueUniqueWork(
             TransitWidget.GO_MODE_FETCH_WORK_NAME,
@@ -102,7 +96,7 @@ class GoModeManager(context: Context) {
         val manager = AppWidgetManager.getInstance(appContext)
         val ids = manager.getAppWidgetIds(ComponentName(appContext, TransitWidget::class.java))
         for (id in ids) {
-            TransitWidget.updateWidgetAsync(appContext, manager, id, skipAnimationCleanup = true)
+            TransitWidget.updateWidgetAsync(appContext, manager, id, skipAnimationCleanup = false)
         }
 
         // Push cached snapshots to the watch so it clears go mode display immediately.
