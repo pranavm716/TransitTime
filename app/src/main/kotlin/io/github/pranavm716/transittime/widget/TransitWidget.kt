@@ -137,6 +137,16 @@ class TransitWidget : AppWidgetProvider() {
         private val pulsingJobs = mutableMapOf<Int, Job>()
         private val pulseStep = mutableMapOf<Int, Int>()
 
+        fun updateWidgetAsync(
+            context: Context,
+            appWidgetManager: AppWidgetManager,
+            widgetId: Int
+        ) {
+            CoroutineScope(Dispatchers.IO).launch {
+                updateWidget(context, appWidgetManager, widgetId)
+            }
+        }
+
         suspend fun updateWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,
@@ -283,26 +293,16 @@ class TransitWidget : AppWidgetProvider() {
             config: WidgetConfig,
             freshnessText: String
         ) {
-            val isGoModeActive = GoModeManager(context).isGoModeActive
+            val strategy = GoModeManager(context).getStrategy()
 
-            views.setViewVisibility(
-                R.id.ivGoModeDot,
-                if (isGoModeActive) View.VISIBLE else View.GONE
-            )
-            views.setViewVisibility(
-                R.id.ivRefreshIcon,
-                if (isGoModeActive) View.GONE else View.VISIBLE
-            )
+            views.setViewVisibility(R.id.ivGoModeDot, strategy.dotVisibility)
+            views.setViewVisibility(R.id.ivRefreshIcon, strategy.refreshIconVisibility)
 
             views.setViewVisibility(R.id.tvFreshnessText, View.VISIBLE)
             views.setTextViewText(R.id.tvFreshnessText, freshnessText)
             views.setTextColor(
                 R.id.tvFreshnessText,
-                when {
-                    config.lastErrorLabel != null -> COLOR_LATE
-                    isGoModeActive -> context.getColor(R.color.accent_color)
-                    else -> context.getColor(R.color.widget_color_secondary)
-                }
+                strategy.getFreshnessColor(context, config.lastErrorLabel != null)
             )
         }
 
@@ -583,49 +583,8 @@ class TransitWidget : AppWidgetProvider() {
                 }
             }
         } else if (intent.action == ACTION_TOGGLE_GO_MODE) {
-            val goModeManager = GoModeManager(context)
             val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
-
-            if (goModeManager.isGoModeActive) {
-                goModeManager.goModeWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-                goModeManager.goModeExpiresAt = 0
-                GoModeNotificationService.update(context)
-            } else {
-                goModeManager.goModeWidgetId = widgetId
-                goModeManager.goModeExpiresAt =
-                    System.currentTimeMillis() + GoModeManager.GO_MODE_DURATION_MS
-            }
-            if (goModeManager.isGoModeActive) {
-                triggerFetch(context)
-                WorkManager.getInstance(context).enqueueUniqueWork(
-                    GO_MODE_FETCH_WORK_NAME,
-                    ExistingWorkPolicy.REPLACE,
-                    OneTimeWorkRequestBuilder<FetchWorker>()
-                        .setInitialDelay(GoModeManager.GO_MODE_INTERVAL_MS, TimeUnit.MILLISECONDS)
-                        .build()
-                )
-                WorkManager.getInstance(context).enqueueUniqueWork(
-                    GO_MODE_EXPIRY_WORK_NAME,
-                    ExistingWorkPolicy.REPLACE,
-                    OneTimeWorkRequestBuilder<FetchWorker>()
-                        .setInitialDelay(GoModeManager.GO_MODE_DURATION_MS, TimeUnit.MILLISECONDS)
-                        .build()
-                )
-            } else {
-                WorkManager.getInstance(context).cancelUniqueWork(GO_MODE_FETCH_WORK_NAME)
-                WorkManager.getInstance(context).cancelUniqueWork(GO_MODE_EXPIRY_WORK_NAME)
-            }
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-            val ids = appWidgetManager.getAppWidgetIds(
-                ComponentName(context, TransitWidget::class.java)
-            )
-            for (widgetId in ids) {
-                CoroutineScope(Dispatchers.IO).launch {
-                    updateWidget(
-                        context, appWidgetManager, widgetId
-                    )
-                }
-            }
+            GoModeManager(context).toggle(widgetId)
         }
     }
 }

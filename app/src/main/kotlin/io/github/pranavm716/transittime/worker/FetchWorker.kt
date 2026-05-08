@@ -40,14 +40,13 @@ class FetchWorker(
         ).toSet()
 
         val goModeManager = GoModeManager(context)
+        val strategy = goModeManager.getStrategy()
         val pusher = TileSnapshotPusher(context)
 
-        if (goModeManager.isGoModeActive) {
-            for (id in activeIds) {
+        for (id in activeIds) {
+            if (strategy.isGoModeActive) {
                 TransitWidget.animateGoModeDot(context, manager, id)
-            }
-        } else {
-            for (id in activeIds) {
+            } else {
                 TransitWidget.animateRefreshIcon(context, manager, id)
             }
         }
