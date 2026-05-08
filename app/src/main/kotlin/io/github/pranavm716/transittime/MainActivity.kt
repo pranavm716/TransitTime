@@ -1,8 +1,14 @@
 package io.github.pranavm716.transittime
 
+import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -54,6 +60,17 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener {
                 if (!permissionManager.hasNotificationPermissions()) {
                     permissionManager.requestNotificationPermissions(requestPermissionLauncher)
+                } else {
+                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                        putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                    }
+                    try {
+                        startActivity(intent)
+                    } catch (_: Exception) {
+                        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.parse("package:$packageName")
+                        })
+                    }
                 }
             }
         }
@@ -111,18 +128,24 @@ class MainActivity : AppCompatActivity() {
         setPadding(0, dp(8), 0, dp(12))
     }
 
-    private fun filled(color: Int) = GradientDrawable().apply {
+    private fun filled(color: Int) = ripple(GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         cornerRadius = dp(12).toFloat()
         setColor(color)
-    }
+    })
 
-    private fun outlined(fill: Int, stroke: Int) = GradientDrawable().apply {
+    private fun outlined(fill: Int, stroke: Int) = ripple(GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         cornerRadius = dp(12).toFloat()
         setColor(fill)
         setStroke(dp(1), stroke)
-    }
+    })
+
+    private fun ripple(content: Drawable) = RippleDrawable(
+        ColorStateList.valueOf(0x20FFFFFF),
+        content,
+        content
+    )
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
