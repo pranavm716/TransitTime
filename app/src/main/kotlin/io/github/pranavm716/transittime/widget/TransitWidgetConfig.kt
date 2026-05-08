@@ -42,8 +42,6 @@ import io.github.pranavm716.transittime.wear.TileSnapshotPusher
 import io.github.pranavm716.transittime.wear.buildSnapshot
 import io.github.pranavm716.transittime.GoModeManager
 import android.util.Log
-import androidx.activity.result.contract.ActivityResultContracts
-import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import kotlinx.coroutines.CoroutineScope
@@ -64,17 +62,6 @@ class TransitWidgetConfig : AppCompatActivity() {
     private var routeAdapter: RouteHeadsignAdapter? = null
     private var existingConfig: WidgetConfig? = null
     private var selectedMaxDepartures = 3
-
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            saveConfig()
-        } else {
-            Toast.makeText(this, "Notification permission is required for Go Mode features", Toast.LENGTH_LONG).show()
-            saveConfig() // Still save, but notify user
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -361,18 +348,6 @@ class TransitWidgetConfig : AppCompatActivity() {
         }
 
         btnSave.setOnClickListener {
-            checkPermissionsAndSave()
-        }
-    }
-
-    private fun checkPermissionsAndSave() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            } else {
-                saveConfig()
-            }
-        } else {
             saveConfig()
         }
     }

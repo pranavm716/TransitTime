@@ -19,7 +19,6 @@ import io.github.pranavm716.transittime.model.TileSnapshot
 import io.github.pranavm716.transittime.util.RouteIconDrawer
 import io.github.pranavm716.transittime.util.RouteShape
 import io.github.pranavm716.transittime.util.RouteStyle
-import io.github.pranavm716.transittime.widget.TransitWidget
 
 object GoModeNotificationRenderer {
 
@@ -51,11 +50,10 @@ object GoModeNotificationRenderer {
         val contentText =
             if (soonestRow != null) "$displayTime • ${soonestRow.routeName} to $headsign" else "No upcoming departures"
 
-        val toggleIntent = Intent(TransitWidget.ACTION_TOGGLE_GO_MODE).apply {
-            setPackage(context.packageName)
-            putExtra(TransitWidget.EXTRA_WIDGET_ID, widgetId)
+        val toggleIntent = Intent(context, io.github.pranavm716.transittime.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
-        val pendingIntent = PendingIntent.getBroadcast(
+        val pendingIntent = PendingIntent.getActivity(
             context,
             widgetId,
             toggleIntent,
