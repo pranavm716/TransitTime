@@ -302,7 +302,7 @@ object TransitTileRenderer {
                     .setClickable(
                         ModifiersBuilders.Clickable.Builder()
                             .setId("refresh")
-                            .setOnClick(launchAction(context, "/action/refresh"))
+                            .setOnClick(getClickAction(context, "/action/refresh"))
                             .setVisualFeedbackEnabled(true)
                             .build()
                     )
@@ -511,7 +511,7 @@ object TransitTileRenderer {
                     .setClickable(
                         ModifiersBuilders.Clickable.Builder()
                             .setId("go_mode")
-                            .setOnClick(launchAction(context, "/action/go_mode_toggle"))
+                            .setOnClick(getClickAction(context, "/action/go_mode_toggle"))
                             .setVisualFeedbackEnabled(true)
                             .build()
                     )
@@ -764,21 +764,31 @@ object TransitTileRenderer {
             .setHeight(DimensionBuilders.dp(1f))
             .build()
 
-    private fun launchAction(context: Context, path: String): ActionBuilders.Action =
-        ActionBuilders.LaunchAction.Builder()
-            .setAndroidActivity(
-                ActionBuilders.AndroidActivity.Builder()
-                    .setPackageName(context.packageName)
-                    .setClassName("io.github.pranavm716.transittime.wear.ActionActivity")
-                    .addKeyToExtraMapping(
-                        ActionActivity.EXTRA_ACTION,
-                        ActionBuilders.AndroidStringExtra.Builder()
-                            .setValue(path)
-                            .build()
-                    )
-                    .build()
-            )
-            .build()
+    private fun getClickAction(context: Context, path: String): ActionBuilders.Action {
+        val hasPermission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
+                    android.content.pm.PackageManager.PERMISSION_GRANTED
+        } else true
+
+        return if (hasPermission) {
+            ActionBuilders.LoadAction.Builder().build()
+        } else {
+            ActionBuilders.LaunchAction.Builder()
+                .setAndroidActivity(
+                    ActionBuilders.AndroidActivity.Builder()
+                        .setPackageName(context.packageName)
+                        .setClassName("io.github.pranavm716.transittime.wear.ActionActivity")
+                        .addKeyToExtraMapping(
+                            ActionActivity.EXTRA_ACTION,
+                            ActionBuilders.AndroidStringExtra.Builder()
+                                .setValue(path)
+                                .build()
+                        )
+                        .build()
+                )
+                .build()
+        }
+    }
 
     // Prop wrappers ───────────────────────────────────────────────────────────
 

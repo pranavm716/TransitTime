@@ -8,10 +8,12 @@ import androidx.wear.tiles.TileService
 import com.google.common.util.concurrent.ListenableFuture
 import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.model.TileSnapshot
+import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
 class TransitTileService : TileService() {
@@ -38,7 +40,8 @@ class TransitTileService : TileService() {
     ): TileBuilders.Tile = withContext(Dispatchers.IO) {
         val cache = WearLocalCache(this@TransitTileService)
         val stopIds = WearDataLayerReader.readStopIds(this@TransitTileService, cache)
-        val tappedIndex = requestParams.currentState.lastClickableId.toIntOrNull()
+        val lastClickableId = requestParams.currentState.lastClickableId
+        val tappedIndex = lastClickableId.toIntOrNull()
         val savedIndex = cache.getCurrentIndex().coerceIn(0, (stopIds.size - 1).coerceAtLeast(0))
         val currentIndex = if (tappedIndex != null) {
             tappedIndex.coerceIn(0, (stopIds.size - 1).coerceAtLeast(0))
@@ -52,9 +55,16 @@ class TransitTileService : TileService() {
         // On data refresh (no tap), prevIndex == currentIndex so no animation plays.
         val prevIndex = if (tappedIndex != null) savedIndex else currentIndex
         cache.saveCurrentIndex(currentIndex)
-        stopIds.getOrNull(currentIndex)?.let { cache.saveCurrentStopId(it) }
-        val nextIndex = if (stopIds.size > 1) (currentIndex + 1) % stopIds.size else 0
         val stopId = stopIds.getOrNull(currentIndex)
+        stopId?.let { cache.saveCurrentStopId(it) }
+
+        if (lastClickableId == "refresh" && stopId != null) {
+            performRefresh(stopId, cache)
+        } else if (lastClickableId == "go_mode" && stopId != null) {
+            performGoModeToggle(stopId, cache)
+        }
+
+        val nextIndex = if (stopIds.size > 1) (currentIndex + 1) % stopIds.size else 0
 
         Log.d(
             "TransitTile",
@@ -120,6 +130,45 @@ class TransitTileService : TileService() {
                     .build()
             )
             .build()
+
+    private suspend fun performRefresh(stopId: String, cache: WearLocalCache) {
+        val localOverride = cache.getLocalGoModeOverride()
+        val snapshot = cache.getSnapshot(stopId)
+        val effectiveGoModeActive = localOverride ?: (snapshot?.goModeActive ?: false)
+        if (!effectiveGoModeActive) {
+            cache.setRefreshing(stopId, true)
+        }
+        sendMessageToPhone("/action/refresh", null)
+    }
+
+    private suspend fun performGoModeToggle(stopId: String, cache: WearLocalCache) {
+        val localOverride = cache.getLocalGoModeOverride()
+        val snapshot = cache.getSnapshot(stopId)
+        val effectiveGoModeActive = localOverride ?: (snapshot?.goModeActive ?: false)
+        if (!effectiveGoModeActive) {
+            cache.setLocalGoModeOverride(true)
+            cache.setRefreshing(stopId, true)
+        } else {
+            cache.setLocalGoModeOverride(false)
+            cache.setRefreshing(stopId, false)
+        }
+        GoModeNotificationService.update(this@TransitTileService)
+        sendMessageToPhone("/action/go_mode_toggle", stopId.toByteArray(Charsets.UTF_8))
+    }
+
+    private suspend fun sendMessageToPhone(path: String, payload: ByteArray?) {
+        try {
+            val nodes = Wearable.getNodeClient(this@TransitTileService).connectedNodes.await()
+            val phone = nodes.firstOrNull()
+            if (phone != null) {
+                Wearable.getMessageClient(this@TransitTileService)
+                    .sendMessage(phone.id, path, payload)
+                    .await()
+            }
+        } catch (e: Exception) {
+            Log.e("TransitTile", "Error sending message to phone", e)
+        }
+    }
 
     override fun onDestroy() {
         super.onDestroy()
