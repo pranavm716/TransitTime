@@ -15,10 +15,17 @@ import androidx.core.content.ContextCompat
 class PermissionManager(private val context: Context) {
 
     fun hasNotificationPermissions(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
-        return ContextCompat.checkSelfPermission(
-            context, Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
+        val permissions = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (Build.VERSION.SDK_INT >= 36) { // Android 16
+            permissions.add("android.permission.POST_PROMOTED_NOTIFICATIONS")
+        }
+
+        return permissions.all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        }
     }
 
     fun requestNotificationPermissions(launcher: ActivityResultLauncher<Array<String>>) {

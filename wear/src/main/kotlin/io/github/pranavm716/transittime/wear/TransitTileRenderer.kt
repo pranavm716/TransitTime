@@ -43,10 +43,11 @@ object TransitTileRenderer {
         prevIndex: Int,
         nextIndex: Int,
         totalStops: Int,
-        isRefreshing: Boolean
+        isRefreshing: Boolean,
+        goModeActive: Boolean
     ): TileBuilders.Tile {
         val root = if (totalStops == 0) buildNoStopsLayout() else buildRoot(
-            context, deviceConfiguration, snapshot, nextIndex, currentIndex, prevIndex, totalStops, isRefreshing
+            context, deviceConfiguration, snapshot, nextIndex, currentIndex, prevIndex, totalStops, isRefreshing, goModeActive
         )
         return TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
@@ -110,7 +111,8 @@ object TransitTileRenderer {
         currentIndex: Int,
         prevIndex: Int,
         totalStops: Int,
-        isRefreshing: Boolean
+        isRefreshing: Boolean,
+        goModeActive: Boolean
     ): LayoutElementBuilders.LayoutElement =
         LayoutElementBuilders.Box.Builder()
             .setWidth(DimensionBuilders.expand())
@@ -133,7 +135,7 @@ object TransitTileRenderer {
                     .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
                     .addContent(buildHeader(context, device, snapshot, nextIndex))
                     .addContent(buildContent(context, device, snapshot))
-                    .addContent(buildFooter(context, device, snapshot, isRefreshing))
+                    .addContent(buildFooter(context, device, snapshot, isRefreshing, goModeActive))
                     .build()
             )
             .addContent(buildStopIndicatorArc(currentIndex, prevIndex, totalStops))
@@ -220,13 +222,9 @@ object TransitTileRenderer {
 
             else -> {
                 val visible = snapshot.rows.take(3)
-                // Compute available horizontal space
                 val isRound = device.screenShape == DeviceParametersBuilders.SCREEN_SHAPE_ROUND
                 val sidePaddingDp = if (isRound) 14f else 0f
                 val iconAreaDp = 42f  // 34dp icon box + 8dp spacer
-                // Use device.screenWidthDp so timesAvailableDp is in the same dp space that
-                // ProtoLayout uses for layout. Subtract 4dp safety buffer to absorb any
-                // residual mismatch between Paint measurement and ProtoLayout's text renderer.
                 val timesAvailableDp = device.screenWidthDp - 2 * sidePaddingDp - iconAreaDp - 4f
 
                 val dm = context.resources.displayMetrics
@@ -246,7 +244,6 @@ object TransitTileRenderer {
                             if (wDp > widths[j]) widths[j] = wDp
                         }
                     }
-                    // Add a generous safety buffer to each column to avoid truncation
                     for (idx in widths.indices) if (widths[idx] > 0) widths[idx] += 6f
                     return widths
                 }
@@ -456,32 +453,52 @@ object TransitTileRenderer {
         context: Context,
         device: DeviceParametersBuilders.DeviceParameters,
         snapshot: TileSnapshot,
-        isRefreshing: Boolean
+        isRefreshing: Boolean,
+        goModeActive: Boolean
     ): LayoutElementBuilders.LayoutElement {
         val timestamp = if (snapshot.fetchedAt > 0L)
             SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(snapshot.fetchedAt))
         else "—"
 
-        val tsColor = if (snapshot.errorLabel != null) COLOR_ERROR else COLOR_DIM
+        val tsColor = when {
+            snapshot.errorLabel != null -> COLOR_ERROR
+            goModeActive -> COLOR_GO_MODE
+            else -> COLOR_DIM
+        }
 
-        val iconId = "ic_refresh"
+        val iconId = if (goModeActive) "ic_go_mode_dot" else "ic_refresh"
 
         val transformation = ModifiersBuilders.Transformation.Builder()
         if (isRefreshing) {
-            // Spin: 0 -> 360 in 480ms.
-            val spinSpec = AnimationParameterBuilders.AnimationSpec.Builder()
-                .setAnimationParameters(
-                    AnimationParameterBuilders.AnimationParameters.Builder()
-                        .setDurationMillis(480)
-                        .build()
-                )
-                .setRepeatable(AnimationParameterBuilders.Repeatable.INFINITE_REPEATABLE_WITH_RESTART)
-                .build()
-            val rotation = DimensionBuilders.DegreesProp.Builder()
-                .setValue(0f)
-                .setDynamicValue(DynamicBuilders.DynamicFloat.animate(0f, 360f, spinSpec))
-                .build()
-            transformation.setRotation(rotation)
+            if (goModeActive) {
+                val pulseSpec = AnimationParameterBuilders.AnimationSpec.Builder()
+                    .setAnimationParameters(
+                        AnimationParameterBuilders.AnimationParameters.Builder()
+                            .setDurationMillis(240)
+                            .build()
+                    )
+                    .setRepeatable(AnimationParameterBuilders.Repeatable.INFINITE_REPEATABLE_WITH_REVERSE)
+                    .build()
+                val scale = TypeBuilders.FloatProp.Builder()
+                    .setValue(1f)
+                    .setDynamicValue(DynamicBuilders.DynamicFloat.animate(1f, 1.5f, pulseSpec))
+                    .build()
+                transformation.setScaleX(scale).setScaleY(scale)
+            } else {
+                val spinSpec = AnimationParameterBuilders.AnimationSpec.Builder()
+                    .setAnimationParameters(
+                        AnimationParameterBuilders.AnimationParameters.Builder()
+                            .setDurationMillis(480)
+                            .build()
+                    )
+                    .setRepeatable(AnimationParameterBuilders.Repeatable.INFINITE_REPEATABLE_WITH_RESTART)
+                    .build()
+                val rotation = DimensionBuilders.DegreesProp.Builder()
+                    .setValue(0f)
+                    .setDynamicValue(DynamicBuilders.DynamicFloat.animate(0f, 360f, spinSpec))
+                    .build()
+                transformation.setRotation(rotation)
+            }
         }
 
         return LayoutElementBuilders.Box.Builder()
@@ -493,8 +510,8 @@ object TransitTileRenderer {
                 ModifiersBuilders.Modifiers.Builder()
                     .setClickable(
                         ModifiersBuilders.Clickable.Builder()
-                            .setId("refresh_footer")
-                            .setOnClick(launchAction(context, "/action/refresh"))
+                            .setId("go_mode")
+                            .setOnClick(launchAction(context, "/action/go_mode_toggle"))
                             .setVisualFeedbackEnabled(true)
                             .build()
                     )
@@ -542,8 +559,6 @@ object TransitTileRenderer {
         val gapDeg = 5f
         val segDeg = ((60f - (totalStops - 1) * gapDeg) / totalStops).coerceAtLeast(1f)
         val pitch = segDeg + gapDeg
-        // Arc spans 60° centered at 180° (bottom center), so leftmost segment starts at 150°.
-        // Clockwise draw order means stop 0 maps to the highest drawing index (leftmost visually).
         val arcStart = 150f
 
         fun segCenterAngle(stopIdx: Int): Float {
@@ -551,7 +566,6 @@ object TransitTileRenderer {
             return arcStart + drawIdx * pitch + segDeg / 2f
         }
 
-        // Background: all dim segments on the fixed track.
         val trackArc = LayoutElementBuilders.Arc.Builder()
             .setAnchorAngle(DimensionBuilders.DegreesProp.Builder().setValue(180f).build())
             .setAnchorType(
@@ -582,10 +596,8 @@ object TransitTileRenderer {
             )
         }
 
-        // Foreground: single bright segment that slides to the active position.
         val toAngle = segCenterAngle(currentIndex)
         val fromAngle = segCenterAngle(prevIndex)
-        // Wrap (N-1 → 0) reverses direction, so snap without animation.
         val isWrap = prevIndex == totalStops - 1 && currentIndex == 0
         val slideSpec = AnimationParameterBuilders.AnimationSpec.Builder()
             .setAnimationParameters(

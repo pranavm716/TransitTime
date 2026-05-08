@@ -72,6 +72,15 @@
                 android:layout_marginEnd="@dimen/widget_freshness_text_margin_end" />
 
             <ImageView
+                android:id="@+id/ivGoModeDot"
+                android:layout_width="@dimen/widget_freshness_icon_size"
+                android:layout_height="@dimen/widget_freshness_icon_size"
+                android:layout_gravity="center_vertical"
+                android:layout_marginEnd="@dimen/widget_freshness_icon_margin_end"
+                android:src="@drawable/ic_go_mode_dot"
+                android:visibility="gone" />
+
+            <ImageView
                 android:id="@+id/ivRefreshIcon"
                 android:layout_width="@dimen/widget_freshness_icon_size"
                 android:layout_height="@dimen/widget_freshness_icon_size"

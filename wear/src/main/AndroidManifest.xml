@@ -4,7 +4,9 @@
     <uses-feature android:name="android.hardware.type.watch" />
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:label="TransitTime"
@@ -63,9 +65,15 @@
             <meta-data
                 android:name="androidx.wear.tiles.LABEL"
                 android:resource="@string/tile_description" />
-            android:value="io.github.pranavm716.transittime.wear.MainActivity" />
         </service>
 
+        <service
+            android:name=".GoModeNotificationService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Transit countdown for upcoming departures" />
+        </service>
 
     </application>
 

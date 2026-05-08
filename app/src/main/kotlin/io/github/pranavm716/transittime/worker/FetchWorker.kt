@@ -5,14 +5,20 @@ import android.content.ComponentName
 import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import io.github.pranavm716.transittime.GoModeManager
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.WidgetConfig
+import io.github.pranavm716.transittime.service.GoModeNotificationService
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.transit.TransitError
 import io.github.pranavm716.transittime.wear.TileSnapshotPusher
 import io.github.pranavm716.transittime.wear.buildSnapshot
 import io.github.pranavm716.transittime.widget.TransitWidget
+import java.util.concurrent.TimeUnit
 
 class FetchWorker(
     private val context: Context,
@@ -33,18 +39,26 @@ class FetchWorker(
             ComponentName(context, TransitWidget::class.java)
         ).toSet()
 
+        val goModeManager = GoModeManager(context)
         val pusher = TileSnapshotPusher(context)
 
-        for (id in activeIds) {
-            TransitWidget.animateRefreshIcon(context, manager, id)
+        if (goModeManager.isGoModeActive) {
+            for (id in activeIds) {
+                TransitWidget.animateGoModeDot(context, manager, id)
+            }
+        } else {
+            for (id in activeIds) {
+                TransitWidget.animateRefreshIcon(context, manager, id)
+            }
         }
 
         val allConfigs = configDao.getAllConfigs()
         val now = System.currentTimeMillis()
+        val activeGoModeWidgetId = goModeManager.goModeWidgetId
 
-        val staleConfigs = allConfigs.filter { 
-            it.widgetId !in activeIds && 
-            it.lastFetchedAt > 0 && 
+        val staleConfigs = allConfigs.filter {
+            it.widgetId !in activeIds &&
+            it.lastFetchedAt > 0 &&
             (now - it.lastFetchedAt > 60000)
         }
         val clearedStopIds = mutableSetOf<String>()
@@ -84,21 +98,27 @@ class FetchWorker(
             return Result.success()
         }
 
+        // One config per stop ID for watch snapshots, preferring the Go Mode widget's config.
         fun getDeduplicatedConfigs(input: List<WidgetConfig>): List<WidgetConfig> {
-            return input.groupBy { it.stopId }.map { (_, stopConfigs) -> stopConfigs.first() }
+            return input.groupBy { it.stopId }.map { (_, stopConfigs) ->
+                stopConfigs.find { it.widgetId == activeGoModeWidgetId } ?: stopConfigs.first()
+            }
         }
 
         for (config in getDeduplicatedConfigs(configs)) {
             try {
                 val deps = departureDao.getDeparturesForStop(config.stopId)
+                val isGlobalActive = goModeManager.isGoModeActive
+                val isTarget = isGlobalActive && config.widgetId == activeGoModeWidgetId
                 val loading = buildSnapshot(
                     config = config,
                     departures = deps,
-                    goModeActive = false,
-                    goModeExpiresAt = 0L,
+                    goModeActive = isGlobalActive,
+                    goModeExpiresAt = goModeManager.goModeExpiresAt,
                     isRefreshing = true,
-                    goModeTarget = false
+                    goModeTarget = isTarget
                 )
+                Log.d(TAG, "FetchWorker: pushing loading snapshot for stopId=${config.stopId}, active=$isGlobalActive, target=$isTarget")
                 pusher.pushSnapshot(loading)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -152,13 +172,16 @@ class FetchWorker(
                             val latestConfig = configDao.getConfig(config.widgetId)
                             if (latestConfig != null) {
                                 val deps = departureDao.getDeparturesForStop(latestConfig.stopId)
+                                val isGlobalActive = goModeManager.isGoModeActive
+                                val isTarget = isGlobalActive && latestConfig.widgetId == activeGoModeWidgetId
                                 val snapshot = buildSnapshot(
                                     config = latestConfig,
                                     departures = deps,
-                                    goModeActive = false,
-                                    goModeExpiresAt = 0L,
-                                    goModeTarget = false
+                                    goModeActive = isGlobalActive,
+                                    goModeExpiresAt = goModeManager.goModeExpiresAt,
+                                    goModeTarget = isTarget
                                 )
+                                Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId}, active=$isGlobalActive, target=$isTarget")
                                 pusher.pushSnapshot(snapshot, isFetchResult = true)
                             }
                         } catch (e: Exception) {
@@ -183,13 +206,16 @@ class FetchWorker(
                             val latestConfig = configDao.getConfig(config.widgetId)
                             if (latestConfig != null) {
                                 val deps = departureDao.getDeparturesForStop(latestConfig.stopId)
+                                val isGlobalActive = goModeManager.isGoModeActive
+                                val isTarget = isGlobalActive && latestConfig.widgetId == activeGoModeWidgetId
                                 val snapshot = buildSnapshot(
                                     config = latestConfig,
                                     departures = deps,
-                                    goModeActive = false,
-                                    goModeExpiresAt = 0L,
-                                    goModeTarget = false
+                                    goModeActive = isGlobalActive,
+                                    goModeExpiresAt = goModeManager.goModeExpiresAt,
+                                    goModeTarget = isTarget
                                 )
+                                Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId} (agency error), active=$isGlobalActive, target=$isTarget")
                                 pusher.pushSnapshot(snapshot, isFetchResult = true)
                             }
                         } catch (e2: Exception) {
@@ -202,9 +228,23 @@ class FetchWorker(
 
         try {
             val allStopIds = configDao.getAllConfigs().map { it.stopId }.distinct()
+            Log.d(TAG, "FetchWorker: pushing stop index, stopIds=$allStopIds")
             pusher.pushStopIndex(allStopIds)
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+
+        if (goModeManager.isGoModeActive) {
+            GoModeNotificationService.update(context)
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                TransitWidget.GO_MODE_FETCH_WORK_NAME,
+                ExistingWorkPolicy.REPLACE,
+                OneTimeWorkRequestBuilder<FetchWorker>()
+                    .setInitialDelay(GoModeManager.GO_MODE_INTERVAL_MS, TimeUnit.MILLISECONDS)
+                    .build()
+            )
+        } else if (goModeManager.goModeExpiresAt > 0L) {
+            goModeManager.goModeExpiresAt = 0L
         }
 
         return Result.success()

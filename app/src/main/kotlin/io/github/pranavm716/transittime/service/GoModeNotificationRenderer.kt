@@ -69,7 +69,6 @@ object GoModeNotificationRenderer {
                 .setContentIntent(pendingIntent)
                 .setCategory(Notification.CATEGORY_NAVIGATION)
                 .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
-                // Set the pill background to the route color as requested
                 .setColor(displayColor)
                 .addExtras(Bundle().apply {
                     putCharSequence("android.shortCriticalText", shortText)

@@ -15,8 +15,10 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
+import io.github.pranavm716.transittime.GoModeManager
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.TransitApplication
+import io.github.pranavm716.transittime.service.GoModeNotificationService
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.DelayColorMode
@@ -41,7 +43,9 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 class TransitWidget : AppWidgetProvider() {
 
@@ -109,7 +113,11 @@ class TransitWidget : AppWidgetProvider() {
         const val ACTION_REFRESH = "io.github.pranavm716.transittime.ACTION_REFRESH"
         const val ACTION_CYCLE_DISPLAY_MODE =
             "io.github.pranavm716.transittime.ACTION_CYCLE_DISPLAY_MODE"
+        const val ACTION_TOGGLE_GO_MODE =
+            "io.github.pranavm716.transittime.ACTION_TOGGLE_GO_MODE"
         const val EXTRA_WIDGET_ID = "extra_widget_id"
+        const val GO_MODE_FETCH_WORK_NAME = "transit_go_mode_fetch"
+        const val GO_MODE_EXPIRY_WORK_NAME = "transit_go_mode_expiry"
 
         val COLOR_ON_TIME = 0xFFFFC107.toInt()
         val COLOR_LATE = 0xFFdc3545.toInt()
@@ -126,6 +134,8 @@ class TransitWidget : AppWidgetProvider() {
 
         private val spinningJobs = mutableMapOf<Int, Job>()
         private val spinStep = mutableMapOf<Int, Int>()
+        private val pulsingJobs = mutableMapOf<Int, Job>()
+        private val pulseStep = mutableMapOf<Int, Int>()
 
         suspend fun updateWidget(
             context: Context,
@@ -170,7 +180,6 @@ class TransitWidget : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.llHeaderInfo, cycleModePendingIntent)
-            views.setOnClickPendingIntent(R.id.llRefresh, refreshPendingIntent)
 
             withContext(Dispatchers.IO) {
                 val db = TransitDatabase.getInstance(context)
@@ -180,6 +189,18 @@ class TransitWidget : AppWidgetProvider() {
                     appWidgetManager.updateAppWidget(widgetId, views)
                     return@withContext
                 }
+
+                val toggleGoModeIntent = Intent(context, TransitWidget::class.java).apply {
+                    action = ACTION_TOGGLE_GO_MODE
+                    putExtra(EXTRA_WIDGET_ID, widgetId)
+                }
+                val toggleGoModePendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    widgetId + 20_000,
+                    toggleGoModeIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.llRefresh, toggleGoModePendingIntent)
 
                 val allDepartures = db.departureDao().getDeparturesForStop(config.stopId)
                 val nowVal = System.currentTimeMillis()
@@ -192,6 +213,7 @@ class TransitWidget : AppWidgetProvider() {
                 applyOverflow(views, overflow)
 
                 completeRevolution(context, appWidgetManager, widgetId)
+                completePulse(context, appWidgetManager, widgetId)
                 appWidgetManager.updateAppWidget(widgetId, views)
             }
         }
@@ -261,12 +283,26 @@ class TransitWidget : AppWidgetProvider() {
             config: WidgetConfig,
             freshnessText: String
         ) {
-            views.setViewVisibility(R.id.ivRefreshIcon, View.VISIBLE)
+            val isGoModeActive = GoModeManager(context).isGoModeActive
+
+            views.setViewVisibility(
+                R.id.ivGoModeDot,
+                if (isGoModeActive) View.VISIBLE else View.GONE
+            )
+            views.setViewVisibility(
+                R.id.ivRefreshIcon,
+                if (isGoModeActive) View.GONE else View.VISIBLE
+            )
+
             views.setViewVisibility(R.id.tvFreshnessText, View.VISIBLE)
             views.setTextViewText(R.id.tvFreshnessText, freshnessText)
             views.setTextColor(
                 R.id.tvFreshnessText,
-                if (config.lastErrorLabel != null) COLOR_LATE else context.getColor(R.color.widget_color_secondary)
+                when {
+                    config.lastErrorLabel != null -> COLOR_LATE
+                    isGoModeActive -> context.getColor(R.color.accent_color)
+                    else -> context.getColor(R.color.widget_color_secondary)
+                }
             )
         }
 
@@ -407,6 +443,30 @@ class TransitWidget : AppWidgetProvider() {
             }
         }
 
+        fun animateGoModeDot(
+            context: Context,
+            appWidgetManager: AppWidgetManager,
+            widgetId: Int
+        ) {
+            pulsingJobs[widgetId]?.cancel()
+            pulsingJobs[widgetId] = CoroutineScope(Dispatchers.IO).launch {
+                val steps = 11
+                while (isActive) {
+                    for (i in 0..steps) {
+                        if (!isActive) break
+                        pulseStep[widgetId] = i
+                        val t = i.toFloat() / steps
+                        val scale = 1f + 0.5f * sin(Math.PI * t).toFloat()
+                        val views = RemoteViews(context.packageName, R.layout.widget_layout)
+                        views.setFloat(R.id.ivGoModeDot, "setScaleX", scale)
+                        views.setFloat(R.id.ivGoModeDot, "setScaleY", scale)
+                        appWidgetManager.partiallyUpdateAppWidget(widgetId, views)
+                        delay(40)
+                    }
+                }
+            }
+        }
+
         private suspend fun completeRevolution(
             context: Context,
             appWidgetManager: AppWidgetManager,
@@ -420,6 +480,27 @@ class TransitWidget : AppWidgetProvider() {
                 for (s in (current + 1)..steps) {
                     val v = RemoteViews(context.packageName, R.layout.widget_layout)
                     v.setFloat(R.id.ivRefreshIcon, "setRotation", stepAngle * s)
+                    appWidgetManager.partiallyUpdateAppWidget(widgetId, v)
+                    delay(40)
+                }
+            }
+        }
+
+        private suspend fun completePulse(
+            context: Context,
+            appWidgetManager: AppWidgetManager,
+            widgetId: Int
+        ) {
+            pulsingJobs.remove(widgetId)?.cancelAndJoin()
+            val current = pulseStep.remove(widgetId) ?: return
+            if (current > 0) {
+                val steps = 11
+                for (i in (current + 1)..steps) {
+                    val t = i.toFloat() / steps
+                    val scale = 1f + 0.5f * sin(Math.PI * t).toFloat()
+                    val v = RemoteViews(context.packageName, R.layout.widget_layout)
+                    v.setFloat(R.id.ivGoModeDot, "setScaleX", scale)
+                    v.setFloat(R.id.ivGoModeDot, "setScaleY", scale)
                     appWidgetManager.partiallyUpdateAppWidget(widgetId, v)
                     delay(40)
                 }
@@ -447,6 +528,7 @@ class TransitWidget : AppWidgetProvider() {
                 AppWidgetManager.INVALID_APPWIDGET_ID
             )
             if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                if (GoModeManager(context).isGoModeActive) return
                 val appWidgetManager = AppWidgetManager.getInstance(context)
                 CoroutineScope(Dispatchers.IO).launch {
                     val db = TransitDatabase.getInstance(context)
@@ -478,22 +560,70 @@ class TransitWidget : AppWidgetProvider() {
                     }
                     configDao.upsertConfig(config.copy(displayMode = nextMode))
                     updateWidget(context, appWidgetManager, widgetId)
+                    GoModeNotificationService.update(context)
                     try {
                         val latestConfig = configDao.getConfig(widgetId)
                         if (latestConfig != null) {
+                            val goModeManager = GoModeManager(context)
                             val deps = db.departureDao().getDeparturesForStop(latestConfig.stopId)
+                            val isGlobalActive = goModeManager.isGoModeActive
+                            val isTarget = isGlobalActive && latestConfig.widgetId == goModeManager.goModeWidgetId
                             val snapshot = buildSnapshot(
                                 config = latestConfig,
                                 departures = deps,
-                                goModeActive = false,
-                                goModeExpiresAt = 0L,
-                                goModeTarget = false
+                                goModeActive = isGlobalActive,
+                                goModeExpiresAt = goModeManager.goModeExpiresAt,
+                                goModeTarget = isTarget
                             )
                             TileSnapshotPusher(context).pushSnapshot(snapshot)
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
+                }
+            }
+        } else if (intent.action == ACTION_TOGGLE_GO_MODE) {
+            val goModeManager = GoModeManager(context)
+            val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+
+            if (goModeManager.isGoModeActive) {
+                goModeManager.goModeWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+                goModeManager.goModeExpiresAt = 0
+                GoModeNotificationService.update(context)
+            } else {
+                goModeManager.goModeWidgetId = widgetId
+                goModeManager.goModeExpiresAt =
+                    System.currentTimeMillis() + GoModeManager.GO_MODE_DURATION_MS
+            }
+            if (goModeManager.isGoModeActive) {
+                triggerFetch(context)
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    GO_MODE_FETCH_WORK_NAME,
+                    ExistingWorkPolicy.REPLACE,
+                    OneTimeWorkRequestBuilder<FetchWorker>()
+                        .setInitialDelay(GoModeManager.GO_MODE_INTERVAL_MS, TimeUnit.MILLISECONDS)
+                        .build()
+                )
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    GO_MODE_EXPIRY_WORK_NAME,
+                    ExistingWorkPolicy.REPLACE,
+                    OneTimeWorkRequestBuilder<FetchWorker>()
+                        .setInitialDelay(GoModeManager.GO_MODE_DURATION_MS, TimeUnit.MILLISECONDS)
+                        .build()
+                )
+            } else {
+                WorkManager.getInstance(context).cancelUniqueWork(GO_MODE_FETCH_WORK_NAME)
+                WorkManager.getInstance(context).cancelUniqueWork(GO_MODE_EXPIRY_WORK_NAME)
+            }
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val ids = appWidgetManager.getAppWidgetIds(
+                ComponentName(context, TransitWidget::class.java)
+            )
+            for (widgetId in ids) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    updateWidget(
+                        context, appWidgetManager, widgetId
+                    )
                 }
             }
         }

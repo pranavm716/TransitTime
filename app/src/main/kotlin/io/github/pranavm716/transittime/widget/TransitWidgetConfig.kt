@@ -38,6 +38,8 @@ import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.transit.TransitError
 import io.github.pranavm716.transittime.wear.TileSnapshotPusher
+import io.github.pranavm716.transittime.GoModeManager
+import io.github.pranavm716.transittime.service.GoModeNotificationService
 import io.github.pranavm716.transittime.wear.buildSnapshot
 import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
@@ -456,8 +458,9 @@ class TransitWidgetConfig : AppCompatActivity() {
             }
 
             try {
+                val goModeManager = GoModeManager(applicationContext)
                 val snapshotDeps = departureDao.getDeparturesForStop(stopId)
-                val snapshot = buildSnapshot(finalConfig, snapshotDeps, goModeActive = false, goModeExpiresAt = 0L)
+                val snapshot = buildSnapshot(finalConfig, snapshotDeps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
                 val label = if (isNewWidget) "widget added" else "widget updated"
                 Log.d("TransitWear", "TransitWidgetConfig: $label, pushing snapshot for stopId=${finalConfig.stopId}")
                 val pusher = TileSnapshotPusher(applicationContext)
@@ -474,6 +477,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                     AppWidgetManager.getInstance(applicationContext),
                     widgetId
                 )
+                GoModeNotificationService.update(applicationContext)
                 TransitWidget.triggerFetch(applicationContext)
                 val resultIntent = Intent().apply {
                     putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
