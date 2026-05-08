@@ -1,15 +1,17 @@
 package io.github.pranavm716.transittime.gomode
 
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.view.View
 import io.github.pranavm716.transittime.R
+import io.github.pranavm716.transittime.widget.TransitWidget
 
 interface GoModeStrategy {
     val isGoModeActive: Boolean
     val dotVisibility: Int
     val refreshIconVisibility: Int
     fun getFreshnessColor(context: Context, hasError: Boolean): Int
-    fun triggerAnimation(context: Context, widgetId: Int)
+    fun startAnimation(context: Context, manager: AppWidgetManager, widgetId: Int)
 }
 
 class InactiveStrategy : GoModeStrategy {
@@ -25,8 +27,8 @@ class InactiveStrategy : GoModeStrategy {
         }
     }
 
-    override fun triggerAnimation(context: Context, widgetId: Int) {
-        // No animation for inactive
+    override fun startAnimation(context: Context, manager: AppWidgetManager, widgetId: Int) {
+        TransitWidget.animateRefreshIcon(context, manager, widgetId)
     }
 }
 
@@ -43,7 +45,7 @@ class ActiveStrategy : GoModeStrategy {
         }
     }
 
-    override fun triggerAnimation(context: Context, widgetId: Int) {
-        // Pulse animation will be handled by FetchWorker/Widget
+    override fun startAnimation(context: Context, manager: AppWidgetManager, widgetId: Int) {
+        TransitWidget.animateGoModeDot(context, manager, widgetId)
     }
 }

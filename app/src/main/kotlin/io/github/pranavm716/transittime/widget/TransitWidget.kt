@@ -140,17 +140,19 @@ class TransitWidget : AppWidgetProvider() {
         fun updateWidgetAsync(
             context: Context,
             appWidgetManager: AppWidgetManager,
-            widgetId: Int
+            widgetId: Int,
+            skipAnimationCleanup: Boolean = false
         ) {
             CoroutineScope(Dispatchers.IO).launch {
-                updateWidget(context, appWidgetManager, widgetId)
+                updateWidget(context, appWidgetManager, widgetId, skipAnimationCleanup)
             }
         }
 
         suspend fun updateWidget(
             context: Context,
             appWidgetManager: AppWidgetManager,
-            widgetId: Int
+            widgetId: Int,
+            skipAnimationCleanup: Boolean = false
         ) {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
             val rawHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
@@ -195,7 +197,7 @@ class TransitWidget : AppWidgetProvider() {
                 val db = TransitDatabase.getInstance(context)
                 val config = db.widgetConfigDao().getConfig(widgetId) ?: run {
                     views.setTextViewText(R.id.tvStopName, "Not configured")
-                    completeRevolution(context, appWidgetManager, widgetId)
+                    if (!skipAnimationCleanup) completeRevolution(context, appWidgetManager, widgetId)
                     appWidgetManager.updateAppWidget(widgetId, views)
                     return@withContext
                 }
@@ -222,8 +224,10 @@ class TransitWidget : AppWidgetProvider() {
                 applyDepartures(context, views, grouped, config, nowVal)
                 applyOverflow(views, overflow)
 
-                completeRevolution(context, appWidgetManager, widgetId)
-                completePulse(context, appWidgetManager, widgetId)
+                if (!skipAnimationCleanup) {
+                    completeRevolution(context, appWidgetManager, widgetId)
+                    completePulse(context, appWidgetManager, widgetId)
+                }
                 appWidgetManager.updateAppWidget(widgetId, views)
             }
         }
@@ -528,8 +532,10 @@ class TransitWidget : AppWidgetProvider() {
                 AppWidgetManager.INVALID_APPWIDGET_ID
             )
             if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-                if (GoModeManager(context).isGoModeActive) return
+                val goModeManager = GoModeManager(context)
+                if (goModeManager.isGoModeActive) return
                 val appWidgetManager = AppWidgetManager.getInstance(context)
+                val strategy = goModeManager.getStrategy()
                 CoroutineScope(Dispatchers.IO).launch {
                     val db = TransitDatabase.getInstance(context)
                     db.widgetConfigDao().getConfig(widgetId) ?: return@launch
@@ -537,7 +543,7 @@ class TransitWidget : AppWidgetProvider() {
                         ComponentName(context, TransitWidget::class.java)
                     )
                     for (id in allIds) {
-                        animateRefreshIcon(context, appWidgetManager, id)
+                        strategy.startAnimation(context, appWidgetManager, id)
                     }
                     triggerFetch(context)
                 }

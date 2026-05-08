@@ -6,8 +6,23 @@ import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.WearableListenerService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+private const val MIN_ANIM_DURATION_MS = 480L
 
 class WearDataListenerService : WearableListenerService() {
+
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    override fun onDestroy() {
+        (scope.coroutineContext[Job] as? Job)?.cancel()
+        super.onDestroy()
+    }
 
     override fun onDataChanged(dataEvents: DataEventBuffer) {
         Log.d("WearDataListener", "onDataChanged: ${dataEvents.count} event(s)")
@@ -46,7 +61,17 @@ class WearDataListenerService : WearableListenerService() {
                         }
 
                         if (isFetchResult) {
-                            cache.setRefreshing(stopId, false)
+                            val startTime = cache.getRefreshingStartTime(stopId)
+                            scope.launch {
+                                val elapsed = System.currentTimeMillis() - startTime
+                                if (startTime > 0 && elapsed < MIN_ANIM_DURATION_MS) {
+                                    delay(MIN_ANIM_DURATION_MS - elapsed)
+                                }
+                                cache.setRefreshing(stopId, false)
+                                TileService.getUpdater(this@WearDataListenerService)
+                                    .requestUpdate(TransitTileService::class.java)
+                                GoModeNotificationService.update(this@WearDataListenerService)
+                            }
                         } else if (dataMap.getBoolean("isRefreshing", false)) {
                             cache.setRefreshing(stopId, true)
                         }

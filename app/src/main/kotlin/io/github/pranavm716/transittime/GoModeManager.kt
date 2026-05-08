@@ -8,13 +8,19 @@ import androidx.core.content.edit
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.gomode.ActiveStrategy
 import io.github.pranavm716.transittime.gomode.GoModeState
 import io.github.pranavm716.transittime.gomode.GoModeStrategy
 import io.github.pranavm716.transittime.gomode.InactiveStrategy
 import io.github.pranavm716.transittime.service.GoModeNotificationService
+import io.github.pranavm716.transittime.wear.TileSnapshotPusher
+import io.github.pranavm716.transittime.wear.buildSnapshot
 import io.github.pranavm716.transittime.widget.TransitWidget
 import io.github.pranavm716.transittime.worker.FetchWorker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 class GoModeManager(context: Context) {
@@ -53,10 +59,15 @@ class GoModeManager(context: Context) {
         Log.d("GoModeManager", "Activating Go Mode for widgetId=$widgetId")
         goModeWidgetId = widgetId
         goModeExpiresAt = System.currentTimeMillis() + GO_MODE_DURATION_MS
-        
-        syncAll()
-        
-        // Schedule worker and expiry
+
+        GoModeNotificationService.update(appContext)
+
+        val manager = AppWidgetManager.getInstance(appContext)
+        val ids = manager.getAppWidgetIds(ComponentName(appContext, TransitWidget::class.java))
+        for (id in ids) {
+            TransitWidget.updateWidgetAsync(appContext, manager, id, skipAnimationCleanup = true)
+        }
+
         val workManager = WorkManager.getInstance(appContext)
         workManager.enqueueUniqueWork(
             TransitWidget.GO_MODE_FETCH_WORK_NAME,
@@ -72,7 +83,7 @@ class GoModeManager(context: Context) {
                 .setInitialDelay(GO_MODE_DURATION_MS, TimeUnit.MILLISECONDS)
                 .build(),
         )
-        
+
         TransitWidget.triggerFetch(appContext)
     }
 
@@ -80,12 +91,45 @@ class GoModeManager(context: Context) {
         Log.d("GoModeManager", "Deactivating Go Mode")
         goModeWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
         goModeExpiresAt = 0
-        
+
         val workManager = WorkManager.getInstance(appContext)
         workManager.cancelUniqueWork(TransitWidget.GO_MODE_FETCH_WORK_NAME)
         workManager.cancelUniqueWork(TransitWidget.GO_MODE_EXPIRY_WORK_NAME)
-        
-        syncAll()
+
+        GoModeNotificationService.update(appContext)
+
+        // Re-render widgets with cached data — no network call on deactivation.
+        val manager = AppWidgetManager.getInstance(appContext)
+        val ids = manager.getAppWidgetIds(ComponentName(appContext, TransitWidget::class.java))
+        for (id in ids) {
+            TransitWidget.updateWidgetAsync(appContext, manager, id, skipAnimationCleanup = true)
+        }
+
+        // Push cached snapshots to the watch so it clears go mode display immediately.
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val db = TransitDatabase.getInstance(appContext)
+                val configs = db.widgetConfigDao().getAllConfigs()
+                    .groupBy { it.stopId }.map { (_, list) -> list.first() }
+                val pusher = TileSnapshotPusher(appContext)
+                for (config in configs) {
+                    val deps = db.departureDao().getDeparturesForStop(config.stopId)
+                    pusher.pushSnapshot(
+                        buildSnapshot(
+                            config = config,
+                            departures = deps,
+                            goModeActive = false,
+                            goModeExpiresAt = 0L,
+                            isRefreshing = false,
+                            goModeTarget = false
+                        ),
+                        isFetchResult = true
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun toggle(widgetId: Int) {
@@ -94,24 +138,6 @@ class GoModeManager(context: Context) {
         } else {
             activate(widgetId)
         }
-    }
-
-    private fun syncAll() {
-        Log.d("GoModeManager", "syncAll: isGoModeActive=$isGoModeActive")
-        
-        // 1. Update phone notification
-        GoModeNotificationService.update(appContext)
-        
-        // 2. Update all widgets
-        val manager = AppWidgetManager.getInstance(appContext)
-        val ids = manager.getAppWidgetIds(ComponentName(appContext, TransitWidget::class.java))
-        for (id in ids) {
-            TransitWidget.updateWidgetAsync(appContext, manager, id)
-        }
-        
-        // 3. Update watch via a snapshot push (FetchWorker handles this by checking isGoModeActive)
-        // triggerFetch will push fresh data to the watch.
-        TransitWidget.triggerFetch(appContext)
     }
 
     companion object {
