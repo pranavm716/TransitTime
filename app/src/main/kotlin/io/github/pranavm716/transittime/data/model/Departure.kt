@@ -23,6 +23,6 @@ data class Departure(
         now: Long,
         displayMode: DisplayMode = DisplayMode.RELATIVE,
         hybridThresholdMinutes: Int = 60,
-        departingWindowMillis: Long = 30_000
+        departingWindowMillis: Long = 60_000
     ): String = getDisplayTime(arrivalTimestamp, departureTimestamp, isOriginStop, isScheduled, now, displayMode, hybridThresholdMinutes, departingWindowMillis)
 }

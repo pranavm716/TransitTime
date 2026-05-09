@@ -222,13 +222,9 @@ object TransitTileRenderer {
 
             else -> {
                 val visible = snapshot.rows.take(3)
-                // Compute available horizontal space
                 val isRound = device.screenShape == DeviceParametersBuilders.SCREEN_SHAPE_ROUND
                 val sidePaddingDp = if (isRound) 14f else 0f
                 val iconAreaDp = 42f  // 34dp icon box + 8dp spacer
-                // Use device.screenWidthDp so timesAvailableDp is in the same dp space that
-                // ProtoLayout uses for layout. Subtract 4dp safety buffer to absorb any
-                // residual mismatch between Paint measurement and ProtoLayout's text renderer.
                 val timesAvailableDp = device.screenWidthDp - 2 * sidePaddingDp - iconAreaDp - 4f
 
                 val dm = context.resources.displayMetrics
@@ -248,7 +244,6 @@ object TransitTileRenderer {
                             if (wDp > widths[j]) widths[j] = wDp
                         }
                     }
-                    // Add a generous safety buffer to each column to avoid truncation
                     for (idx in widths.indices) if (widths[idx] > 0) widths[idx] += 6f
                     return widths
                 }
@@ -307,7 +302,7 @@ object TransitTileRenderer {
                     .setClickable(
                         ModifiersBuilders.Clickable.Builder()
                             .setId("refresh")
-                            .setOnClick(launchAction(context, "/action/refresh"))
+                            .setOnClick(getClickAction(context, "/action/refresh"))
                             .setVisualFeedbackEnabled(true)
                             .build()
                     )
@@ -476,12 +471,10 @@ object TransitTileRenderer {
         val transformation = ModifiersBuilders.Transformation.Builder()
         if (isRefreshing) {
             if (goModeActive) {
-                // Pulse: 1.0 -> 1.5 -> 1.0 in ~480ms total cycle.
-                // ProtoLayout: animate 1.0 to 1.5 with REVERSE mode.
                 val pulseSpec = AnimationParameterBuilders.AnimationSpec.Builder()
                     .setAnimationParameters(
                         AnimationParameterBuilders.AnimationParameters.Builder()
-                            .setDurationMillis(240) // 240ms one way, 480ms round trip
+                            .setDurationMillis(480)
                             .build()
                     )
                     .setRepeatable(AnimationParameterBuilders.Repeatable.INFINITE_REPEATABLE_WITH_REVERSE)
@@ -492,7 +485,6 @@ object TransitTileRenderer {
                     .build()
                 transformation.setScaleX(scale).setScaleY(scale)
             } else {
-                // Spin: 0 -> 360 in 480ms.
                 val spinSpec = AnimationParameterBuilders.AnimationSpec.Builder()
                     .setAnimationParameters(
                         AnimationParameterBuilders.AnimationParameters.Builder()
@@ -519,7 +511,7 @@ object TransitTileRenderer {
                     .setClickable(
                         ModifiersBuilders.Clickable.Builder()
                             .setId("go_mode")
-                            .setOnClick(launchAction(context, "/action/go_mode_toggle"))
+                            .setOnClick(getClickAction(context, "/action/go_mode_toggle"))
                             .setVisualFeedbackEnabled(true)
                             .build()
                     )
@@ -567,8 +559,6 @@ object TransitTileRenderer {
         val gapDeg = 5f
         val segDeg = ((60f - (totalStops - 1) * gapDeg) / totalStops).coerceAtLeast(1f)
         val pitch = segDeg + gapDeg
-        // Arc spans 60° centered at 180° (bottom center), so leftmost segment starts at 150°.
-        // Clockwise draw order means stop 0 maps to the highest drawing index (leftmost visually).
         val arcStart = 150f
 
         fun segCenterAngle(stopIdx: Int): Float {
@@ -576,7 +566,6 @@ object TransitTileRenderer {
             return arcStart + drawIdx * pitch + segDeg / 2f
         }
 
-        // Background: all dim segments on the fixed track.
         val trackArc = LayoutElementBuilders.Arc.Builder()
             .setAnchorAngle(DimensionBuilders.DegreesProp.Builder().setValue(180f).build())
             .setAnchorType(
@@ -607,10 +596,8 @@ object TransitTileRenderer {
             )
         }
 
-        // Foreground: single bright segment that slides to the active position.
         val toAngle = segCenterAngle(currentIndex)
         val fromAngle = segCenterAngle(prevIndex)
-        // Wrap (N-1 → 0) reverses direction, so snap without animation.
         val isWrap = prevIndex == totalStops - 1 && currentIndex == 0
         val slideSpec = AnimationParameterBuilders.AnimationSpec.Builder()
             .setAnimationParameters(
@@ -777,21 +764,31 @@ object TransitTileRenderer {
             .setHeight(DimensionBuilders.dp(1f))
             .build()
 
-    private fun launchAction(context: Context, path: String): ActionBuilders.Action =
-        ActionBuilders.LaunchAction.Builder()
-            .setAndroidActivity(
-                ActionBuilders.AndroidActivity.Builder()
-                    .setPackageName(context.packageName)
-                    .setClassName("io.github.pranavm716.transittime.wear.ActionActivity")
-                    .addKeyToExtraMapping(
-                        ActionActivity.EXTRA_ACTION,
-                        ActionBuilders.AndroidStringExtra.Builder()
-                            .setValue(path)
-                            .build()
-                    )
-                    .build()
-            )
-            .build()
+    private fun getClickAction(context: Context, path: String): ActionBuilders.Action {
+        val hasPermission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
+                    android.content.pm.PackageManager.PERMISSION_GRANTED
+        } else true
+
+        return if (hasPermission) {
+            ActionBuilders.LoadAction.Builder().build()
+        } else {
+            ActionBuilders.LaunchAction.Builder()
+                .setAndroidActivity(
+                    ActionBuilders.AndroidActivity.Builder()
+                        .setPackageName(context.packageName)
+                        .setClassName("io.github.pranavm716.transittime.wear.ActionActivity")
+                        .addKeyToExtraMapping(
+                            ActionActivity.EXTRA_ACTION,
+                            ActionBuilders.AndroidStringExtra.Builder()
+                                .setValue(path)
+                                .build()
+                        )
+                        .build()
+                )
+                .build()
+        }
+    }
 
     // Prop wrappers ───────────────────────────────────────────────────────────
 

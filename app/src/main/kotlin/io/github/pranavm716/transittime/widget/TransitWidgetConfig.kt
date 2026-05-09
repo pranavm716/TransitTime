@@ -38,15 +38,22 @@ import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.transit.TransitError
 import io.github.pranavm716.transittime.wear.TileSnapshotPusher
-import io.github.pranavm716.transittime.wear.buildSnapshot
 import io.github.pranavm716.transittime.GoModeManager
+import io.github.pranavm716.transittime.service.GoModeNotificationService
+import io.github.pranavm716.transittime.wear.buildSnapshot
 import android.util.Log
+import androidx.activity.result.contract.ActivityResultContracts
+import io.github.pranavm716.transittime.util.PermissionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class TransitWidgetConfig : AppCompatActivity() {
+
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { PermissionManager(this).requestBatteryOptimizationOnFirstRun(this) }
 
     private var widgetId = AppWidgetManager.INVALID_APPWIDGET_ID
     private var selectedStopId: String? = null
@@ -58,10 +65,14 @@ class TransitWidgetConfig : AppCompatActivity() {
     private val checkedHeadsigns = mutableSetOf<String>()
     private var routeAdapter: RouteHeadsignAdapter? = null
     private var existingConfig: WidgetConfig? = null
+    private var selectedMaxDepartures = 3
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setResult(RESULT_CANCELED)
+        val pm = PermissionManager(this)
+        val launchedNotif = pm.requestPermissionsOnFirstRun(permissionLauncher)
+        if (!launchedNotif) pm.requestBatteryOptimizationOnFirstRun(this)
         setContentView(R.layout.activity_widget_config)
 
         val scrollView = findViewById<NestedScrollView>(R.id.nestedScrollView)
@@ -108,7 +119,6 @@ class TransitWidgetConfig : AppCompatActivity() {
         val btnClearSearch = findViewById<ImageButton>(R.id.btnClearSearch)
         val tvSelectedStop = findViewById<TextView>(R.id.tvSelectedStop)
         val btnSave = findViewById<Button>(R.id.btnSave)
-        val rgDisplayMode = findViewById<RadioGroup>(R.id.rgDisplayMode)
         val rbRelative = findViewById<RadioButton>(R.id.rbRelative)
         val rbAbsolute = findViewById<RadioButton>(R.id.rbAbsolute)
         val rbHybrid = findViewById<RadioButton>(R.id.rbHybrid)
@@ -117,7 +127,6 @@ class TransitWidgetConfig : AppCompatActivity() {
         val btnMaxDepartures1 = findViewById<Button>(R.id.btnMaxDepartures1)
         val btnMaxDepartures2 = findViewById<Button>(R.id.btnMaxDepartures2)
         val btnMaxDepartures3 = findViewById<Button>(R.id.btnMaxDepartures3)
-        var selectedMaxDepartures = 3
 
         fun selectMaxDeparturesBtn(count: Int) {
             selectedMaxDepartures = count
@@ -345,129 +354,135 @@ class TransitWidgetConfig : AppCompatActivity() {
         }
 
         btnSave.setOnClickListener {
-            val stopId = selectedStopId
-            val stopName = selectedStopName
-            val maxDepartures = selectedMaxDepartures
-            val agency = Agency.entries[spinner.selectedItemPosition]
+            saveConfig()
+        }
+    }
 
-            if (stopId == null || stopName == null) {
-                Toast.makeText(this, "Please select a stop", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
+    private fun saveConfig() {
+        val spinner = findViewById<Spinner>(R.id.spinnerAgency)
+        val etHybridThreshold = findViewById<EditText>(R.id.etHybridThreshold)
+        val rgDisplayMode = findViewById<RadioGroup>(R.id.rgDisplayMode)
+        val rgDelayInfoMode = findViewById<RadioGroup>(R.id.rgDelayInfoMode)
 
+        val stopId = selectedStopId
+        val stopName = selectedStopName
+        val maxDepartures = selectedMaxDepartures
 
-            val displayMode = when (rgDisplayMode.checkedRadioButtonId) {
-                R.id.rbAbsolute -> DisplayMode.ABSOLUTE
-                R.id.rbHybrid -> DisplayMode.HYBRID
-                else -> DisplayMode.RELATIVE
-            }
-            val hybridThresholdMinutes =
-                etHybridThreshold.text.toString().trim().toIntOrNull() ?: 60
-            val delayColorMode = when (rgDelayInfoMode.checkedRadioButtonId) {
-                R.id.rbNoDelay -> DelayColorMode.NONE
-                R.id.rbFlatDelay -> DelayColorMode.FLAT
-                else -> DelayColorMode.GRADIENT
-            }
+        if (stopId == null || stopName == null) {
+            Toast.makeText(this, "Please select a stop", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-            if (displayMode == DisplayMode.HYBRID && hybridThresholdMinutes !in 1..1440) {
-                Toast.makeText(
-                    this,
-                    "Hybrid threshold must be between 1 and 1440 minutes",
-                    Toast.LENGTH_SHORT
-                ).show()
-                return@setOnClickListener
-            }
+        val agency = Agency.entries[spinner.selectedItemPosition]
 
-            val allRouteHeadsigns = currentRoutes
-                .entries.flatMap { (r, hs) -> hs.map { "$r|$it" } }.toSet()
-            val filtered = if (checkedHeadsigns == allRouteHeadsigns) emptyList()
-            else checkedHeadsigns.toList()
+        val displayMode = when (rgDisplayMode.checkedRadioButtonId) {
+            R.id.rbAbsolute -> DisplayMode.ABSOLUTE
+            R.id.rbHybrid -> DisplayMode.HYBRID
+            else -> DisplayMode.RELATIVE
+        }
+        val hybridThresholdMinutes =
+            etHybridThreshold.text.toString().trim().toIntOrNull() ?: 60
+        val delayColorMode = when (rgDelayInfoMode.checkedRadioButtonId) {
+            R.id.rbNoDelay -> DelayColorMode.NONE
+            R.id.rbFlatDelay -> DelayColorMode.FLAT
+            else -> DelayColorMode.GRADIENT
+        }
 
-            CoroutineScope(Dispatchers.IO).launch {
-                val db = TransitDatabase.getInstance(applicationContext)
-                val configDao = db.widgetConfigDao()
-                val departureDao = db.departureDao()
+        if (displayMode == DisplayMode.HYBRID && hybridThresholdMinutes !in 1..1440) {
+            Toast.makeText(
+                this,
+                "Hybrid threshold must be between 1 and 1440 minutes",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
 
-                val prevConfig = configDao.getConfig(widgetId)
-                val oldStopId = prevConfig?.stopId
-                val isNewWidget = prevConfig == null
+        val allRouteHeadsigns = currentRoutes
+            .entries.flatMap { (r, hs) -> hs.map { "$r|$it" } }.toSet()
+        val filtered = if (checkedHeadsigns == allRouteHeadsigns) emptyList()
+        else checkedHeadsigns.toList()
 
-                var finalConfig = WidgetConfig(
-                    widgetId = widgetId,
-                    stopId = stopId,
-                    stopName = stopName,
-                    agency = agency,
-                    filteredHeadsigns = filtered,
-                    maxDepartures = maxDepartures,
-                    displayMode = displayMode,
-                    hybridThresholdMinutes = hybridThresholdMinutes,
-                    delayColorMode = delayColorMode,
-                    lastFetchedAt = if (oldStopId == stopId) prevConfig.lastFetchedAt else 0L
-                )
+        CoroutineScope(Dispatchers.IO).launch {
+            val db = TransitDatabase.getInstance(applicationContext)
+            val configDao = db.widgetConfigDao()
+            val departureDao = db.departureDao()
 
-                if (oldStopId != null && oldStopId != stopId) {
-                    val remaining = configDao.getAllConfigs()
-                        .filter { it.stopId == oldStopId && it.widgetId != widgetId }
-                    if (remaining.isEmpty()) {
-                        departureDao.deleteDeparturesForStop(oldStopId)
-                        // Scenario (2): stopId changed — delete the old snapshot first
-                        try {
-                            Log.d("TransitWear", "TransitWidgetConfig: stopId changed, deleting snapshot for oldStopId=$oldStopId")
-                            TileSnapshotPusher(applicationContext).deleteSnapshot(oldStopId)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
-                }
+            val prevConfig = configDao.getConfig(widgetId)
+            val oldStopId = prevConfig?.stopId
+            val isNewWidget = prevConfig == null
 
-                configDao.upsertConfig(finalConfig)
+            var finalConfig = WidgetConfig(
+                widgetId = widgetId,
+                stopId = stopId,
+                stopName = stopName,
+                agency = agency,
+                filteredHeadsigns = filtered,
+                maxDepartures = maxDepartures,
+                displayMode = displayMode,
+                hybridThresholdMinutes = hybridThresholdMinutes,
+                delayColorMode = delayColorMode,
+                lastFetchedAt = if (oldStopId == stopId) prevConfig.lastFetchedAt else 0L
+            )
 
-                // If it's a new widget/stop, perform an initial fetch immediately so updateWidget has data
-                if (finalConfig.lastFetchedAt == 0L) {
+            if (oldStopId != null && oldStopId != stopId) {
+                val remaining = configDao.getAllConfigs()
+                    .filter { it.stopId == oldStopId && it.widgetId != widgetId }
+                if (remaining.isEmpty()) {
+                    departureDao.deleteDeparturesForStop(oldStopId)
                     try {
-                        val handler = AgencyRegistry.get(agency)
-                        handler.loadStaticData(applicationContext)
-                        val fetchedAt = System.currentTimeMillis()
-                        val result = handler.fetchDepartures(setOf(stopId), fetchedAt)
-                        val stopDepartures = result.departures.filter { it.stopId == stopId }
-                        if (stopDepartures.isNotEmpty()) {
-                            departureDao.upsertDepartures(stopDepartures)
-                            finalConfig = finalConfig.copy(lastFetchedAt = fetchedAt)
-                            configDao.upsertConfig(finalConfig)
-                        }
+                        Log.d("TransitWear", "TransitWidgetConfig: stopId changed, deleting snapshot for oldStopId=$oldStopId")
+                        TileSnapshotPusher(applicationContext).deleteSnapshot(oldStopId)
                     } catch (e: Exception) {
-                        Log.e("TransitWidgetConfig", "Initial fetch failed", e)
+                        e.printStackTrace()
                     }
                 }
+            }
 
-                // Scenario (1) new widget / Scenario (2) updated widget — push snapshot + index
+            configDao.upsertConfig(finalConfig)
+
+            if (finalConfig.lastFetchedAt == 0L) {
                 try {
-                    val goModeManager = GoModeManager(applicationContext)
-                    val snapshotDeps = departureDao.getDeparturesForStop(stopId)
-                    val snapshot = buildSnapshot(finalConfig, snapshotDeps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
-                    val label = if (isNewWidget) "widget added" else "widget updated"
-                    Log.d("TransitWear", "TransitWidgetConfig: $label, pushing snapshot for stopId=${finalConfig.stopId}")
-                    val pusher = TileSnapshotPusher(applicationContext)
-                    pusher.pushSnapshot(snapshot)
-                    val allStopIds = configDao.getAllConfigs().map { it.stopId }.distinct()
-                    pusher.pushStopIndex(allStopIds)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-
-                withContext(Dispatchers.Main) {
-                    TransitWidget.updateWidget(
-                        applicationContext,
-                        AppWidgetManager.getInstance(applicationContext),
-                        widgetId
-                    )
-                    TransitWidget.triggerFetch(applicationContext)
-                    val resultIntent = Intent().apply {
-                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                    val handler = AgencyRegistry.get(agency)
+                    handler.loadStaticData(applicationContext)
+                    val fetchedAt = System.currentTimeMillis()
+                    val result = handler.fetchDepartures(setOf(stopId), fetchedAt)
+                    val stopDepartures = result.departures.filter { it.stopId == stopId }
+                    if (stopDepartures.isNotEmpty()) {
+                        departureDao.upsertDepartures(stopDepartures)
+                        finalConfig = finalConfig.copy(lastFetchedAt = fetchedAt)
+                        configDao.upsertConfig(finalConfig)
                     }
-                    setResult(RESULT_OK, resultIntent)
-                    finish()
+                } catch (e: Exception) {
+                    Log.e("TransitWidgetConfig", "Initial fetch failed", e)
                 }
+            }
+
+            try {
+                val goModeManager = GoModeManager(applicationContext)
+                val snapshotDeps = departureDao.getDeparturesForStop(stopId)
+                val snapshot = buildSnapshot(finalConfig, snapshotDeps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
+                val label = if (isNewWidget) "widget added" else "widget updated"
+                Log.d("TransitWear", "TransitWidgetConfig: $label, pushing snapshot for stopId=${finalConfig.stopId}")
+                val pusher = TileSnapshotPusher(applicationContext)
+                pusher.pushSnapshot(snapshot)
+                val allStopIds = configDao.getAllConfigs().map { it.stopId }.distinct()
+                pusher.pushStopIndex(allStopIds)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            withContext(Dispatchers.Main) {
+                TransitWidget.updateWidget(
+                    applicationContext,
+                    AppWidgetManager.getInstance(applicationContext),
+                    widgetId
+                )
+                TransitWidget.triggerFetch(applicationContext)
+                val resultIntent = Intent().apply {
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                }
+                setResult(RESULT_OK, resultIntent)
+                finish()
             }
         }
     }

@@ -13,7 +13,7 @@ fun getDisplayTime(
     now: Long,
     displayMode: DisplayMode = DisplayMode.RELATIVE,
     hybridThresholdMinutes: Int = 60,
-    departingWindowMillis: Long = 30_000
+    departingWindowMillis: Long = 60_000
 ): String {
     val millisToArrival = arrivalTimestamp?.minus(now)
     val millisToDeparture = departureTimestamp?.minus(now)

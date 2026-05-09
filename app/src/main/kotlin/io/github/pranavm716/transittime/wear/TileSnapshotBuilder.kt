@@ -16,7 +16,8 @@ fun buildSnapshot(
     departures: List<Departure>,
     goModeActive: Boolean,
     goModeExpiresAt: Long,
-    isRefreshing: Boolean = false
+    isRefreshing: Boolean = false,
+    goModeTarget: Boolean = false
 ): TileSnapshot {
     val fetchedAt = config.lastFetchedAt.takeIf { it > 0L }
         ?: departures.maxOfOrNull { it.fetchedAt }
@@ -65,6 +66,7 @@ fun buildSnapshot(
         goModeActive = goModeActive,
         goModeExpiresAt = goModeExpiresAt,
         rows = rows,
-        isRefreshing = isRefreshing
+        isRefreshing = isRefreshing,
+        goModeTarget = goModeTarget
     )
 }

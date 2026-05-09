@@ -3,6 +3,11 @@
 
     <uses-feature android:name="android.hardware.type.watch" />
 
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <application
         android:label="TransitTime"
         android:icon="@mipmap/ic_launcher"
@@ -16,6 +21,16 @@
         <meta-data
             android:name="com.google.android.wearable.standalone"
             android:value="false" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.DeviceDefault">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
         <activity
             android:name=".ActionActivity"
@@ -50,6 +65,14 @@
             <meta-data
                 android:name="androidx.wear.tiles.LABEL"
                 android:resource="@string/tile_description" />
+        </service>
+
+        <service
+            android:name=".GoModeNotificationService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Transit countdown for upcoming departures" />
         </service>
 
     </application>
