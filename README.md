@@ -92,12 +92,10 @@ transit511.api.key=YOUR_511_KEY
 - Open the project in Android Studio
 - Connect your device and run the app
 
-**5. Disable battery optimization for TransitTime**
+**5. Enable permissions**
 
-- Battery optimization should be disabled to ensure the background refresh process can run
-  uninterrupted
-- Go to Settings → Apps → TransitTime → Battery → Unrestricted (This may be slightly different
-  depending on your phone's manufacturer)
+- The phone and watch processes should prompt you to enable notifications and disable battery optimization.
+- Additionally, on your phone go to Settings → Developer Options → enable "Live notifications for all apps".
 
 **6. Add a widget**
 
