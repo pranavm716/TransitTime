@@ -169,17 +169,24 @@ class TransitWidget : AppWidgetProvider() {
 
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
 
-            val refreshIntent = Intent(context, TransitWidget::class.java).apply {
-                action = ACTION_REFRESH
-                putExtra(EXTRA_WIDGET_ID, widgetId)
+            val goModeManager = GoModeManager(context)
+            val isGoModeActive = goModeManager.isGoModeActive
+            
+            if (!isGoModeActive) {
+                val refreshIntent = Intent(context, TransitWidget::class.java).apply {
+                    action = ACTION_REFRESH
+                    putExtra(EXTRA_WIDGET_ID, widgetId)
+                }
+                val refreshPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    widgetId,
+                    refreshIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.llBody, refreshPendingIntent)
+            } else {
+                views.setOnClickPendingIntent(R.id.llBody, null)
             }
-            val refreshPendingIntent = PendingIntent.getBroadcast(
-                context,
-                widgetId,
-                refreshIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.llBody, refreshPendingIntent)
 
             val cycleModeIntent = Intent(context, TransitWidget::class.java).apply {
                 action = ACTION_CYCLE_DISPLAY_MODE
@@ -427,6 +434,10 @@ class TransitWidget : AppWidgetProvider() {
             )
         }
 
+        private const val ANIMATION_PERIOD_MS = 480L
+        private const val REFRESH_STEPS = 12
+        private const val PULSE_STEPS = 12
+
         fun animateRefreshIcon(
             context: Context,
             appWidgetManager: AppWidgetManager,
@@ -442,15 +453,19 @@ class TransitWidget : AppWidgetProvider() {
             appWidgetManager.partiallyUpdateAppWidget(widgetId, initial)
 
             spinningJobs[widgetId] = CoroutineScope(Dispatchers.IO).launch {
-                val steps = 12
-                val stepAngle = 360f / steps
+                val stepAngle = 360f / REFRESH_STEPS
+                val stepDelay = ANIMATION_PERIOD_MS / REFRESH_STEPS
+                
                 while (isActive) {
-                    val next = ((spinStep[widgetId] ?: 0) % steps) + 1
+                    val current = (spinStep[widgetId] ?: 0)
+                    val next = (current % REFRESH_STEPS) + 1
                     spinStep[widgetId] = next
+                    
                     val views = RemoteViews(context.packageName, R.layout.widget_layout)
                     views.setFloat(R.id.ivRefreshIcon, "setRotation", stepAngle * next)
                     appWidgetManager.partiallyUpdateAppWidget(widgetId, views)
-                    delay(40)
+                    
+                    delay(stepDelay)
                 }
             }
         }
@@ -470,18 +485,19 @@ class TransitWidget : AppWidgetProvider() {
             appWidgetManager.partiallyUpdateAppWidget(widgetId, initial)
 
             pulsingJobs[widgetId] = CoroutineScope(Dispatchers.IO).launch {
-                val steps = 11
+                val stepDelay = ANIMATION_PERIOD_MS / PULSE_STEPS
+                
                 while (isActive) {
-                    for (i in 0..steps) {
+                    for (i in 1..PULSE_STEPS) {
                         if (!isActive) break
                         pulseStep[widgetId] = i
-                        val t = i.toFloat() / steps
+                        val t = i.toFloat() / PULSE_STEPS
                         val scale = 1f + 0.5f * sin(Math.PI * t).toFloat()
                         val views = RemoteViews(context.packageName, R.layout.widget_layout)
                         views.setFloat(R.id.ivGoModeDot, "setScaleX", scale)
                         views.setFloat(R.id.ivGoModeDot, "setScaleY", scale)
                         appWidgetManager.partiallyUpdateAppWidget(widgetId, views)
-                        delay(40)
+                        delay(stepDelay)
                     }
                 }
             }
@@ -494,14 +510,14 @@ class TransitWidget : AppWidgetProvider() {
         ) {
             spinningJobs.remove(widgetId)?.cancelAndJoin()
             val current = spinStep.remove(widgetId) ?: 0
-            if (current in 1 until 24) {
-                val steps = 12
-                val stepAngle = 360f / steps
-                for (s in (current + 1)..steps) {
+            if (current in 1 until REFRESH_STEPS) {
+                val stepAngle = 360f / REFRESH_STEPS
+                val stepDelay = ANIMATION_PERIOD_MS / REFRESH_STEPS
+                for (s in (current + 1)..REFRESH_STEPS) {
                     val v = RemoteViews(context.packageName, R.layout.widget_layout)
                     v.setFloat(R.id.ivRefreshIcon, "setRotation", stepAngle * s)
                     appWidgetManager.partiallyUpdateAppWidget(widgetId, v)
-                    delay(40)
+                    delay(stepDelay)
                 }
             }
         }
@@ -513,18 +529,32 @@ class TransitWidget : AppWidgetProvider() {
         ) {
             pulsingJobs.remove(widgetId)?.cancelAndJoin()
             val current = pulseStep.remove(widgetId) ?: return
-            if (current > 0) {
-                val steps = 11
-                for (i in (current + 1)..steps) {
-                    val t = i.toFloat() / steps
+            if (current in 1 until PULSE_STEPS) {
+                val stepDelay = ANIMATION_PERIOD_MS / PULSE_STEPS
+                for (i in (current + 1)..PULSE_STEPS) {
+                    val t = i.toFloat() / PULSE_STEPS
                     val scale = 1f + 0.5f * sin(Math.PI * t).toFloat()
                     val v = RemoteViews(context.packageName, R.layout.widget_layout)
                     v.setFloat(R.id.ivGoModeDot, "setScaleX", scale)
                     v.setFloat(R.id.ivGoModeDot, "setScaleY", scale)
                     appWidgetManager.partiallyUpdateAppWidget(widgetId, v)
-                    delay(40)
+                    delay(stepDelay)
                 }
             }
+        }
+
+        fun updateGoModeStyle(context: Context, appWidgetManager: AppWidgetManager, widgetId: Int, active: Boolean) {
+            val views = RemoteViews(context.packageName, R.layout.widget_layout)
+            if (active) {
+                views.setViewVisibility(R.id.ivGoModeDot, View.VISIBLE)
+                views.setViewVisibility(R.id.ivRefreshIcon, View.GONE)
+                views.setTextColor(R.id.tvFreshnessText, context.getColor(R.color.accent_color))
+            } else {
+                views.setViewVisibility(R.id.ivGoModeDot, View.GONE)
+                views.setViewVisibility(R.id.ivRefreshIcon, View.VISIBLE)
+                views.setTextColor(R.id.tvFreshnessText, context.getColor(R.color.widget_color_secondary))
+            }
+            appWidgetManager.partiallyUpdateAppWidget(widgetId, views)
         }
 
         fun triggerFetch(context: Context) {

@@ -92,11 +92,11 @@ class GoModeManager(context: Context) {
 
         GoModeNotificationService.update(appContext)
 
-        // Re-render widgets with cached data — no network call on deactivation.
+        // Flip widget styles immediately without re-rendering or network calls.
         val manager = AppWidgetManager.getInstance(appContext)
         val ids = manager.getAppWidgetIds(ComponentName(appContext, TransitWidget::class.java))
         for (id in ids) {
-            TransitWidget.updateWidgetAsync(appContext, manager, id, skipAnimationCleanup = false)
+            TransitWidget.updateGoModeStyle(appContext, manager, id, false)
         }
 
         // Push cached snapshots to the watch so it clears go mode display immediately.

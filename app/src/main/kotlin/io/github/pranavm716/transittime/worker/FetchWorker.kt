@@ -10,6 +10,8 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import io.github.pranavm716.transittime.GoModeManager
+import io.github.pranavm716.transittime.RefreshManager
+import io.github.pranavm716.transittime.model.RefreshState
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.service.GoModeNotificationService
@@ -40,6 +42,9 @@ class FetchWorker(
         ).toSet()
 
         val goModeManager = GoModeManager(context)
+        val refreshManager = RefreshManager.getInstance(context)
+        refreshManager.updateState(RefreshState.INITIATED)
+        
         val strategy = goModeManager.getStrategy()
         val pusher = TileSnapshotPusher(context)
 
@@ -47,6 +52,8 @@ class FetchWorker(
             if (isStopped) return Result.retry()
             strategy.startAnimation(context, manager, id)
         }
+        
+        refreshManager.updateState(RefreshState.FETCHING)
 
         val allConfigs = configDao.getAllConfigs()
         val now = System.currentTimeMillis()
@@ -236,6 +243,8 @@ class FetchWorker(
             e.printStackTrace()
         }
 
+        refreshManager.updateState(RefreshState.RENDERING)
+        
         if (goModeManager.isGoModeActive) {
             GoModeNotificationService.update(context)
             WorkManager.getInstance(context).enqueueUniqueWork(
@@ -249,6 +258,7 @@ class FetchWorker(
             goModeManager.goModeExpiresAt = 0L
         }
 
+        refreshManager.updateState(RefreshState.IDLE)
         return Result.success()
     }
 }

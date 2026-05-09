@@ -474,7 +474,7 @@ object TransitTileRenderer {
                 val pulseSpec = AnimationParameterBuilders.AnimationSpec.Builder()
                     .setAnimationParameters(
                         AnimationParameterBuilders.AnimationParameters.Builder()
-                            .setDurationMillis(240)
+                            .setDurationMillis(480)
                             .build()
                     )
                     .setRepeatable(AnimationParameterBuilders.Repeatable.INFINITE_REPEATABLE_WITH_REVERSE)
