@@ -48,14 +48,14 @@ class FetchWorker(
         val strategy = goModeManager.getStrategy()
         val pusher = TileSnapshotPusher(context)
 
+        val allConfigs = configDao.getAllConfigs()
         for (id in activeIds) {
             if (isStopped) return Result.retry()
-            strategy.startAnimation(context, manager, id)
+            val hasError = allConfigs.find { it.widgetId == id }?.lastErrorLabel != null
+            strategy.startAnimation(context, manager, id, hasError)
         }
         
         refreshManager.updateState(RefreshState.FETCHING)
-
-        val allConfigs = configDao.getAllConfigs()
         val now = System.currentTimeMillis()
         val activeGoModeWidgetId = goModeManager.goModeWidgetId
 
