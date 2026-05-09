@@ -245,9 +245,15 @@ class GoModeNotificationService : Service() {
                 null -> {
                     // Search for the explicit target stop first
                     val stopIds = cache.getStopIds()
+                    var foundTargetButRefreshing = false
                     for (stopId in stopIds) {
                         val snapshot = cache.getSnapshot(stopId)
                         if (snapshot?.goModeTarget == true) {
+                            if (snapshot.isRefreshing == true && lastRunningStopId != stopId) {
+                                Log.d("LiveNotif", "update: target $stopId is refreshing and not yet running, waiting for data")
+                                foundTargetButRefreshing = true
+                                continue
+                            }
                             activeStopId = stopId
                             Log.d(
                                 "LiveNotif",
@@ -258,20 +264,25 @@ class GoModeNotificationService : Service() {
                     }
 
                     // Fallback to searching snapshots with goModeActive (if no target found)
-                    if (activeStopId == null) {
+                    if (activeStopId == null && !foundTargetButRefreshing) {
                         val currentStopId = cache.getCurrentStopId()
                         val currentSnapshot = currentStopId?.let { cache.getSnapshot(it) }
                         if (currentSnapshot?.goModeActive == true) {
-                            activeStopId = currentStopId
-                            Log.d(
-                                "LiveNotif",
-                                "update: current stop confirmed active by snapshot: $activeStopId"
-                            )
-                        } else {
+                            if (!(currentSnapshot.isRefreshing == true && lastRunningStopId != currentStopId)) {
+                                activeStopId = currentStopId
+                                Log.d(
+                                    "LiveNotif",
+                                    "update: current stop confirmed active by snapshot: $activeStopId"
+                                )
+                            }
+                        }
+
+                        if (activeStopId == null) {
                             for (stopId in stopIds) {
                                 if (stopId == currentStopId) continue
                                 val snapshot = cache.getSnapshot(stopId)
                                 if (snapshot?.goModeActive == true) {
+                                    if (snapshot.isRefreshing == true && lastRunningStopId != stopId) continue
                                     activeStopId = stopId
                                     break
                                 }
@@ -300,13 +311,18 @@ class GoModeNotificationService : Service() {
 
             // If we should be running
             if (hasPermission) {
-                try {
-                    val intent = Intent(context, GoModeNotificationService::class.java)
-                    intent.putExtra("stopId", activeStopId)
-                    context.startForegroundService(intent)
-                    lastRunningStopId = activeStopId
-                } catch (e: Exception) {
-                    Log.e("LiveNotif", "startForegroundService failed", e)
+                val snapshot = cache.getSnapshot(activeStopId)
+                if (snapshot?.isRefreshing == true && lastRunningStopId == activeStopId) {
+                    Log.d("LiveNotif", "update: stopId=$activeStopId is refreshing but already running, skipping update to avoid stale flicker")
+                } else {
+                    try {
+                        val intent = Intent(context, GoModeNotificationService::class.java)
+                        intent.putExtra("stopId", activeStopId)
+                        context.startForegroundService(intent)
+                        lastRunningStopId = activeStopId
+                    } catch (e: Exception) {
+                        Log.e("LiveNotif", "startForegroundService failed", e)
+                    }
                 }
             }
         }
