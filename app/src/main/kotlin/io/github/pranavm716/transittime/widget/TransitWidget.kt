@@ -158,7 +158,7 @@ class TransitWidget : AppWidgetProvider() {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
             val rawHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
             val rawWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
-            val minHeight = if (rawHeight <= 110) 180 else rawHeight
+            val minHeight = if (rawHeight <= 110) 200 else rawHeight
             val minWidth = if (rawWidth <= 250) 360 else rawWidth
 
             val res = context.resources
