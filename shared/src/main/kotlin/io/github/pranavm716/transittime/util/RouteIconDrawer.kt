@@ -24,10 +24,17 @@ object RouteIconDrawer {
             textAlign = Paint.Align.CENTER
         }
 
-        textPaint.textSize = when (text.length) {
+        val baseSize = when (text.length) {
             1 -> sizePx * 0.45f
             2 -> sizePx * 0.40f
             else -> sizePx * 0.38f
+        }
+        textPaint.textSize = baseSize
+
+        val maxWidth = sizePx * 0.85f
+        val measuredWidth = textPaint.measureText(text)
+        if (measuredWidth > maxWidth) {
+            textPaint.textSize = baseSize * (maxWidth / measuredWidth)
         }
 
         val bounds = RectF(0f, 0f, sizePx.toFloat(), sizePx.toFloat())
