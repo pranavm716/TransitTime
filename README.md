@@ -54,8 +54,12 @@ for filtering by specific headsigns, multiple display modes, and color-coded del
 - Tap the agency logo or station name to cycle between configured stops.
 - Tap the last refreshed timestamp area to toggle **Go Mode**.
 
-Note: The phone and watch will remain synced at all times. Triggering a refresh or toggling Go Mode
-on one device will update the other.
+**Notes**
+
+- The phone and watch will remain synced at all times. Triggering a refresh or toggling Go Mode
+  on one device will update the other.
+- Activating Go Mode will spawn a live notification in the status bar and on the watch face that
+  shows information about the next departure.
 
 ## How to install
 
