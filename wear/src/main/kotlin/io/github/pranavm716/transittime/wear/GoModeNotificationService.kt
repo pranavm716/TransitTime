@@ -68,7 +68,13 @@ class GoModeNotificationService : Service() {
             .setOnlyAlertOnce(true)
             .setColorized(true)
             .setWhen(0)
-            .setColor(soonestRow?.iconBgColor ?: Color.GRAY)
+            .setColor(
+                when {
+                    snapshot?.errorLabel != null -> 0xFFdc3545.toInt()
+                    soonestRow != null -> soonestRow.iconBgColor
+                    else -> Color.GRAY
+                }
+            )
             .setLocusId(LocusIdCompat("go_mode"))
 
         val statusBuilder = Status.Builder()
@@ -77,16 +83,27 @@ class GoModeNotificationService : Service() {
             val soonestTime = soonestRow.displayTimes.firstOrNull() ?: "—"
             val soonestColor = soonestRow.delayColors.firstOrNull() ?: 0xFFAAAAAA.toInt()
 
-            val contentText = SpannableString(soonestTime).apply {
-                setSpan(ForegroundColorSpan(soonestColor), 0, length, 0)
+            val contentText = if (snapshot.errorLabel != null) {
+                "Error • ${snapshot.errorLabel} • ${soonestRow.routeName} to ${soonestRow.headsign}"
+            } else {
+                SpannableString(soonestTime).apply {
+                    setSpan(ForegroundColorSpan(soonestColor), 0, length, 0)
+                }
             }
 
             builder.setContentTitle(snapshot.stopName)
             builder.setContentText(contentText)
 
-            statusBuilder.addTemplate("#time# • #headsign#")
-                .addPart("headsign", Status.TextPart(soonestRow.headsign))
-                .addPart("time", Status.TextPart(soonestTime))
+            if (snapshot.errorLabel != null) {
+                statusBuilder.addTemplate("Error • #label# • #route# to #headsign#")
+                    .addPart("label", Status.TextPart(snapshot.errorLabel!!))
+                    .addPart("route", Status.TextPart(soonestRow.routeName))
+                    .addPart("headsign", Status.TextPart(soonestRow.headsign))
+            } else {
+                statusBuilder.addTemplate("#time# • #headsign#")
+                    .addPart("headsign", Status.TextPart(soonestRow.headsign))
+                    .addPart("time", Status.TextPart(soonestTime))
+            }
 
             val routeIcon = drawRouteIcon(soonestRow)
             builder.setSmallIcon(
@@ -98,6 +115,21 @@ class GoModeNotificationService : Service() {
 
             val ongoingActivity = OngoingActivity.Builder(this, NOTIFICATION_ID, builder)
                 .setStaticIcon(routeIcon)
+                .setTouchIntent(pendingIntent)
+                .setStatus(statusBuilder.build())
+                .setLocusId(LocusIdCompat("go_mode"))
+                .build()
+            ongoingActivity.apply(this)
+        } else if (snapshot?.errorLabel != null) {
+            val errorLabel = snapshot.errorLabel!!
+            builder.setSmallIcon(R.drawable.ic_ongoing_dot)
+            builder.setContentTitle(snapshot.stopName)
+            builder.setContentText("Error • $errorLabel")
+            statusBuilder.addTemplate("Error • #label#")
+                .addPart("label", Status.TextPart(errorLabel))
+
+            val ongoingActivity = OngoingActivity.Builder(this, NOTIFICATION_ID, builder)
+                .setStaticIcon(R.drawable.ic_ongoing_dot)
                 .setTouchIntent(pendingIntent)
                 .setStatus(statusBuilder.build())
                 .setLocusId(LocusIdCompat("go_mode"))

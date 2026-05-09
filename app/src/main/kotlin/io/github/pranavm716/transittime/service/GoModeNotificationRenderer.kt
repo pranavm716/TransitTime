@@ -34,7 +34,11 @@ object GoModeNotificationRenderer {
         val soonestRow = snapshot.rows.firstOrNull()
         val displayTime = soonestRow?.displayTimes?.firstOrNull() ?: "—"
         val headsign = soonestRow?.headsign ?: "No departures"
-        val baseColor = soonestRow?.iconBgColor ?: Color.GRAY
+        val baseColor = if (snapshot.errorLabel != null) {
+            0xFFdc3545.toInt() // Red error color
+        } else {
+            soonestRow?.iconBgColor ?: Color.GRAY
+        }
         val iconText = soonestRow?.iconText ?: soonestRow?.routeName ?: "?"
         val iconTextColor = soonestRow?.iconTextColor ?: Color.WHITE
 
@@ -47,10 +51,21 @@ object GoModeNotificationRenderer {
             Color.rgb(r, g, if (b < 255) b + 1 else b - 1)
         } else baseColor
 
-        val shortText = "$displayTime • $headsign"
+        val shortText = if (snapshot.errorLabel != null) {
+            "Error • ${snapshot.errorLabel}"
+        } else {
+            "$displayTime • $headsign"
+        }
         val contentTitle = snapshot.stopName
-        val contentText =
-            if (soonestRow != null) "$displayTime • ${soonestRow.routeName} to $headsign" else "No upcoming departures"
+        val contentText = when {
+            snapshot.errorLabel != null && soonestRow != null ->
+                "Error • ${snapshot.errorLabel} • ${soonestRow.routeName} to $headsign"
+            snapshot.errorLabel != null ->
+                "Error • ${snapshot.errorLabel}"
+            soonestRow != null ->
+                "$displayTime • ${soonestRow.routeName} to $headsign"
+            else -> "No upcoming departures"
+        }
 
         val stopGoModeIntent = Intent(context, TransitWidget::class.java).apply {
             action = TransitWidget.ACTION_TOGGLE_GO_MODE
