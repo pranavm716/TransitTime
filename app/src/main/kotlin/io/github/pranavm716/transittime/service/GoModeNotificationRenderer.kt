@@ -53,6 +53,8 @@ object GoModeNotificationRenderer {
 
         val shortText = if (snapshot.errorLabel != null) {
             "Error • ${snapshot.errorLabel}"
+        } else if (soonestRow == null) {
+            "No departures"
         } else {
             "$displayTime • $headsign"
         }
