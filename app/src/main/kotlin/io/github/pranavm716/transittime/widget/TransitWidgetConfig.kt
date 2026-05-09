@@ -477,7 +477,6 @@ class TransitWidgetConfig : AppCompatActivity() {
                     AppWidgetManager.getInstance(applicationContext),
                     widgetId
                 )
-                GoModeNotificationService.update(applicationContext)
                 TransitWidget.triggerFetch(applicationContext)
                 val resultIntent = Intent().apply {
                     putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)

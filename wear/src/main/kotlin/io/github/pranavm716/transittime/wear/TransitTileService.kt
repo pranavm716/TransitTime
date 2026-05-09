@@ -152,7 +152,6 @@ class TransitTileService : TileService() {
             cache.setLocalGoModeOverride(false)
             cache.setRefreshing(stopId, false)
         }
-        GoModeNotificationService.update(this@TransitTileService)
         sendMessageToPhone("/action/go_mode_toggle", stopId.toByteArray(Charsets.UTF_8))
     }
 

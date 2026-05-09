@@ -87,7 +87,6 @@ class WearDataListenerService : WearableListenerService() {
         dataEvents.release()
         if (shouldRefresh) {
             Log.d("WearDataListener", "new snapshot data — requesting tile update")
-            GoModeNotificationService.update(this)
             TileService.getUpdater(this).requestUpdate(TransitTileService::class.java)
         }
     }

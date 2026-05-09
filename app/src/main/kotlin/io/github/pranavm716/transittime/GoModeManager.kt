@@ -60,8 +60,6 @@ class GoModeManager(context: Context) {
         goModeWidgetId = widgetId
         goModeExpiresAt = System.currentTimeMillis() + GO_MODE_DURATION_MS
 
-        GoModeNotificationService.update(appContext)
-
         val workManager = WorkManager.getInstance(appContext)
         workManager.enqueueUniqueWork(
             TransitWidget.GO_MODE_FETCH_WORK_NAME,

@@ -612,7 +612,6 @@ class TransitWidget : AppWidgetProvider() {
                     }
                     configDao.upsertConfig(config.copy(displayMode = nextMode))
                     updateWidget(context, appWidgetManager, widgetId)
-                    GoModeNotificationService.update(context)
                     try {
                         val latestConfig = configDao.getConfig(widgetId)
                         if (latestConfig != null) {
