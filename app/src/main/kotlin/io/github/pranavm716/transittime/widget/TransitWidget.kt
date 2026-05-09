@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.util.Log
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
+import android.net.Uri
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -175,6 +176,7 @@ class TransitWidget : AppWidgetProvider() {
             if (!isGoModeActive) {
                 val refreshIntent = Intent(context, TransitWidget::class.java).apply {
                     action = ACTION_REFRESH
+                    data = Uri.parse("transit://widget/$widgetId/refresh")
                     putExtra(EXTRA_WIDGET_ID, widgetId)
                 }
                 val refreshPendingIntent = PendingIntent.getBroadcast(
@@ -190,11 +192,12 @@ class TransitWidget : AppWidgetProvider() {
 
             val cycleModeIntent = Intent(context, TransitWidget::class.java).apply {
                 action = ACTION_CYCLE_DISPLAY_MODE
+                data = Uri.parse("transit://widget/$widgetId/cycle")
                 putExtra(EXTRA_WIDGET_ID, widgetId)
             }
             val cycleModePendingIntent = PendingIntent.getBroadcast(
                 context,
-                widgetId + 10_000,
+                widgetId + 100_000,
                 cycleModeIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
@@ -211,6 +214,7 @@ class TransitWidget : AppWidgetProvider() {
 
                 val toggleGoModeIntent = Intent(context, TransitWidget::class.java).apply {
                     action = ACTION_TOGGLE_GO_MODE
+                    data = Uri.parse("transit://widget/$widgetId/toggle")
                     putExtra(EXTRA_WIDGET_ID, widgetId)
                 }
                 val toggleGoModePendingIntent = PendingIntent.getBroadcast(
@@ -222,13 +226,21 @@ class TransitWidget : AppWidgetProvider() {
                 views.setOnClickPendingIntent(R.id.llRefresh, toggleGoModePendingIntent)
 
                 val allDepartures = db.departureDao().getDeparturesForStop(config.stopId)
-                val nowVal = System.currentTimeMillis()
-                val (grouped, overflow) = groupDepartures(allDepartures, config.filteredHeadsigns, config.maxDepartures, nowVal, maxRows)
 
-                val freshnessText = resolveFreshnessText(db, config)
+                // Use the data's fetch time as the base for relative calculations to stay in sync with the watch.
+                val lastFetchedAt = config.lastFetchedAt.takeIf { it > 0L }
+                    ?: allDepartures.maxOfOrNull { it.fetchedAt } ?: 0L
+                val baseTime = if (lastFetchedAt > 0) lastFetchedAt else System.currentTimeMillis()
+
+                val (grouped, overflow) = groupDepartures(allDepartures, config.filteredHeadsigns, config.maxDepartures, baseTime, maxRows)
+
+                val freshnessText = if (config.lastErrorLabel != null) config.lastErrorLabel
+                else if (lastFetchedAt == 0L) "—"
+                else SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(lastFetchedAt))
+
                 applyHeader(views, config, context, minWidth, freshnessText)
                 applyFreshness(context, views, config, freshnessText)
-                applyDepartures(context, views, grouped, config, nowVal)
+                applyDepartures(context, views, grouped, config, baseTime)
                 applyOverflow(views, overflow)
 
                 if (!skipAnimationCleanup) {
@@ -287,15 +299,6 @@ class TransitWidget : AppWidgetProvider() {
                 if (paint.measureText(stopName) <= availableWidthPx) return sp
             }
             return 13f
-        }
-
-        private suspend fun resolveFreshnessText(db: TransitDatabase, config: WidgetConfig): String {
-            if (config.lastErrorLabel != null) return config.lastErrorLabel
-            val lastFetchedAt = config.lastFetchedAt.takeIf { it > 0L }
-                ?: db.departureDao().getDeparturesForStop(config.stopId)
-                    .maxOfOrNull { it.fetchedAt } ?: 0L
-            return if (lastFetchedAt == 0L) "—"
-            else SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(lastFetchedAt))
         }
 
         private fun applyFreshness(
@@ -571,71 +574,80 @@ class TransitWidget : AppWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
-        if (intent.action == ACTION_REFRESH) {
-            val widgetId = intent.getIntExtra(
-                EXTRA_WIDGET_ID,
-                AppWidgetManager.INVALID_APPWIDGET_ID
-            )
-            if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-                val goModeManager = GoModeManager(context)
-                if (goModeManager.isGoModeActive) return
-                val appWidgetManager = AppWidgetManager.getInstance(context)
-                val strategy = goModeManager.getStrategy()
-                CoroutineScope(Dispatchers.IO).launch {
-                    val db = TransitDatabase.getInstance(context)
-                    db.widgetConfigDao().getConfig(widgetId) ?: return@launch
-                    val allIds = appWidgetManager.getAppWidgetIds(
-                        ComponentName(context, TransitWidget::class.java)
-                    )
-                    for (id in allIds) {
-                        strategy.startAnimation(context, appWidgetManager, id)
-                    }
-                    triggerFetch(context)
-                }
-            }
-        } else if (intent.action == ACTION_CYCLE_DISPLAY_MODE) {
-            val widgetId = intent.getIntExtra(
-                EXTRA_WIDGET_ID,
-                AppWidgetManager.INVALID_APPWIDGET_ID
-            )
-            if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-                val appWidgetManager = AppWidgetManager.getInstance(context)
-                CoroutineScope(Dispatchers.IO).launch {
-                    val db = TransitDatabase.getInstance(context)
-                    val configDao = db.widgetConfigDao()
-                    val config = configDao.getConfig(widgetId) ?: return@launch
-                    val nextMode = when (config.displayMode) {
-                        DisplayMode.RELATIVE -> DisplayMode.ABSOLUTE
-                        DisplayMode.ABSOLUTE -> DisplayMode.HYBRID
-                        DisplayMode.HYBRID -> DisplayMode.RELATIVE
-                    }
-                    configDao.upsertConfig(config.copy(displayMode = nextMode))
-                    updateWidget(context, appWidgetManager, widgetId)
-                    try {
-                        val latestConfig = configDao.getConfig(widgetId)
-                        if (latestConfig != null) {
-                            val goModeManager = GoModeManager(context)
-                            val deps = db.departureDao().getDeparturesForStop(latestConfig.stopId)
-                            val isGlobalActive = goModeManager.isGoModeActive
-                            val isTarget = isGlobalActive && latestConfig.widgetId == goModeManager.goModeWidgetId
-                            val snapshot = buildSnapshot(
-                                config = latestConfig,
-                                departures = deps,
-                                goModeActive = isGlobalActive,
-                                goModeExpiresAt = goModeManager.goModeExpiresAt,
-                                goModeTarget = isTarget
-                            )
-                            TileSnapshotPusher(context).pushSnapshot(snapshot)
+        when (intent.action) {
+            ACTION_REFRESH -> {
+                val widgetId = intent.getIntExtra(
+                    EXTRA_WIDGET_ID,
+                    AppWidgetManager.INVALID_APPWIDGET_ID
+                )
+                if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                    val goModeManager = GoModeManager(context)
+                    if (goModeManager.isGoModeActive) return
+                    val appWidgetManager = AppWidgetManager.getInstance(context)
+                    val strategy = goModeManager.getStrategy()
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val db = TransitDatabase.getInstance(context)
+                        db.widgetConfigDao().getConfig(widgetId) ?: return@launch
+                        val allIds = appWidgetManager.getAppWidgetIds(
+                            ComponentName(context, TransitWidget::class.java)
+                        )
+                        for (id in allIds) {
+                            strategy.startAnimation(context, appWidgetManager, id)
                         }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                        triggerFetch(context)
                     }
                 }
             }
-        } else if (intent.action == ACTION_TOGGLE_GO_MODE) {
-            val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
-            GoModeManager(context).toggle(widgetId)
+            ACTION_CYCLE_DISPLAY_MODE -> {
+                val widgetId = intent.getIntExtra(
+                    EXTRA_WIDGET_ID,
+                    AppWidgetManager.INVALID_APPWIDGET_ID
+                )
+                if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                    val appWidgetManager = AppWidgetManager.getInstance(context)
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val db = TransitDatabase.getInstance(context)
+                        val configDao = db.widgetConfigDao()
+                        val config = configDao.getConfig(widgetId) ?: return@launch
+                        val nextMode = when (config.displayMode) {
+                            DisplayMode.RELATIVE -> DisplayMode.ABSOLUTE
+                            DisplayMode.ABSOLUTE -> DisplayMode.HYBRID
+                            DisplayMode.HYBRID -> DisplayMode.RELATIVE
+                        }
+                        configDao.upsertConfig(config.copy(displayMode = nextMode))
+                        updateWidget(context, appWidgetManager, widgetId, skipAnimationCleanup = true)
+                        try {
+                            val latestConfig = configDao.getConfig(widgetId)
+                            if (latestConfig != null) {
+                                val goModeManager = GoModeManager(context)
+                                val deps = db.departureDao().getDeparturesForStop(latestConfig.stopId)
+                                val isGlobalActive = goModeManager.isGoModeActive
+                                val isTarget = isGlobalActive && latestConfig.widgetId == goModeManager.goModeWidgetId
+                                val snapshot = buildSnapshot(
+                                    config = latestConfig,
+                                    departures = deps,
+                                    goModeActive = isGlobalActive,
+                                    goModeExpiresAt = goModeManager.goModeExpiresAt,
+                                    goModeTarget = isTarget
+                                )
+                                TileSnapshotPusher(context).pushSnapshot(snapshot)
+                                
+                                // Update phone notification if go mode is active and this is the target widget.
+                                if (isTarget) {
+                                    GoModeNotificationService.update(context)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                }
+            }
+            ACTION_TOGGLE_GO_MODE -> {
+                val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+                GoModeManager(context).toggle(widgetId)
+            }
+            else -> super.onReceive(context, intent)
         }
     }
 }

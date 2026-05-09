@@ -2,6 +2,7 @@ package io.github.pranavm716.transittime.service
 
 import android.app.Notification
 import android.app.PendingIntent
+import android.net.Uri
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -53,6 +54,7 @@ object GoModeNotificationRenderer {
 
         val stopGoModeIntent = Intent(context, TransitWidget::class.java).apply {
             action = TransitWidget.ACTION_TOGGLE_GO_MODE
+            data = Uri.parse("transit://widget/$widgetId/toggle")
             putExtra(TransitWidget.EXTRA_WIDGET_ID, widgetId)
         }
         val stopGoModePendingIntent = PendingIntent.getBroadcast(
