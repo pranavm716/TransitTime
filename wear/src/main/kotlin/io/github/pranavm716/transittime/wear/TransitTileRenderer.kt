@@ -335,7 +335,7 @@ object TransitTileRenderer {
             IconShape.SQUARE -> {
                 badgeWidth = 28f
                 badgeHeight = 28f
-                cornerRadius = 5f
+                cornerRadius = 2.2f
                 iconFontSize = 13f
             }
 
