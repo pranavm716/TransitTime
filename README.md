@@ -54,8 +54,12 @@ for filtering by specific headsigns, multiple display modes, and color-coded del
 - Tap the agency logo or station name to cycle between configured stops.
 - Tap the last refreshed timestamp area to toggle **Go Mode**.
 
-Note: The phone and watch will remain synced at all times. Triggering a refresh or toggling Go Mode
-on one device will update the other.
+**Notes**
+
+- The phone and watch will remain synced at all times. Triggering a refresh or toggling Go Mode
+  on one device will update the other.
+- Activating Go Mode will spawn a live notification in the status bar and on the watch face that
+  shows information about the next departure.
 
 ## How to install
 
@@ -88,12 +92,10 @@ transit511.api.key=YOUR_511_KEY
 - Open the project in Android Studio
 - Connect your device and run the app
 
-**5. Disable battery optimization for TransitTime**
+**5. Enable permissions**
 
-- Battery optimization should be disabled to ensure the background refresh process can run
-  uninterrupted
-- Go to Settings → Apps → TransitTime → Battery → Unrestricted (This may be slightly different
-  depending on your phone's manufacturer)
+- The phone and watch processes should prompt you to enable notifications and disable battery optimization.
+- Additionally, on your phone go to Settings → Developer Options → enable "Live notifications for all apps".
 
 **6. Add a widget**
 

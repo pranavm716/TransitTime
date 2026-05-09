@@ -11,7 +11,7 @@ interface GoModeStrategy {
     val dotVisibility: Int
     val refreshIconVisibility: Int
     fun getFreshnessColor(context: Context, hasError: Boolean): Int
-    fun startAnimation(context: Context, manager: AppWidgetManager, widgetId: Int)
+    fun startAnimation(context: Context, manager: AppWidgetManager, widgetId: Int, hasError: Boolean = false)
 }
 
 class InactiveStrategy : GoModeStrategy {
@@ -27,8 +27,8 @@ class InactiveStrategy : GoModeStrategy {
         }
     }
 
-    override fun startAnimation(context: Context, manager: AppWidgetManager, widgetId: Int) {
-        TransitWidget.animateRefreshIcon(context, manager, widgetId)
+    override fun startAnimation(context: Context, manager: AppWidgetManager, widgetId: Int, hasError: Boolean) {
+        TransitWidget.animateRefreshIcon(context, manager, widgetId, hasError)
     }
 }
 
@@ -45,7 +45,7 @@ class ActiveStrategy : GoModeStrategy {
         }
     }
 
-    override fun startAnimation(context: Context, manager: AppWidgetManager, widgetId: Int) {
-        TransitWidget.animateGoModeDot(context, manager, widgetId)
+    override fun startAnimation(context: Context, manager: AppWidgetManager, widgetId: Int, hasError: Boolean) {
+        TransitWidget.animateGoModeDot(context, manager, widgetId, hasError)
     }
 }

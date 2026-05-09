@@ -93,16 +93,20 @@ class GoModeManager(context: Context) {
         // Flip widget styles immediately without re-rendering or network calls.
         val manager = AppWidgetManager.getInstance(appContext)
         val ids = manager.getAppWidgetIds(ComponentName(appContext, TransitWidget::class.java))
-        for (id in ids) {
-            TransitWidget.updateGoModeStyle(appContext, manager, id, false)
-        }
 
         // Push cached snapshots to the watch so it clears go mode display immediately.
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val db = TransitDatabase.getInstance(appContext)
-                val configs = db.widgetConfigDao().getAllConfigs()
-                    .groupBy { it.stopId }.map { (_, list) -> list.first() }
+                val allConfigs = db.widgetConfigDao().getAllConfigs()
+                
+                // Update phone widgets immediately with correct error state colors
+                for (id in ids) {
+                    val hasError = allConfigs.find { it.widgetId == id }?.lastErrorLabel != null
+                    TransitWidget.updateGoModeStyle(appContext, manager, id, false, hasError)
+                }
+
+                val configs = allConfigs.groupBy { it.stopId }.map { (_, list) -> list.first() }
                 val pusher = TileSnapshotPusher(appContext)
                 for (config in configs) {
                     val deps = db.departureDao().getDeparturesForStop(config.stopId)

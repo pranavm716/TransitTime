@@ -158,7 +158,7 @@ class TransitWidget : AppWidgetProvider() {
             val options = appWidgetManager.getAppWidgetOptions(widgetId)
             val rawHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
             val rawWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
-            val minHeight = if (rawHeight <= 110) 180 else rawHeight
+            val minHeight = if (rawHeight <= 110) 200 else rawHeight
             val minWidth = if (rawWidth <= 250) 360 else rawWidth
 
             val res = context.resources
@@ -444,7 +444,8 @@ class TransitWidget : AppWidgetProvider() {
         fun animateRefreshIcon(
             context: Context,
             appWidgetManager: AppWidgetManager,
-            widgetId: Int
+            widgetId: Int,
+            hasError: Boolean = false
         ) {
             spinningJobs[widgetId]?.cancel()
 
@@ -452,7 +453,22 @@ class TransitWidget : AppWidgetProvider() {
             val initial = RemoteViews(context.packageName, R.layout.widget_layout)
             initial.setViewVisibility(R.id.ivGoModeDot, View.GONE)
             initial.setViewVisibility(R.id.ivRefreshIcon, View.VISIBLE)
-            initial.setTextColor(R.id.tvFreshnessText, context.getColor(R.color.widget_color_secondary))
+            val color = if (hasError) 0xFFdc3545.toInt() else context.getColor(R.color.widget_color_secondary)
+            initial.setTextColor(R.id.tvFreshnessText, color)
+
+            val refreshIntent = Intent(context, TransitWidget::class.java).apply {
+                action = ACTION_REFRESH
+                data = Uri.parse("transit://widget/$widgetId/refresh")
+                putExtra(EXTRA_WIDGET_ID, widgetId)
+            }
+            val refreshPendingIntent = PendingIntent.getBroadcast(
+                context,
+                widgetId,
+                refreshIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            initial.setOnClickPendingIntent(R.id.llBody, refreshPendingIntent)
+
             appWidgetManager.partiallyUpdateAppWidget(widgetId, initial)
 
             spinningJobs[widgetId] = CoroutineScope(Dispatchers.IO).launch {
@@ -476,7 +492,8 @@ class TransitWidget : AppWidgetProvider() {
         fun animateGoModeDot(
             context: Context,
             appWidgetManager: AppWidgetManager,
-            widgetId: Int
+            widgetId: Int,
+            hasError: Boolean = false
         ) {
             pulsingJobs[widgetId]?.cancel()
 
@@ -484,7 +501,9 @@ class TransitWidget : AppWidgetProvider() {
             val initial = RemoteViews(context.packageName, R.layout.widget_layout)
             initial.setViewVisibility(R.id.ivGoModeDot, View.VISIBLE)
             initial.setViewVisibility(R.id.ivRefreshIcon, View.GONE)
-            initial.setTextColor(R.id.tvFreshnessText, context.getColor(R.color.accent_color))
+            val color = if (hasError) 0xFFdc3545.toInt() else context.getColor(R.color.accent_color)
+            initial.setTextColor(R.id.tvFreshnessText, color)
+            initial.setOnClickPendingIntent(R.id.llBody, null)
             appWidgetManager.partiallyUpdateAppWidget(widgetId, initial)
 
             pulsingJobs[widgetId] = CoroutineScope(Dispatchers.IO).launch {
@@ -546,16 +565,32 @@ class TransitWidget : AppWidgetProvider() {
             }
         }
 
-        fun updateGoModeStyle(context: Context, appWidgetManager: AppWidgetManager, widgetId: Int, active: Boolean) {
+        fun updateGoModeStyle(context: Context, appWidgetManager: AppWidgetManager, widgetId: Int, active: Boolean, hasError: Boolean = false) {
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
             if (active) {
                 views.setViewVisibility(R.id.ivGoModeDot, View.VISIBLE)
                 views.setViewVisibility(R.id.ivRefreshIcon, View.GONE)
-                views.setTextColor(R.id.tvFreshnessText, context.getColor(R.color.accent_color))
+                val color = if (hasError) 0xFFdc3545.toInt() else context.getColor(R.color.accent_color)
+                views.setTextColor(R.id.tvFreshnessText, color)
+                views.setOnClickPendingIntent(R.id.llBody, null)
             } else {
                 views.setViewVisibility(R.id.ivGoModeDot, View.GONE)
                 views.setViewVisibility(R.id.ivRefreshIcon, View.VISIBLE)
-                views.setTextColor(R.id.tvFreshnessText, context.getColor(R.color.widget_color_secondary))
+                val color = if (hasError) 0xFFdc3545.toInt() else context.getColor(R.color.widget_color_secondary)
+                views.setTextColor(R.id.tvFreshnessText, color)
+
+                val refreshIntent = Intent(context, TransitWidget::class.java).apply {
+                    action = ACTION_REFRESH
+                    data = Uri.parse("transit://widget/$widgetId/refresh")
+                    putExtra(EXTRA_WIDGET_ID, widgetId)
+                }
+                val refreshPendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    widgetId,
+                    refreshIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.llBody, refreshPendingIntent)
             }
             appWidgetManager.partiallyUpdateAppWidget(widgetId, views)
         }
@@ -587,12 +622,15 @@ class TransitWidget : AppWidgetProvider() {
                     val strategy = goModeManager.getStrategy()
                     CoroutineScope(Dispatchers.IO).launch {
                         val db = TransitDatabase.getInstance(context)
-                        db.widgetConfigDao().getConfig(widgetId) ?: return@launch
+                        val configDao = db.widgetConfigDao()
+                        configDao.getConfig(widgetId) ?: return@launch
+                        val allConfigs = configDao.getAllConfigs()
                         val allIds = appWidgetManager.getAppWidgetIds(
                             ComponentName(context, TransitWidget::class.java)
                         )
                         for (id in allIds) {
-                            strategy.startAnimation(context, appWidgetManager, id)
+                            val hasError = allConfigs.find { it.widgetId == id }?.lastErrorLabel != null
+                            strategy.startAnimation(context, appWidgetManager, id, hasError)
                         }
                         triggerFetch(context)
                     }

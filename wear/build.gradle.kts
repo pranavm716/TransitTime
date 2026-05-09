@@ -42,6 +42,7 @@ kotlin {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity)
+    implementation(libs.androidx.fragment)
     implementation(libs.androidx.wear)
     implementation(libs.androidx.wear.tiles)
     implementation(libs.androidx.wear.tiles.material)

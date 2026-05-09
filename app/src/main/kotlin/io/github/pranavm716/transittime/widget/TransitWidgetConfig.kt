@@ -446,9 +446,12 @@ class TransitWidgetConfig : AppCompatActivity() {
                     handler.loadStaticData(applicationContext)
                     val fetchedAt = System.currentTimeMillis()
                     val result = handler.fetchDepartures(setOf(stopId), fetchedAt)
-                    val stopDepartures = result.departures.filter { it.stopId == stopId }
-                    if (stopDepartures.isNotEmpty()) {
-                        departureDao.upsertDepartures(stopDepartures)
+                    
+                    if (stopId !in result.stopErrors) {
+                        val stopDepartures = result.departures.filter { it.stopId == stopId }
+                        if (stopDepartures.isNotEmpty()) {
+                            departureDao.upsertDepartures(stopDepartures)
+                        }
                         finalConfig = finalConfig.copy(lastFetchedAt = fetchedAt)
                         configDao.upsertConfig(finalConfig)
                     }

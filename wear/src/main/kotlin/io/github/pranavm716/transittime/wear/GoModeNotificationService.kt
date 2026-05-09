@@ -23,7 +23,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.LocusIdCompat
 import androidx.wear.ongoing.OngoingActivity
 import androidx.wear.ongoing.Status
-import io.github.pranavm716.transittime.model.TileRow
 
 class GoModeNotificationService : Service() {
 
@@ -68,33 +67,76 @@ class GoModeNotificationService : Service() {
             .setOnlyAlertOnce(true)
             .setColorized(true)
             .setWhen(0)
-            .setColor(soonestRow?.iconBgColor ?: Color.GRAY)
+            .setColor(
+                when {
+                    snapshot?.errorLabel != null -> 0xFFdc3545.toInt()
+                    soonestRow != null -> soonestRow.iconBgColor
+                    else -> Color.GRAY
+                }
+            )
             .setLocusId(LocusIdCompat("go_mode"))
 
         val statusBuilder = Status.Builder()
 
-        if (snapshot != null && soonestRow != null) {
-            val soonestTime = soonestRow.displayTimes.firstOrNull() ?: "—"
-            val soonestColor = soonestRow.delayColors.firstOrNull() ?: 0xFFAAAAAA.toInt()
-
-            val contentText = SpannableString(soonestTime).apply {
-                setSpan(ForegroundColorSpan(soonestColor), 0, length, 0)
+        if (snapshot != null) {
+            val iconBgColor = when {
+                snapshot.errorLabel != null -> 0xFFdc3545.toInt()
+                soonestRow != null -> soonestRow.iconBgColor
+                else -> Color.GRAY
             }
+            val iconText = soonestRow?.iconText ?: soonestRow?.routeName ?: "?"
+            val iconTextColor = soonestRow?.iconTextColor ?: Color.WHITE
+            val routeIcon = drawNotificationIcon(iconText, iconBgColor, iconTextColor)
 
-            builder.setContentTitle(snapshot.stopName)
-            builder.setContentText(contentText)
-
-            statusBuilder.addTemplate("#time# • #headsign#")
-                .addPart("headsign", Status.TextPart(soonestRow.headsign))
-                .addPart("time", Status.TextPart(soonestTime))
-
-            val routeIcon = drawRouteIcon(soonestRow)
             builder.setSmallIcon(
                 androidx.core.graphics.drawable.IconCompat.createFromIcon(
                     this,
                     routeIcon
                 )
             )
+
+            if (soonestRow != null) {
+                val soonestTime = soonestRow.displayTimes.firstOrNull() ?: "—"
+                val soonestColor = soonestRow.delayColors.firstOrNull() ?: 0xFFAAAAAA.toInt()
+
+                val contentText = if (snapshot.errorLabel != null) {
+                    "Error • ${snapshot.errorLabel} • ${soonestRow.routeName} to ${soonestRow.headsign}"
+                } else {
+                    SpannableString(soonestTime).apply {
+                        setSpan(ForegroundColorSpan(soonestColor), 0, length, 0)
+                    }
+                }
+
+                builder.setContentTitle(snapshot.stopName)
+                builder.setContentText(contentText)
+
+                if (snapshot.errorLabel != null) {
+                    statusBuilder.addTemplate("Error • #label# • #route# to #headsign#")
+                        .addPart("label", Status.TextPart(snapshot.errorLabel!!))
+                        .addPart("route", Status.TextPart(soonestRow.routeName))
+                        .addPart("headsign", Status.TextPart(soonestRow.headsign))
+                } else {
+                    statusBuilder.addTemplate("#time# • #headsign#")
+                        .addPart("headsign", Status.TextPart(soonestRow.headsign))
+                        .addPart("time", Status.TextPart(soonestTime))
+                }
+            } else {
+                // No departures
+                val contentText = if (snapshot.errorLabel != null) {
+                    "Error • ${snapshot.errorLabel}"
+                } else {
+                    "No departures"
+                }
+                builder.setContentTitle(snapshot.stopName)
+                builder.setContentText(contentText)
+
+                if (snapshot.errorLabel != null) {
+                    statusBuilder.addTemplate("Error • #label#")
+                        .addPart("label", Status.TextPart(snapshot.errorLabel!!))
+                } else {
+                    statusBuilder.addTemplate("No departures")
+                }
+            }
 
             val ongoingActivity = OngoingActivity.Builder(this, NOTIFICATION_ID, builder)
                 .setStaticIcon(routeIcon)
@@ -122,25 +164,24 @@ class GoModeNotificationService : Service() {
         return START_STICKY
     }
 
-    private fun drawRouteIcon(row: TileRow): Icon {
+    private fun drawNotificationIcon(text: String, bgColor: Int, textColor: Int): Icon {
         val size = 96
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
         // Draw a full-bleed circle background.
-        paint.color = row.iconBgColor
+        paint.color = bgColor
         canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
 
-        val iconText = row.iconText ?: ""
         val baseTextSize = size * 0.5f
-        paint.color = if (row.iconTextColor != 0) row.iconTextColor else Color.WHITE
+        paint.color = if (textColor != 0) textColor else Color.WHITE
         paint.typeface = Typeface.DEFAULT_BOLD
         paint.textAlign = Paint.Align.CENTER
         paint.textSize = baseTextSize
 
         // Scale text size down if it doesn't fit within 80% of the circle's diameter
-        val measuredWidth = paint.measureText(iconText)
+        val measuredWidth = paint.measureText(text)
         val maxWidth = size * 0.8f
         if (measuredWidth > maxWidth) {
             paint.textSize = baseTextSize * (maxWidth / measuredWidth)
@@ -148,7 +189,7 @@ class GoModeNotificationService : Service() {
 
         val x = size / 2f
         val y = size / 2f - (paint.descent() + paint.ascent()) / 2f
-        canvas.drawText(iconText, x, y, paint)
+        canvas.drawText(text, x, y, paint)
 
         return Icon.createWithBitmap(bitmap)
     }
@@ -204,9 +245,15 @@ class GoModeNotificationService : Service() {
                 null -> {
                     // Search for the explicit target stop first
                     val stopIds = cache.getStopIds()
+                    var foundTargetButRefreshing = false
                     for (stopId in stopIds) {
                         val snapshot = cache.getSnapshot(stopId)
-                        if (snapshot?.goModeTarget == true && snapshot.rows.isNotEmpty()) {
+                        if (snapshot?.goModeTarget == true) {
+                            if (snapshot.isRefreshing == true && lastRunningStopId != stopId) {
+                                Log.d("LiveNotif", "update: target $stopId is refreshing and not yet running, waiting for data")
+                                foundTargetButRefreshing = true
+                                continue
+                            }
                             activeStopId = stopId
                             Log.d(
                                 "LiveNotif",
@@ -217,20 +264,25 @@ class GoModeNotificationService : Service() {
                     }
 
                     // Fallback to searching snapshots with goModeActive (if no target found)
-                    if (activeStopId == null) {
+                    if (activeStopId == null && !foundTargetButRefreshing) {
                         val currentStopId = cache.getCurrentStopId()
                         val currentSnapshot = currentStopId?.let { cache.getSnapshot(it) }
-                        if (currentSnapshot?.goModeActive == true && currentSnapshot.rows.isNotEmpty()) {
-                            activeStopId = currentStopId
-                            Log.d(
-                                "LiveNotif",
-                                "update: current stop confirmed active by snapshot: $activeStopId"
-                            )
-                        } else {
+                        if (currentSnapshot?.goModeActive == true) {
+                            if (!(currentSnapshot.isRefreshing == true && lastRunningStopId != currentStopId)) {
+                                activeStopId = currentStopId
+                                Log.d(
+                                    "LiveNotif",
+                                    "update: current stop confirmed active by snapshot: $activeStopId"
+                                )
+                            }
+                        }
+
+                        if (activeStopId == null) {
                             for (stopId in stopIds) {
                                 if (stopId == currentStopId) continue
                                 val snapshot = cache.getSnapshot(stopId)
-                                if (snapshot?.goModeActive == true && snapshot.rows.isNotEmpty()) {
+                                if (snapshot?.goModeActive == true) {
+                                    if (snapshot.isRefreshing == true && lastRunningStopId != stopId) continue
                                     activeStopId = stopId
                                     break
                                 }
@@ -259,13 +311,18 @@ class GoModeNotificationService : Service() {
 
             // If we should be running
             if (hasPermission) {
-                try {
-                    val intent = Intent(context, GoModeNotificationService::class.java)
-                    intent.putExtra("stopId", activeStopId)
-                    context.startForegroundService(intent)
-                    lastRunningStopId = activeStopId
-                } catch (e: Exception) {
-                    Log.e("LiveNotif", "startForegroundService failed", e)
+                val snapshot = cache.getSnapshot(activeStopId)
+                if (snapshot?.isRefreshing == true && lastRunningStopId == activeStopId) {
+                    Log.d("LiveNotif", "update: stopId=$activeStopId is refreshing but already running, skipping update to avoid stale flicker")
+                } else {
+                    try {
+                        val intent = Intent(context, GoModeNotificationService::class.java)
+                        intent.putExtra("stopId", activeStopId)
+                        context.startForegroundService(intent)
+                        lastRunningStopId = activeStopId
+                    } catch (e: Exception) {
+                        Log.e("LiveNotif", "startForegroundService failed", e)
+                    }
                 }
             }
         }
