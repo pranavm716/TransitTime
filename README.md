@@ -39,9 +39,8 @@ for filtering by specific headsigns, multiple display modes, and color-coded del
 
 **Phone widget features**
 
-- Tap anywhere below the header (on the departure info) to manually refresh all widgets. The widget
-  will still auto-refresh
-  every 15 minutes.
+- Tap anywhere below the header (on the departure info) to manually refresh all widgets. All widgets
+  will still auto-refresh every 15 minutes.
 - Tap the agency logo or station name to cycle between relative → absolute → hybrid display modes.
 - Tap the last refreshed timestamp area to toggle **Go Mode** for that widget.
     - Go Mode will automatically refresh the widget frequently for 20 minutes.
