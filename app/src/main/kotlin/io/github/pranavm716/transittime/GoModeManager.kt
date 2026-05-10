@@ -8,9 +8,8 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
-import io.github.pranavm716.transittime.data.db.TransitDatabase
 import androidx.work.workDataOf
-import io.github.pranavm716.transittime.TransitApplication
+import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.gomode.ActiveStrategy
 import io.github.pranavm716.transittime.gomode.GoModeState
 import io.github.pranavm716.transittime.gomode.GoModeStrategy
@@ -114,7 +113,7 @@ class GoModeManager(context: Context) {
             try {
                 val db = TransitDatabase.getInstance(appContext)
                 val allConfigs = db.widgetConfigDao().getAllConfigs()
-                
+
                 // Update phone widgets immediately with correct error state colors
                 for (id in ids) {
                     val hasError = allConfigs.find { it.widgetId == id }?.lastErrorLabel != null
@@ -194,7 +193,7 @@ class GoModeManager(context: Context) {
 
     companion object {
         const val GO_MODE_DURATION_MS: Long = 20 * 60 * 1000L
-        const val GO_MODE_INTERVAL_MS: Long = 30 * 1000L
+        const val GO_MODE_INTERVAL_MS: Long = 20 * 1000L
         private const val PREFS_NAME = "transit_go_mode_prefs"
         private const val KEY_EXPIRES_AT = "go_mode_expires_at"
         private const val KEY_WIDGET_ID = "go_mode_widget_id"
