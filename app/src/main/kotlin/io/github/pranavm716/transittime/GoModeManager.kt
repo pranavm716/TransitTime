@@ -104,6 +104,8 @@ class GoModeManager(context: Context) {
         workManager.cancelUniqueWork(TransitWidget.GO_MODE_FETCH_WORK_NAME)
         workManager.cancelUniqueWork(TransitWidget.GO_MODE_EXPIRY_WORK_NAME)
 
+        TransitWidget.triggerFetch(appContext)
+
         GoModeNotificationService.update(appContext)
 
         // Flip widget styles immediately without re-rendering or network calls.
