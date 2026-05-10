@@ -3,12 +3,12 @@ package io.github.pranavm716.transittime.worker
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
-import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import io.github.pranavm716.transittime.GoModeManager
 import io.github.pranavm716.transittime.RefreshManager
 import io.github.pranavm716.transittime.model.RefreshState
@@ -28,7 +28,7 @@ class FetchWorker(
 ) : CoroutineWorker(context, params) {
 
     companion object {
-        private const val TAG = "TransitWear"
+        const val KEY_GO_MODE_ONLY = "go_mode_only"
     }
 
     override suspend fun doWork(): Result {
@@ -44,20 +44,33 @@ class FetchWorker(
         val goModeManager = GoModeManager(context)
         val refreshManager = RefreshManager.getInstance(context)
         refreshManager.updateState(RefreshState.INITIATED)
-        
-        val strategy = goModeManager.getStrategy()
+
+        val isGoModeOnly = inputData.getBoolean(KEY_GO_MODE_ONLY, false)
+        val activeGoModeWidgetId = goModeManager.goModeWidgetId
+        val isGoModeCurrentlyActive = goModeManager.isGoModeActive
+
         val pusher = TileSnapshotPusher(context)
 
         val allConfigs = configDao.getAllConfigs()
-        for (id in activeIds) {
+
+        // Resolve the stop that go mode is watching (null if inactive)
+        val goModeStopId: String? = if (isGoModeCurrentlyActive) {
+            allConfigs.find { it.widgetId == activeGoModeWidgetId }?.stopId
+        } else null
+
+        // Animate only the widgets relevant to this fetch type
+        val widgetIdsToAnimate = activeIds.filter { id ->
+            if (isGoModeOnly) id == activeGoModeWidgetId
+            else goModeStopId == null || allConfigs.find { it.widgetId == id }?.stopId != goModeStopId
+        }
+        for (id in widgetIdsToAnimate) {
             if (isStopped) return Result.retry()
             val hasError = allConfigs.find { it.widgetId == id }?.lastErrorLabel != null
-            strategy.startAnimation(context, manager, id, hasError)
+            goModeManager.getStrategyForWidget(id).startAnimation(context, manager, id, hasError)
         }
-        
+
         refreshManager.updateState(RefreshState.FETCHING)
         val now = System.currentTimeMillis()
-        val activeGoModeWidgetId = goModeManager.goModeWidgetId
 
         val staleConfigs = allConfigs.filter {
             it.widgetId !in activeIds &&
@@ -79,12 +92,17 @@ class FetchWorker(
             }
         }
 
-        val configs = configDao.getAllConfigs()
+        val configs = configDao.getAllConfigs().let { all ->
+            when {
+                isGoModeOnly && goModeStopId != null -> all.filter { it.stopId == goModeStopId }
+                goModeStopId != null -> all.filter { it.stopId != goModeStopId }
+                else -> all
+            }
+        }
         val fetchedAt = System.currentTimeMillis()
 
         for (stopId in clearedStopIds) {
             try {
-                Log.d(TAG, "FetchWorker: deleting snapshot for cleared stopId=$stopId")
                 pusher.deleteSnapshot(stopId)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -92,11 +110,12 @@ class FetchWorker(
         }
 
         if (configs.isEmpty()) {
-            try {
-                Log.d(TAG, "FetchWorker: no configs, pushing empty stop index")
-                pusher.pushStopIndex(emptyList())
-            } catch (e: Exception) {
-                e.printStackTrace()
+            if (!isGoModeOnly) {
+                try {
+                    pusher.pushStopIndex(emptyList())
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
             return Result.success()
         }
@@ -117,12 +136,11 @@ class FetchWorker(
                 val loading = buildSnapshot(
                     config = config,
                     departures = deps,
-                    goModeActive = isGlobalActive,
+                    goModeActive = isTarget,
                     goModeExpiresAt = goModeManager.goModeExpiresAt,
                     isRefreshing = true,
                     goModeTarget = isTarget
                 )
-                Log.d(TAG, "FetchWorker: pushing loading snapshot for stopId=${config.stopId}, active=$isGlobalActive, target=$isTarget")
                 pusher.pushSnapshot(loading)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -185,11 +203,10 @@ class FetchWorker(
                                 val snapshot = buildSnapshot(
                                     config = latestConfig,
                                     departures = deps,
-                                    goModeActive = isGlobalActive,
+                                    goModeActive = isTarget,
                                     goModeExpiresAt = goModeManager.goModeExpiresAt,
                                     goModeTarget = isTarget
                                 )
-                                Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId}, active=$isGlobalActive, target=$isTarget")
                                 pusher.pushSnapshot(snapshot, isFetchResult = true)
                             }
                         } catch (e: Exception) {
@@ -220,11 +237,10 @@ class FetchWorker(
                                 val snapshot = buildSnapshot(
                                     config = latestConfig,
                                     departures = deps,
-                                    goModeActive = isGlobalActive,
+                                    goModeActive = isTarget,
                                     goModeExpiresAt = goModeManager.goModeExpiresAt,
                                     goModeTarget = isTarget
                                 )
-                                Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId} (agency error), active=$isGlobalActive, target=$isTarget")
                                 pusher.pushSnapshot(snapshot, isFetchResult = true)
                             }
                         } catch (e2: Exception) {
@@ -237,24 +253,24 @@ class FetchWorker(
 
         try {
             val allStopIds = configDao.getAllConfigs().map { it.stopId }.distinct()
-            Log.d(TAG, "FetchWorker: pushing stop index, stopIds=$allStopIds")
             pusher.pushStopIndex(allStopIds)
         } catch (e: Exception) {
             e.printStackTrace()
         }
 
         refreshManager.updateState(RefreshState.RENDERING)
-        
-        if (goModeManager.isGoModeActive) {
+
+        if (isGoModeOnly && goModeManager.isGoModeActive) {
             GoModeNotificationService.update(context)
             WorkManager.getInstance(context).enqueueUniqueWork(
                 TransitWidget.GO_MODE_FETCH_WORK_NAME,
                 ExistingWorkPolicy.REPLACE,
                 OneTimeWorkRequestBuilder<FetchWorker>()
+                    .setInputData(workDataOf(KEY_GO_MODE_ONLY to true))
                     .setInitialDelay(GoModeManager.GO_MODE_INTERVAL_MS, TimeUnit.MILLISECONDS)
                     .build()
             )
-        } else if (goModeManager.goModeExpiresAt > 0L) {
+        } else if (!isGoModeOnly && !goModeManager.isGoModeActive && goModeManager.goModeExpiresAt > 0L) {
             goModeManager.goModeExpiresAt = 0L
         }
 

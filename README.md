@@ -39,20 +39,19 @@ for filtering by specific headsigns, multiple display modes, and color-coded del
 
 **Phone widget features**
 
-- Tap anywhere below the header (on the departure info) to manually refresh the widget. The widget
-  will still auto-refresh
-  every 15 minutes.
+- Tap anywhere below the header (on the departure info) to manually refresh all widgets. All widgets
+  will still auto-refresh every 15 minutes.
 - Tap the agency logo or station name to cycle between relative → absolute → hybrid display modes.
-- Tap the last refreshed timestamp area to toggle **Go Mode**.
-    - Go Mode will automatically refresh all widgets frequently for 20 minutes.
+- Tap the last refreshed timestamp area to toggle **Go Mode** for that widget.
+    - Go Mode will automatically refresh the widget frequently for 20 minutes.
     - This is useful when you are on the way to a station - you can see the status of your bus/train
       in real time without needing to manually refresh.
 
 **Watch tile features**
 
-- Tap anywhere in the middle (on the departure info) to manually refresh the tile.
+- Tap anywhere in the middle (on the departure info) to manually refresh all tiles.
 - Tap the agency logo or station name to cycle between configured stops.
-- Tap the last refreshed timestamp area to toggle **Go Mode**.
+- Tap the last refreshed timestamp area to toggle **Go Mode** for that tile.
 
 **Notes**
 
@@ -94,8 +93,10 @@ transit511.api.key=YOUR_511_KEY
 
 **5. Enable permissions**
 
-- The phone and watch processes should prompt you to enable notifications and disable battery optimization.
-- Additionally, on your phone go to Settings → Developer Options → enable "Live notifications for all apps".
+- The phone and watch processes should prompt you to enable notifications and disable battery
+  optimization.
+- Additionally, on your phone go to Settings → Developer Options → enable "Live notifications for
+  all apps".
 
 **6. Add a widget**
 

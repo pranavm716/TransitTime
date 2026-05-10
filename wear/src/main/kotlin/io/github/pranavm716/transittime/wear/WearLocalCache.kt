@@ -1,7 +1,6 @@
 package io.github.pranavm716.transittime.wear
 
 import android.content.Context
-import android.util.Log
 import androidx.core.content.edit
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -21,9 +20,7 @@ class WearLocalCache(context: Context) {
 
     fun getSnapshot(stopId: String): TileSnapshot? {
         val json = prefs.getString(snapshotKey(stopId), null)
-        val result = if (json != null) gson.fromJson(json, TileSnapshot::class.java) else null
-        Log.d(TAG, "getSnapshot: stopId=$stopId, ${if (result != null) "hit (fetchedAt=${result.fetchedAt}, rows=${result.rows.size})" else "miss"}")
-        return result
+        return if (json != null) gson.fromJson(json, TileSnapshot::class.java) else null
     }
 
     fun getPushedAt(stopId: String): Long = prefs.getLong(pushedAtKey(stopId), 0L)
@@ -37,12 +34,10 @@ class WearLocalCache(context: Context) {
 
     fun getStopIds(): List<String> {
         val json = prefs.getString(KEY_STOP_IDS, null)
-        val result: List<String> = if (json != null) {
+        return if (json != null) {
             val type = object : TypeToken<List<String>>() {}.type
             gson.fromJson(json, type) ?: emptyList()
         } else emptyList()
-        Log.d(TAG, "getStopIds: ${if (result.isNotEmpty()) "hit, stopIds=$result" else "miss"}")
-        return result
     }
 
     fun getStopIdsPushedAt(): Long = prefs.getLong(KEY_STOP_IDS_PUSHED_AT, 0L)
@@ -83,7 +78,6 @@ class WearLocalCache(context: Context) {
     private fun refreshingKey(stopId: String) = "refreshing_$stopId"
 
     companion object {
-        private const val TAG = "TransitWear"
         private const val PREFS_NAME = "wear_local_cache"
         private const val KEY_STOP_IDS = "stop_ids"
         private const val KEY_STOP_IDS_PUSHED_AT = "stop_ids_pushed_at"

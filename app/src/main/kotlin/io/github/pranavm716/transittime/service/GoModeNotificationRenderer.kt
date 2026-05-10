@@ -35,7 +35,7 @@ object GoModeNotificationRenderer {
         val displayTime = soonestRow?.displayTimes?.firstOrNull() ?: "—"
         val headsign = soonestRow?.headsign ?: "No departures"
         val baseColor = if (snapshot.errorLabel != null) {
-            0xFFdc3545.toInt() // Red error color
+            0xFFdc3545.toInt()
         } else {
             soonestRow?.iconBgColor ?: Color.GRAY
         }

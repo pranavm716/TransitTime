@@ -15,7 +15,7 @@ interface WidgetConfigDao {
     @Query("SELECT * FROM widget_configs WHERE widgetId = :widgetId")
     suspend fun getConfig(widgetId: Int): WidgetConfig?
 
-    @Query("SELECT * FROM widget_configs")
+    @Query("SELECT * FROM widget_configs ORDER BY widgetId")
     suspend fun getAllConfigs(): List<WidgetConfig>
 
     @Query("DELETE FROM widget_configs WHERE widgetId = :widgetId")

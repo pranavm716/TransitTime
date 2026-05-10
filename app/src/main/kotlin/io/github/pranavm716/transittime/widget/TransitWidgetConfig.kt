@@ -8,6 +8,7 @@ import android.text.Editable
 import android.text.SpannableString
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
+import android.util.Log
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.AdapterView
@@ -24,11 +25,13 @@ import android.widget.RadioGroup
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.core.widget.NestedScrollView
+import io.github.pranavm716.transittime.GoModeManager
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
@@ -37,13 +40,9 @@ import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.data.model.WidgetConfig
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.transit.TransitError
-import io.github.pranavm716.transittime.wear.TileSnapshotPusher
-import io.github.pranavm716.transittime.GoModeManager
-import io.github.pranavm716.transittime.service.GoModeNotificationService
-import io.github.pranavm716.transittime.wear.buildSnapshot
-import android.util.Log
-import androidx.activity.result.contract.ActivityResultContracts
 import io.github.pranavm716.transittime.util.PermissionManager
+import io.github.pranavm716.transittime.wear.TileSnapshotPusher
+import io.github.pranavm716.transittime.wear.buildSnapshot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -409,7 +408,6 @@ class TransitWidgetConfig : AppCompatActivity() {
 
             val prevConfig = configDao.getConfig(widgetId)
             val oldStopId = prevConfig?.stopId
-            val isNewWidget = prevConfig == null
 
             var finalConfig = WidgetConfig(
                 widgetId = widgetId,
@@ -430,7 +428,6 @@ class TransitWidgetConfig : AppCompatActivity() {
                 if (remaining.isEmpty()) {
                     departureDao.deleteDeparturesForStop(oldStopId)
                     try {
-                        Log.d("TransitWear", "TransitWidgetConfig: stopId changed, deleting snapshot for oldStopId=$oldStopId")
                         TileSnapshotPusher(applicationContext).deleteSnapshot(oldStopId)
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -446,7 +443,7 @@ class TransitWidgetConfig : AppCompatActivity() {
                     handler.loadStaticData(applicationContext)
                     val fetchedAt = System.currentTimeMillis()
                     val result = handler.fetchDepartures(setOf(stopId), fetchedAt)
-                    
+
                     if (stopId !in result.stopErrors) {
                         val stopDepartures = result.departures.filter { it.stopId == stopId }
                         if (stopDepartures.isNotEmpty()) {
@@ -463,9 +460,12 @@ class TransitWidgetConfig : AppCompatActivity() {
             try {
                 val goModeManager = GoModeManager(applicationContext)
                 val snapshotDeps = departureDao.getDeparturesForStop(stopId)
-                val snapshot = buildSnapshot(finalConfig, snapshotDeps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
-                val label = if (isNewWidget) "widget added" else "widget updated"
-                Log.d("TransitWear", "TransitWidgetConfig: $label, pushing snapshot for stopId=${finalConfig.stopId}")
+                val snapshot = buildSnapshot(
+                    finalConfig,
+                    snapshotDeps,
+                    goModeManager.isGoModeActive,
+                    goModeManager.goModeExpiresAt
+                )
                 val pusher = TileSnapshotPusher(applicationContext)
                 pusher.pushSnapshot(snapshot)
                 val allStopIds = configDao.getAllConfigs().map { it.stopId }.distinct()

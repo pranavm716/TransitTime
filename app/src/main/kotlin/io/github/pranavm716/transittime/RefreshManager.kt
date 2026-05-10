@@ -1,7 +1,6 @@
 package io.github.pranavm716.transittime
 
 import android.content.Context
-import android.util.Log
 import io.github.pranavm716.transittime.model.RefreshState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,12 +18,10 @@ class RefreshManager private constructor(context: Context) {
 
     fun updateState(newState: RefreshState) {
         if (_refreshState.value == newState) return
-        Log.d(TAG, "RefreshState transition: ${_refreshState.value} -> $newState")
         _refreshState.value = newState
     }
 
     companion object {
-        private const val TAG = "RefreshManager"
         @Volatile
         private var INSTANCE: RefreshManager? = null
 

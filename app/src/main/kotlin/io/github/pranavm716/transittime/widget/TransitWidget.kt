@@ -1,13 +1,12 @@
 package io.github.pranavm716.transittime.widget
 
 import android.app.PendingIntent
-import android.util.Log
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
-import android.net.Uri
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.View
@@ -19,13 +18,14 @@ import androidx.work.WorkManager
 import io.github.pranavm716.transittime.GoModeManager
 import io.github.pranavm716.transittime.R
 import io.github.pranavm716.transittime.TransitApplication
-import io.github.pranavm716.transittime.service.GoModeNotificationService
 import io.github.pranavm716.transittime.data.db.TransitDatabase
 import io.github.pranavm716.transittime.data.model.Agency
 import io.github.pranavm716.transittime.data.model.DelayColorMode
 import io.github.pranavm716.transittime.data.model.Departure
 import io.github.pranavm716.transittime.data.model.DisplayMode
 import io.github.pranavm716.transittime.data.model.WidgetConfig
+import io.github.pranavm716.transittime.gomode.InactiveStrategy
+import io.github.pranavm716.transittime.service.GoModeNotificationService
 import io.github.pranavm716.transittime.transit.AgencyRegistry
 import io.github.pranavm716.transittime.util.RouteIconDrawer
 import io.github.pranavm716.transittime.util.getDelayColor
@@ -44,7 +44,6 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
@@ -83,7 +82,6 @@ class TransitWidget : AppWidgetProvider() {
             val pusher = TileSnapshotPusher(context)
             for (stopId in clearedStopIds) {
                 try {
-                    Log.d("TransitWear", "TransitWidget.onDeleted: deleting snapshot for stopId=$stopId")
                     pusher.deleteSnapshot(stopId)
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -91,7 +89,6 @@ class TransitWidget : AppWidgetProvider() {
             }
             try {
                 val remainingStopIds = configDao.getAllConfigs().map { it.stopId }.distinct()
-                Log.d("TransitWear", "TransitWidget.onDeleted: pushing stop index, stopIds=$remainingStopIds")
                 pusher.pushStopIndex(remainingStopIds)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -171,24 +168,19 @@ class TransitWidget : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
 
             val goModeManager = GoModeManager(context)
-            val isGoModeActive = goModeManager.isGoModeActive
-            
-            if (!isGoModeActive) {
-                val refreshIntent = Intent(context, TransitWidget::class.java).apply {
-                    action = ACTION_REFRESH
-                    data = Uri.parse("transit://widget/$widgetId/refresh")
-                    putExtra(EXTRA_WIDGET_ID, widgetId)
-                }
-                val refreshPendingIntent = PendingIntent.getBroadcast(
-                    context,
-                    widgetId,
-                    refreshIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                views.setOnClickPendingIntent(R.id.llBody, refreshPendingIntent)
-            } else {
-                views.setOnClickPendingIntent(R.id.llBody, null)
+
+            val refreshIntent = Intent(context, TransitWidget::class.java).apply {
+                action = ACTION_REFRESH
+                data = Uri.parse("transit://widget/$widgetId/refresh")
+                putExtra(EXTRA_WIDGET_ID, widgetId)
             }
+            val refreshPendingIntent = PendingIntent.getBroadcast(
+                context,
+                widgetId,
+                refreshIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.llBody, refreshPendingIntent)
 
             val cycleModeIntent = Intent(context, TransitWidget::class.java).apply {
                 action = ACTION_CYCLE_DISPLAY_MODE
@@ -207,7 +199,11 @@ class TransitWidget : AppWidgetProvider() {
                 val db = TransitDatabase.getInstance(context)
                 val config = db.widgetConfigDao().getConfig(widgetId) ?: run {
                     views.setTextViewText(R.id.tvStopName, "Not configured")
-                    if (!skipAnimationCleanup) completeRevolution(context, appWidgetManager, widgetId)
+                    if (!skipAnimationCleanup) completeRevolution(
+                        context,
+                        appWidgetManager,
+                        widgetId
+                    )
                     appWidgetManager.updateAppWidget(widgetId, views)
                     return@withContext
                 }
@@ -232,7 +228,13 @@ class TransitWidget : AppWidgetProvider() {
                     ?: allDepartures.maxOfOrNull { it.fetchedAt } ?: 0L
                 val baseTime = if (lastFetchedAt > 0) lastFetchedAt else System.currentTimeMillis()
 
-                val (grouped, overflow) = groupDepartures(allDepartures, config.filteredHeadsigns, config.maxDepartures, baseTime, maxRows)
+                val (grouped, overflow) = groupDepartures(
+                    allDepartures,
+                    config.filteredHeadsigns,
+                    config.maxDepartures,
+                    baseTime,
+                    maxRows
+                )
 
                 val freshnessText = if (config.lastErrorLabel != null) config.lastErrorLabel
                 else if (lastFetchedAt == 0L) "—"
@@ -281,16 +283,17 @@ class TransitWidget : AppWidgetProvider() {
                 textSize = res.getDimension(R.dimen.widget_freshness_text_size)
             }
             val refreshAreaWidthPx = res.getDimension(R.dimen.widget_go_mode_padding_horizontal) +
-                freshnessPaint.measureText(freshnessText) +
-                res.getDimension(R.dimen.widget_freshness_text_margin_end) +
-                res.getDimension(R.dimen.widget_freshness_icon_size) +
-                res.getDimension(R.dimen.widget_freshness_icon_margin_end) +
-                res.getDimension(R.dimen.widget_go_mode_padding_horizontal)
+                    freshnessPaint.measureText(freshnessText) +
+                    res.getDimension(R.dimen.widget_freshness_text_margin_end) +
+                    res.getDimension(R.dimen.widget_freshness_icon_size) +
+                    res.getDimension(R.dimen.widget_freshness_icon_margin_end) +
+                    res.getDimension(R.dimen.widget_go_mode_padding_horizontal)
             val leftOverheadPx = res.getDimension(R.dimen.widget_header_padding_start) +
-                res.getDimension(R.dimen.widget_agency_logo_width) +
-                res.getDimension(R.dimen.widget_agency_logo_margin_end) +
-                res.getDimension(R.dimen.widget_stop_name_margin_end)
-            val availableWidthPx = widgetMinWidthDp * dm.density - refreshAreaWidthPx - leftOverheadPx
+                    res.getDimension(R.dimen.widget_agency_logo_width) +
+                    res.getDimension(R.dimen.widget_agency_logo_margin_end) +
+                    res.getDimension(R.dimen.widget_stop_name_margin_end)
+            val availableWidthPx =
+                widgetMinWidthDp * dm.density - refreshAreaWidthPx - leftOverheadPx
             val paint = android.graphics.Paint().apply {
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
             }
@@ -307,7 +310,8 @@ class TransitWidget : AppWidgetProvider() {
             config: WidgetConfig,
             freshnessText: String
         ) {
-            val strategy = GoModeManager(context).getStrategy()
+            val goModeManager = GoModeManager(context)
+            val strategy = goModeManager.getStrategyForWidget(config.widgetId)
 
             views.setViewVisibility(R.id.ivGoModeDot, strategy.dotVisibility)
             views.setViewVisibility(R.id.ivRefreshIcon, strategy.refreshIconVisibility)
@@ -372,7 +376,8 @@ class TransitWidget : AppWidgetProvider() {
             val handler = AgencyRegistry.get(first.agency)
             val rowViews = RemoteViews(context.packageName, R.layout.widget_departure_row)
 
-            val iconSizePx = context.resources.getDimensionPixelSize(R.dimen.widget_departure_row_icon_size)
+            val iconSizePx =
+                context.resources.getDimensionPixelSize(R.dimen.widget_departure_row_icon_size)
             val bitmap = RouteIconDrawer.draw(
                 style = handler.getRouteStyle(first.routeName),
                 text = handler.getIconText(first.routeName),
@@ -413,7 +418,7 @@ class TransitWidget : AppWidgetProvider() {
         ): Float {
             val res = context.resources
             val cellWidthPx = res.getDimension(R.dimen.widget_departure_time_cell_width) -
-                2 * res.getDimension(R.dimen.widget_departure_time_cell_padding_horizontal)
+                    2 * res.getDimension(R.dimen.widget_departure_time_cell_padding_horizontal)
             val dm = res.displayMetrics
             val paint = android.graphics.Paint().apply {
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -453,7 +458,8 @@ class TransitWidget : AppWidgetProvider() {
             val initial = RemoteViews(context.packageName, R.layout.widget_layout)
             initial.setViewVisibility(R.id.ivGoModeDot, View.GONE)
             initial.setViewVisibility(R.id.ivRefreshIcon, View.VISIBLE)
-            val color = if (hasError) 0xFFdc3545.toInt() else context.getColor(R.color.widget_color_secondary)
+            val color =
+                if (hasError) 0xFFdc3545.toInt() else context.getColor(R.color.widget_color_secondary)
             initial.setTextColor(R.id.tvFreshnessText, color)
 
             val refreshIntent = Intent(context, TransitWidget::class.java).apply {
@@ -474,16 +480,16 @@ class TransitWidget : AppWidgetProvider() {
             spinningJobs[widgetId] = CoroutineScope(Dispatchers.IO).launch {
                 val stepAngle = 360f / REFRESH_STEPS
                 val stepDelay = ANIMATION_PERIOD_MS / REFRESH_STEPS
-                
+
                 while (isActive) {
                     val current = (spinStep[widgetId] ?: 0)
                     val next = (current % REFRESH_STEPS) + 1
                     spinStep[widgetId] = next
-                    
+
                     val views = RemoteViews(context.packageName, R.layout.widget_layout)
                     views.setFloat(R.id.ivRefreshIcon, "setRotation", stepAngle * next)
                     appWidgetManager.partiallyUpdateAppWidget(widgetId, views)
-                    
+
                     delay(stepDelay)
                 }
             }
@@ -503,12 +509,11 @@ class TransitWidget : AppWidgetProvider() {
             initial.setViewVisibility(R.id.ivRefreshIcon, View.GONE)
             val color = if (hasError) 0xFFdc3545.toInt() else context.getColor(R.color.accent_color)
             initial.setTextColor(R.id.tvFreshnessText, color)
-            initial.setOnClickPendingIntent(R.id.llBody, null)
             appWidgetManager.partiallyUpdateAppWidget(widgetId, initial)
 
             pulsingJobs[widgetId] = CoroutineScope(Dispatchers.IO).launch {
                 val stepDelay = ANIMATION_PERIOD_MS / PULSE_STEPS
-                
+
                 while (isActive) {
                     for (i in 1..PULSE_STEPS) {
                         if (!isActive) break
@@ -565,18 +570,25 @@ class TransitWidget : AppWidgetProvider() {
             }
         }
 
-        fun updateGoModeStyle(context: Context, appWidgetManager: AppWidgetManager, widgetId: Int, active: Boolean, hasError: Boolean = false) {
+        fun updateGoModeStyle(
+            context: Context,
+            appWidgetManager: AppWidgetManager,
+            widgetId: Int,
+            active: Boolean,
+            hasError: Boolean = false
+        ) {
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
             if (active) {
                 views.setViewVisibility(R.id.ivGoModeDot, View.VISIBLE)
                 views.setViewVisibility(R.id.ivRefreshIcon, View.GONE)
-                val color = if (hasError) 0xFFdc3545.toInt() else context.getColor(R.color.accent_color)
+                val color =
+                    if (hasError) 0xFFdc3545.toInt() else context.getColor(R.color.accent_color)
                 views.setTextColor(R.id.tvFreshnessText, color)
-                views.setOnClickPendingIntent(R.id.llBody, null)
             } else {
                 views.setViewVisibility(R.id.ivGoModeDot, View.GONE)
                 views.setViewVisibility(R.id.ivRefreshIcon, View.VISIBLE)
-                val color = if (hasError) 0xFFdc3545.toInt() else context.getColor(R.color.widget_color_secondary)
+                val color =
+                    if (hasError) 0xFFdc3545.toInt() else context.getColor(R.color.widget_color_secondary)
                 views.setTextColor(R.id.tvFreshnessText, color)
 
                 val refreshIntent = Intent(context, TransitWidget::class.java).apply {
@@ -596,7 +608,6 @@ class TransitWidget : AppWidgetProvider() {
         }
 
         fun triggerFetch(context: Context) {
-            Log.d("TransitWidget", "triggerFetch: enqueuing manual FetchWorker")
             val request = OneTimeWorkRequestBuilder<FetchWorker>()
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
@@ -617,9 +628,8 @@ class TransitWidget : AppWidgetProvider() {
                 )
                 if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                     val goModeManager = GoModeManager(context)
-                    if (goModeManager.isGoModeActive) return
                     val appWidgetManager = AppWidgetManager.getInstance(context)
-                    val strategy = goModeManager.getStrategy()
+                    val activeGoModeWidgetId = goModeManager.goModeWidgetId
                     CoroutineScope(Dispatchers.IO).launch {
                         val db = TransitDatabase.getInstance(context)
                         val configDao = db.widgetConfigDao()
@@ -629,13 +639,21 @@ class TransitWidget : AppWidgetProvider() {
                             ComponentName(context, TransitWidget::class.java)
                         )
                         for (id in allIds) {
-                            val hasError = allConfigs.find { it.widgetId == id }?.lastErrorLabel != null
-                            strategy.startAnimation(context, appWidgetManager, id, hasError)
+                            if (goModeManager.isGoModeActive && id == activeGoModeWidgetId) continue
+                            val hasError =
+                                allConfigs.find { it.widgetId == id }?.lastErrorLabel != null
+                            InactiveStrategy().startAnimation(
+                                context,
+                                appWidgetManager,
+                                id,
+                                hasError
+                            )
                         }
                         triggerFetch(context)
                     }
                 }
             }
+
             ACTION_CYCLE_DISPLAY_MODE -> {
                 val widgetId = intent.getIntExtra(
                     EXTRA_WIDGET_ID,
@@ -653,24 +671,30 @@ class TransitWidget : AppWidgetProvider() {
                             DisplayMode.HYBRID -> DisplayMode.RELATIVE
                         }
                         configDao.upsertConfig(config.copy(displayMode = nextMode))
-                        updateWidget(context, appWidgetManager, widgetId, skipAnimationCleanup = true)
+                        updateWidget(
+                            context,
+                            appWidgetManager,
+                            widgetId,
+                            skipAnimationCleanup = true
+                        )
                         try {
                             val latestConfig = configDao.getConfig(widgetId)
                             if (latestConfig != null) {
                                 val goModeManager = GoModeManager(context)
-                                val deps = db.departureDao().getDeparturesForStop(latestConfig.stopId)
+                                val deps =
+                                    db.departureDao().getDeparturesForStop(latestConfig.stopId)
                                 val isGlobalActive = goModeManager.isGoModeActive
-                                val isTarget = isGlobalActive && latestConfig.widgetId == goModeManager.goModeWidgetId
+                                val isTarget =
+                                    isGlobalActive && latestConfig.widgetId == goModeManager.goModeWidgetId
                                 val snapshot = buildSnapshot(
                                     config = latestConfig,
                                     departures = deps,
-                                    goModeActive = isGlobalActive,
+                                    goModeActive = isTarget,
                                     goModeExpiresAt = goModeManager.goModeExpiresAt,
                                     goModeTarget = isTarget
                                 )
                                 TileSnapshotPusher(context).pushSnapshot(snapshot)
-                                
-                                // Update phone notification if go mode is active and this is the target widget.
+
                                 if (isTarget) {
                                     GoModeNotificationService.update(context)
                                 }
@@ -681,10 +705,13 @@ class TransitWidget : AppWidgetProvider() {
                     }
                 }
             }
+
             ACTION_TOGGLE_GO_MODE -> {
-                val widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+                val widgetId =
+                    intent.getIntExtra(EXTRA_WIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
                 GoModeManager(context).toggle(widgetId)
             }
+
             else -> super.onReceive(context, intent)
         }
     }
