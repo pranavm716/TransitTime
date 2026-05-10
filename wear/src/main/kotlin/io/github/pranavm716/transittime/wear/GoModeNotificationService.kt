@@ -44,8 +44,6 @@ class GoModeNotificationService : Service() {
         val snapshot = cache.getSnapshot(stopId)
         val soonestRow = snapshot?.rows?.firstOrNull()
 
-        Log.d("LiveNotif", "GoModeNotificationService.onStartCommand: stopId=$stopId")
-
         val pendingIntent = PendingIntent.getActivity(
             this,
             888,
@@ -196,7 +194,6 @@ class GoModeNotificationService : Service() {
     }
 
     override fun onDestroy() {
-        Log.d("LiveNotif", "GoModeNotificationService.onDestroy")
         super.onDestroy()
     }
 
@@ -231,16 +228,11 @@ class GoModeNotificationService : Service() {
                 true -> {
                     // Force the current stop being viewed on the watch
                     activeStopId = cache.getCurrentStopId()
-                    Log.d(
-                        "LiveNotif",
-                        "update: following local override (active) for stopId=$activeStopId"
-                    )
                 }
 
                 false -> {
                     // Force deactivation
                     activeStopId = null
-                    Log.d("LiveNotif", "update: following local override (inactive)")
                 }
 
                 null -> {
@@ -251,15 +243,10 @@ class GoModeNotificationService : Service() {
                         val snapshot = cache.getSnapshot(stopId)
                         if (snapshot?.goModeTarget == true) {
                             if (snapshot.isRefreshing == true && lastRunningStopId != stopId) {
-                                Log.d("LiveNotif", "update: target $stopId is refreshing and not yet running, waiting for data")
                                 foundTargetButRefreshing = true
                                 continue
                             }
                             activeStopId = stopId
-                            Log.d(
-                                "LiveNotif",
-                                "update: found explicit goModeTarget snapshot: $activeStopId"
-                            )
                             break
                         }
                     }
@@ -271,10 +258,6 @@ class GoModeNotificationService : Service() {
                         if (currentSnapshot?.goModeActive == true) {
                             if (!(currentSnapshot.isRefreshing == true && lastRunningStopId != currentStopId)) {
                                 activeStopId = currentStopId
-                                Log.d(
-                                    "LiveNotif",
-                                    "update: current stop confirmed active by snapshot: $activeStopId"
-                                )
                             }
                         }
 
@@ -288,10 +271,6 @@ class GoModeNotificationService : Service() {
                                     break
                                 }
                             }
-                            Log.d(
-                                "LiveNotif",
-                                "update: searched other snapshots, found stopId=$activeStopId"
-                            )
                         }
                     }
                 }
@@ -300,10 +279,6 @@ class GoModeNotificationService : Service() {
             val shouldBeRunning = activeStopId != null
             if (!shouldBeRunning) {
                 if (lastRunningStopId != null) {
-                    Log.d(
-                        "LiveNotif",
-                        "update: stopping service (previously running for $lastRunningStopId)"
-                    )
                     context.stopService(Intent(context, GoModeNotificationService::class.java))
                     lastRunningStopId = null
                 }
@@ -313,9 +288,7 @@ class GoModeNotificationService : Service() {
             // If we should be running
             if (hasPermission) {
                 val snapshot = cache.getSnapshot(activeStopId)
-                if (snapshot?.isRefreshing == true && lastRunningStopId == activeStopId) {
-                    Log.d("LiveNotif", "update: stopId=$activeStopId is refreshing but already running, skipping update to avoid stale flicker")
-                } else {
+                if (snapshot?.isRefreshing != true || lastRunningStopId != activeStopId) {
                     try {
                         val intent = Intent(context, GoModeNotificationService::class.java)
                         intent.putExtra("stopId", activeStopId)

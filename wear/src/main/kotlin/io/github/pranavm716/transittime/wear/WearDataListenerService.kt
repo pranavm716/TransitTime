@@ -25,12 +25,10 @@ class WearDataListenerService : WearableListenerService() {
     }
 
     override fun onDataChanged(dataEvents: DataEventBuffer) {
-        Log.d("WearDataListener", "onDataChanged: ${dataEvents.count} event(s)")
         val cache = WearLocalCache(this)
         var shouldRefresh = false
         for (event in dataEvents) {
             val path = event.dataItem.uri.path ?: continue
-            Log.d("WearDataListener", "type=${event.type} path=$path")
             if (event.type == DataEvent.TYPE_CHANGED) {
                 when {
                     path.startsWith("/tile_snapshot/") -> {
@@ -49,10 +47,6 @@ class WearDataListenerService : WearableListenerService() {
                                 cache.saveSnapshot(snapshot, pushedAt)
                                 val localOverride = cache.getLocalGoModeOverride()
                                 if (localOverride != null) {
-                                    Log.d(
-                                        "LiveNotif",
-                                        "Snapshot received for ${snapshot.stopId}, clearing local override ($localOverride) in favor of phone state (${snapshot.goModeActive})"
-                                    )
                                     cache.setLocalGoModeOverride(null)
                                 }
                             } catch (e: Exception) {
@@ -99,7 +93,6 @@ class WearDataListenerService : WearableListenerService() {
         }
         dataEvents.release()
         if (shouldRefresh) {
-            Log.d("WearDataListener", "new snapshot data — requesting tile update")
             TileService.getUpdater(this).requestUpdate(TransitTileService::class.java)
             GoModeNotificationService.update(this)
         }

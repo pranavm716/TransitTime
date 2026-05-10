@@ -430,7 +430,6 @@ class TransitWidgetConfig : AppCompatActivity() {
                 if (remaining.isEmpty()) {
                     departureDao.deleteDeparturesForStop(oldStopId)
                     try {
-                        Log.d("TransitWear", "TransitWidgetConfig: stopId changed, deleting snapshot for oldStopId=$oldStopId")
                         TileSnapshotPusher(applicationContext).deleteSnapshot(oldStopId)
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -464,8 +463,6 @@ class TransitWidgetConfig : AppCompatActivity() {
                 val goModeManager = GoModeManager(applicationContext)
                 val snapshotDeps = departureDao.getDeparturesForStop(stopId)
                 val snapshot = buildSnapshot(finalConfig, snapshotDeps, goModeManager.isGoModeActive, goModeManager.goModeExpiresAt)
-                val label = if (isNewWidget) "widget added" else "widget updated"
-                Log.d("TransitWear", "TransitWidgetConfig: $label, pushing snapshot for stopId=${finalConfig.stopId}")
                 val pusher = TileSnapshotPusher(applicationContext)
                 pusher.pushSnapshot(snapshot)
                 val allStopIds = configDao.getAllConfigs().map { it.stopId }.distinct()

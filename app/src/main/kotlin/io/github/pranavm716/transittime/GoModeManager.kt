@@ -3,7 +3,6 @@ package io.github.pranavm716.transittime
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
-import android.util.Log
 import androidx.core.content.edit
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -63,7 +62,6 @@ class GoModeManager(context: Context) {
     }
 
     fun activate(widgetId: Int) {
-        Log.d("GoModeManager", "Activating Go Mode for widgetId=$widgetId")
         goModeWidgetId = widgetId
         goModeExpiresAt = System.currentTimeMillis() + GO_MODE_DURATION_MS
 
@@ -96,7 +94,6 @@ class GoModeManager(context: Context) {
     }
 
     fun deactivate() {
-        Log.d("GoModeManager", "Deactivating Go Mode")
         goModeWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
         goModeExpiresAt = 0
 

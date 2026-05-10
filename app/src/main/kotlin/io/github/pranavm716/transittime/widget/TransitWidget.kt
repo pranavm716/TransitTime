@@ -1,7 +1,6 @@
 package io.github.pranavm716.transittime.widget
 
 import android.app.PendingIntent
-import android.util.Log
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.net.Uri
@@ -84,7 +83,6 @@ class TransitWidget : AppWidgetProvider() {
             val pusher = TileSnapshotPusher(context)
             for (stopId in clearedStopIds) {
                 try {
-                    Log.d("TransitWear", "TransitWidget.onDeleted: deleting snapshot for stopId=$stopId")
                     pusher.deleteSnapshot(stopId)
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -92,7 +90,6 @@ class TransitWidget : AppWidgetProvider() {
             }
             try {
                 val remainingStopIds = configDao.getAllConfigs().map { it.stopId }.distinct()
-                Log.d("TransitWear", "TransitWidget.onDeleted: pushing stop index, stopIds=$remainingStopIds")
                 pusher.pushStopIndex(remainingStopIds)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -591,7 +588,6 @@ class TransitWidget : AppWidgetProvider() {
         }
 
         fun triggerFetch(context: Context) {
-            Log.d("TransitWidget", "triggerFetch: enqueuing manual FetchWorker")
             val request = OneTimeWorkRequestBuilder<FetchWorker>()
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()

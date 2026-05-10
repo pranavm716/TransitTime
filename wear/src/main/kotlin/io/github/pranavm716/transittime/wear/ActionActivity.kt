@@ -30,10 +30,8 @@ class ActionActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val action = intent.getStringExtra(EXTRA_ACTION) ?: run { finish(); return }
-        Log.d("ActionActivity", "onCreate: action=$action")
 
         if (action == "open_app") {
-            Log.d("LiveNotif", "ActionActivity: open_app received, showing status")
             val tv = TextView(this).apply {
                 text = "Go Mode Active\nSwipe to dismiss"
                 gravity = Gravity.CENTER
@@ -45,7 +43,6 @@ class ActionActivity : Activity() {
 
         if (action == "open_stop") {
             val stopId = intent.getStringExtra("stopId")
-            Log.d("ActionActivity", "open_stop received for stopId=$stopId")
             if (stopId != null) {
                 val cache = WearLocalCache(this)
                 cache.saveCurrentStopId(stopId)
@@ -85,7 +82,6 @@ class ActionActivity : Activity() {
     private fun startAction() {
         val action = intent.getStringExtra(EXTRA_ACTION) ?: run { finish(); return }
 
-        Log.d("LiveNotif", "ActionActivity.startAction: action=$action, triggering service update")
         GoModeNotificationService.update(this@ActionActivity)
 
         scope.launch {
@@ -116,20 +112,14 @@ class ActionActivity : Activity() {
                 }
 
                 val nodes = Wearable.getNodeClient(this@ActionActivity).connectedNodes.await()
-                Log.d("ActionActivity", "connectedNodes=${nodes.map { it.displayName }}")
                 val phone = nodes.firstOrNull()
                 if (phone != null) {
-                    Log.d("ActionActivity", "sending message path=$action to phone=${phone.displayName}")
                     val payload = if (action == "/action/go_mode_toggle") {
-                        if (cache.getLocalGoModeOverride() == true) {
-                            Log.d("LiveNotif", "go_mode_toggle activating for stopId=$currentStopId")
-                        }
                         currentStopId?.toByteArray(Charsets.UTF_8)
                     } else null
                     Wearable.getMessageClient(this@ActionActivity)
                         .sendMessage(phone.id, action, payload)
                         .await()
-                    Log.d("ActionActivity", "message sent successfully")
                 } else {
                     Log.w("ActionActivity", "no connected phone node found — message not sent")
                 }
@@ -137,7 +127,6 @@ class ActionActivity : Activity() {
                 Log.e("ActionActivity", "error sending message", e)
             } finally {
                 withContext(Dispatchers.Main) {
-                    Log.d("ActionActivity", "requesting tile update")
                     TileService.getUpdater(this@ActionActivity)
                         .requestUpdate(TransitTileService::class.java)
                     finish()

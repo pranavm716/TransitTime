@@ -3,7 +3,6 @@ package io.github.pranavm716.transittime.worker
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
-import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -29,7 +28,6 @@ class FetchWorker(
 ) : CoroutineWorker(context, params) {
 
     companion object {
-        private const val TAG = "TransitWear"
         const val KEY_GO_MODE_ONLY = "go_mode_only"
     }
 
@@ -105,7 +103,6 @@ class FetchWorker(
 
         for (stopId in clearedStopIds) {
             try {
-                Log.d(TAG, "FetchWorker: deleting snapshot for cleared stopId=$stopId")
                 pusher.deleteSnapshot(stopId)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -115,7 +112,6 @@ class FetchWorker(
         if (configs.isEmpty()) {
             if (!isGoModeOnly) {
                 try {
-                    Log.d(TAG, "FetchWorker: no configs, pushing empty stop index")
                     pusher.pushStopIndex(emptyList())
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -145,7 +141,6 @@ class FetchWorker(
                     isRefreshing = true,
                     goModeTarget = isTarget
                 )
-                Log.d(TAG, "FetchWorker: pushing loading snapshot for stopId=${config.stopId}, active=$isGlobalActive, target=$isTarget")
                 pusher.pushSnapshot(loading)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -212,7 +207,6 @@ class FetchWorker(
                                     goModeExpiresAt = goModeManager.goModeExpiresAt,
                                     goModeTarget = isTarget
                                 )
-                                Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId}, active=$isGlobalActive, target=$isTarget")
                                 pusher.pushSnapshot(snapshot, isFetchResult = true)
                             }
                         } catch (e: Exception) {
@@ -247,7 +241,6 @@ class FetchWorker(
                                     goModeExpiresAt = goModeManager.goModeExpiresAt,
                                     goModeTarget = isTarget
                                 )
-                                Log.d(TAG, "FetchWorker: pushing snapshot for stopId=${latestConfig.stopId} (agency error), active=$isGlobalActive, target=$isTarget")
                                 pusher.pushSnapshot(snapshot, isFetchResult = true)
                             }
                         } catch (e2: Exception) {
@@ -260,7 +253,6 @@ class FetchWorker(
 
         try {
             val allStopIds = configDao.getAllConfigs().map { it.stopId }.distinct()
-            Log.d(TAG, "FetchWorker: pushing stop index, stopIds=$allStopIds")
             pusher.pushStopIndex(allStopIds)
         } catch (e: Exception) {
             e.printStackTrace()

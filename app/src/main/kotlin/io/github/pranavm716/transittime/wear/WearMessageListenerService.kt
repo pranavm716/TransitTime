@@ -2,7 +2,6 @@ package io.github.pranavm716.transittime.wear
 
 import android.appwidget.AppWidgetManager
 import android.content.Intent
-import android.util.Log
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import io.github.pranavm716.transittime.data.db.TransitDatabase
@@ -12,10 +11,8 @@ import kotlinx.coroutines.runBlocking
 class WearMessageListenerService : WearableListenerService() {
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
-        Log.d("WearMsgListener", "onMessageReceived: path=${messageEvent.path}")
         when (messageEvent.path) {
             "/action/refresh" -> {
-                Log.d("WearMsgListener", "refresh requested — triggering fetch")
                 TransitWidget.triggerFetch(this)
             }
             "/action/go_mode_toggle" -> {
@@ -27,7 +24,6 @@ class WearMessageListenerService : WearableListenerService() {
                         .firstOrNull { it.stopId == stopId }
                         ?.widgetId
                 } else null
-                Log.d("WearMsgListener", "go_mode_toggle received — stopId=$stopId, widgetId=$widgetId")
                 sendBroadcast(
                     Intent(TransitWidget.ACTION_TOGGLE_GO_MODE).setPackage(packageName).apply {
                         putExtra(
