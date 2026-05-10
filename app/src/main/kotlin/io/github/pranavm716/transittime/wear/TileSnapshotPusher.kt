@@ -37,6 +37,17 @@ class TileSnapshotPusher(context: Context) {
         Log.d(TAG, "deleteSnapshot: succeeded for stopId=$stopId")
     }
 
+    // Signals the watch to navigate to this stop on next tile render (consumed once).
+    suspend fun pushFocusStop(stopId: String) {
+        Log.d(TAG, "pushFocusStop: stopId=$stopId")
+        val request = PutDataMapRequest.create("/focus_stop").apply {
+            dataMap.putString("stopId", stopId)
+            dataMap.putLong("pushedAt", System.currentTimeMillis())
+        }
+        dataClient.putDataItem(request.asPutDataRequest().setUrgent()).await()
+        Log.d(TAG, "pushFocusStop: succeeded")
+    }
+
     // Pushes an ordered list of stopIds so the watch knows how to navigate stops.
     suspend fun pushStopIndex(orderedStopIds: List<String>) {
         Log.d(TAG, "pushStopIndex: stopIds=$orderedStopIds")

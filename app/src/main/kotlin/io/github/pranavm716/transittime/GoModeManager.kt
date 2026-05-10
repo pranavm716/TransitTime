@@ -147,6 +147,7 @@ class GoModeManager(context: Context) {
     fun toggle(widgetId: Int) {
         if (!isGoModeActive) {
             activate(widgetId)
+            focusWatchOnWidget(widgetId)
         } else if (goModeWidgetId == widgetId) {
             deactivate()
         } else {
@@ -154,6 +155,7 @@ class GoModeManager(context: Context) {
             val manager = AppWidgetManager.getInstance(appContext)
             TransitWidget.updateGoModeStyle(appContext, manager, prevWidgetId, active = false)
             activate(widgetId)
+            focusWatchOnWidget(widgetId)
             // Clear the old widget's watch snapshot so its tile loses the green dot and the
             // watch pill stops showing its departure.
             CoroutineScope(Dispatchers.IO).launch {
@@ -175,6 +177,18 @@ class GoModeManager(context: Context) {
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
+            }
+        }
+    }
+
+    private fun focusWatchOnWidget(widgetId: Int) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val config = TransitDatabase.getInstance(appContext)
+                    .widgetConfigDao().getConfig(widgetId) ?: return@launch
+                TileSnapshotPusher(appContext).pushFocusStop(config.stopId)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }

@@ -81,6 +81,19 @@ class WearDataListenerService : WearableListenerService() {
                     path == "/tile_snapshot_index" -> {
                         shouldRefresh = true
                     }
+
+                    path == "/focus_stop" -> {
+                        val stopId = DataMapItem.fromDataItem(event.dataItem).dataMap.getString("stopId")
+                        if (stopId != null) {
+                            val stopIds = cache.getStopIds()
+                            val index = stopIds.indexOf(stopId)
+                            if (index >= 0) {
+                                cache.saveCurrentIndex(index)
+                                cache.saveCurrentStopId(stopId)
+                            }
+                            shouldRefresh = true
+                        }
+                    }
                 }
             }
         }
