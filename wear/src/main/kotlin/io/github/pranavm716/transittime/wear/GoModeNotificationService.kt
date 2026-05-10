@@ -120,7 +120,6 @@ class GoModeNotificationService : Service() {
                         .addPart("time", Status.TextPart(soonestTime))
                 }
             } else {
-                // No departures
                 val contentText = if (snapshot.errorLabel != null) {
                     "Error • ${snapshot.errorLabel}"
                 } else {
@@ -169,7 +168,6 @@ class GoModeNotificationService : Service() {
         val canvas = Canvas(bitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-        // Draw a full-bleed circle background.
         paint.color = bgColor
         canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
 
@@ -231,7 +229,6 @@ class GoModeNotificationService : Service() {
                 }
 
                 false -> {
-                    // Force deactivation
                     activeStopId = null
                 }
 
@@ -276,8 +273,7 @@ class GoModeNotificationService : Service() {
                 }
             }
 
-            val shouldBeRunning = activeStopId != null
-            if (!shouldBeRunning) {
+            if (activeStopId == null) {
                 if (lastRunningStopId != null) {
                     context.stopService(Intent(context, GoModeNotificationService::class.java))
                     lastRunningStopId = null
@@ -285,7 +281,6 @@ class GoModeNotificationService : Service() {
                 return
             }
 
-            // If we should be running
             if (hasPermission) {
                 val snapshot = cache.getSnapshot(activeStopId)
                 if (snapshot?.isRefreshing != true || lastRunningStopId != activeStopId) {

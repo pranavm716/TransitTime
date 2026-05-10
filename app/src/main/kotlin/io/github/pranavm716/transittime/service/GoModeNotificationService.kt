@@ -55,7 +55,7 @@ class GoModeNotificationService : Service() {
             departures = departures,
             goModeActive = goModeManager.isGoModeActive,
             goModeExpiresAt = goModeManager.goModeExpiresAt,
-            goModeTarget = true // This widget is the target for the notification
+            goModeTarget = true
         )
 
         val notification = GoModeNotificationRenderer.render(this, widgetId, snapshot)
