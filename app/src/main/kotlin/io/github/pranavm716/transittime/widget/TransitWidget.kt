@@ -18,6 +18,7 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import io.github.pranavm716.transittime.GoModeManager
 import io.github.pranavm716.transittime.R
+import io.github.pranavm716.transittime.gomode.InactiveStrategy
 import io.github.pranavm716.transittime.TransitApplication
 import io.github.pranavm716.transittime.service.GoModeNotificationService
 import io.github.pranavm716.transittime.data.db.TransitDatabase
@@ -171,24 +172,19 @@ class TransitWidget : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_layout)
 
             val goModeManager = GoModeManager(context)
-            val isGoModeActive = goModeManager.isGoModeActive
-            
-            if (!isGoModeActive) {
-                val refreshIntent = Intent(context, TransitWidget::class.java).apply {
-                    action = ACTION_REFRESH
-                    data = Uri.parse("transit://widget/$widgetId/refresh")
-                    putExtra(EXTRA_WIDGET_ID, widgetId)
-                }
-                val refreshPendingIntent = PendingIntent.getBroadcast(
-                    context,
-                    widgetId,
-                    refreshIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                views.setOnClickPendingIntent(R.id.llBody, refreshPendingIntent)
-            } else {
-                views.setOnClickPendingIntent(R.id.llBody, null)
+
+            val refreshIntent = Intent(context, TransitWidget::class.java).apply {
+                action = ACTION_REFRESH
+                data = Uri.parse("transit://widget/$widgetId/refresh")
+                putExtra(EXTRA_WIDGET_ID, widgetId)
             }
+            val refreshPendingIntent = PendingIntent.getBroadcast(
+                context,
+                widgetId,
+                refreshIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.llBody, refreshPendingIntent)
 
             val cycleModeIntent = Intent(context, TransitWidget::class.java).apply {
                 action = ACTION_CYCLE_DISPLAY_MODE
@@ -307,7 +303,8 @@ class TransitWidget : AppWidgetProvider() {
             config: WidgetConfig,
             freshnessText: String
         ) {
-            val strategy = GoModeManager(context).getStrategy()
+            val goModeManager = GoModeManager(context)
+            val strategy = goModeManager.getStrategyForWidget(config.widgetId)
 
             views.setViewVisibility(R.id.ivGoModeDot, strategy.dotVisibility)
             views.setViewVisibility(R.id.ivRefreshIcon, strategy.refreshIconVisibility)
@@ -503,7 +500,6 @@ class TransitWidget : AppWidgetProvider() {
             initial.setViewVisibility(R.id.ivRefreshIcon, View.GONE)
             val color = if (hasError) 0xFFdc3545.toInt() else context.getColor(R.color.accent_color)
             initial.setTextColor(R.id.tvFreshnessText, color)
-            initial.setOnClickPendingIntent(R.id.llBody, null)
             appWidgetManager.partiallyUpdateAppWidget(widgetId, initial)
 
             pulsingJobs[widgetId] = CoroutineScope(Dispatchers.IO).launch {
@@ -572,7 +568,6 @@ class TransitWidget : AppWidgetProvider() {
                 views.setViewVisibility(R.id.ivRefreshIcon, View.GONE)
                 val color = if (hasError) 0xFFdc3545.toInt() else context.getColor(R.color.accent_color)
                 views.setTextColor(R.id.tvFreshnessText, color)
-                views.setOnClickPendingIntent(R.id.llBody, null)
             } else {
                 views.setViewVisibility(R.id.ivGoModeDot, View.GONE)
                 views.setViewVisibility(R.id.ivRefreshIcon, View.VISIBLE)
@@ -617,9 +612,8 @@ class TransitWidget : AppWidgetProvider() {
                 )
                 if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                     val goModeManager = GoModeManager(context)
-                    if (goModeManager.isGoModeActive) return
                     val appWidgetManager = AppWidgetManager.getInstance(context)
-                    val strategy = goModeManager.getStrategy()
+                    val activeGoModeWidgetId = goModeManager.goModeWidgetId
                     CoroutineScope(Dispatchers.IO).launch {
                         val db = TransitDatabase.getInstance(context)
                         val configDao = db.widgetConfigDao()
@@ -629,8 +623,9 @@ class TransitWidget : AppWidgetProvider() {
                             ComponentName(context, TransitWidget::class.java)
                         )
                         for (id in allIds) {
+                            if (goModeManager.isGoModeActive && id == activeGoModeWidgetId) continue
                             val hasError = allConfigs.find { it.widgetId == id }?.lastErrorLabel != null
-                            strategy.startAnimation(context, appWidgetManager, id, hasError)
+                            InactiveStrategy().startAnimation(context, appWidgetManager, id, hasError)
                         }
                         triggerFetch(context)
                     }
@@ -664,7 +659,7 @@ class TransitWidget : AppWidgetProvider() {
                                 val snapshot = buildSnapshot(
                                     config = latestConfig,
                                     departures = deps,
-                                    goModeActive = isGlobalActive,
+                                    goModeActive = isTarget,
                                     goModeExpiresAt = goModeManager.goModeExpiresAt,
                                     goModeTarget = isTarget
                                 )

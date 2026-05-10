@@ -24,6 +24,7 @@ class ActionActivity : Activity() {
 
     companion object {
         const val EXTRA_ACTION = "action"
+        const val EXTRA_STOP_ID = "stopId"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,7 +91,9 @@ class ActionActivity : Activity() {
         scope.launch {
             try {
                 val cache = WearLocalCache(this@ActionActivity)
-                val currentStopId = cache.getCurrentStopId()
+                // Prefer an explicitly-passed stopId (e.g. from the notification pill) over the
+                // cached current tile, so we always act on the correct go mode target.
+                val currentStopId = intent.getStringExtra(EXTRA_STOP_ID) ?: cache.getCurrentStopId()
                 if (action == "/action/refresh" && currentStopId != null) {
                     val localOverride = cache.getLocalGoModeOverride()
                     val snapshot = cache.getSnapshot(currentStopId)

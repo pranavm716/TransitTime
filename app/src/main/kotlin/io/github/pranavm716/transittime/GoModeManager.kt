@@ -7,8 +7,11 @@ import android.util.Log
 import androidx.core.content.edit
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import io.github.pranavm716.transittime.data.db.TransitDatabase
+import androidx.work.workDataOf
+import io.github.pranavm716.transittime.TransitApplication
 import io.github.pranavm716.transittime.gomode.ActiveStrategy
 import io.github.pranavm716.transittime.gomode.GoModeState
 import io.github.pranavm716.transittime.gomode.GoModeStrategy
@@ -55,6 +58,10 @@ class GoModeManager(context: Context) {
         return if (isGoModeActive) ActiveStrategy() else InactiveStrategy()
     }
 
+    fun getStrategyForWidget(widgetId: Int): GoModeStrategy {
+        return if (isGoModeActive && goModeWidgetId == widgetId) ActiveStrategy() else InactiveStrategy()
+    }
+
     fun activate(widgetId: Int) {
         Log.d("GoModeManager", "Activating Go Mode for widgetId=$widgetId")
         goModeWidgetId = widgetId
@@ -65,6 +72,7 @@ class GoModeManager(context: Context) {
             TransitWidget.GO_MODE_FETCH_WORK_NAME,
             ExistingWorkPolicy.REPLACE,
             OneTimeWorkRequestBuilder<FetchWorker>()
+                .setInputData(workDataOf(FetchWorker.KEY_GO_MODE_ONLY to true))
                 .setInitialDelay(GO_MODE_INTERVAL_MS, TimeUnit.MILLISECONDS)
                 .build(),
         )
@@ -76,7 +84,15 @@ class GoModeManager(context: Context) {
                 .build(),
         )
 
-        TransitWidget.triggerFetch(appContext)
+        val request = OneTimeWorkRequestBuilder<FetchWorker>()
+            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            .setInputData(workDataOf(FetchWorker.KEY_GO_MODE_ONLY to true))
+            .build()
+        workManager.enqueueUniqueWork(
+            TransitApplication.FETCH_WORK_NAME_MANUAL,
+            ExistingWorkPolicy.REPLACE,
+            request
+        )
     }
 
     fun deactivate() {
@@ -129,10 +145,37 @@ class GoModeManager(context: Context) {
     }
 
     fun toggle(widgetId: Int) {
-        if (isGoModeActive) {
+        if (!isGoModeActive) {
+            activate(widgetId)
+        } else if (goModeWidgetId == widgetId) {
             deactivate()
         } else {
+            val prevWidgetId = goModeWidgetId
+            val manager = AppWidgetManager.getInstance(appContext)
+            TransitWidget.updateGoModeStyle(appContext, manager, prevWidgetId, active = false)
             activate(widgetId)
+            // Clear the old widget's watch snapshot so its tile loses the green dot and the
+            // watch pill stops showing its departure.
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val db = TransitDatabase.getInstance(appContext)
+                    val prevConfig = db.widgetConfigDao().getConfig(prevWidgetId) ?: return@launch
+                    val deps = db.departureDao().getDeparturesForStop(prevConfig.stopId)
+                    TileSnapshotPusher(appContext).pushSnapshot(
+                        buildSnapshot(
+                            config = prevConfig,
+                            departures = deps,
+                            goModeActive = false,
+                            goModeExpiresAt = 0L,
+                            isRefreshing = false,
+                            goModeTarget = false
+                        ),
+                        isFetchResult = true
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
         }
     }
 
