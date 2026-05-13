@@ -65,7 +65,12 @@ class StopPickerActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 val stops = rememberLiveStops(cache)
-                StopPickerScreen(stops) { stopId ->
+                val initialIndex = remember {
+                    val currentId = cache.getCurrentStopId()
+                    val pos = cache.getStopIds().indexOf(currentId).coerceAtLeast(0)
+                    pos + 1 // +1 for the header item
+                }
+                StopPickerScreen(stops, initialIndex) { stopId ->
                     val index = cache.getStopIds().indexOf(stopId)
                     cache.saveCurrentStopId(stopId)
                     if (index != -1) cache.saveCurrentIndex(index)
@@ -130,9 +135,10 @@ private fun AutoSizeText(
 @Composable
 private fun StopPickerScreen(
     stops: List<Triple<String, String, Agency>>,
+    initialCenterItemIndex: Int,
     onStopSelected: (stopId: String) -> Unit
 ) {
-    val listState = rememberScalingLazyListState()
+    val listState = rememberScalingLazyListState(initialCenterItemIndex = initialCenterItemIndex)
     Scaffold(
         modifier = Modifier.background(BgMain),
         positionIndicator = { PositionIndicator(scalingLazyListState = listState) }
