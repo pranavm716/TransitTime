@@ -39,14 +39,12 @@ object TransitTileRenderer {
         context: Context,
         deviceConfiguration: DeviceParametersBuilders.DeviceParameters,
         snapshot: TileSnapshot,
-        currentIndex: Int,
-        prevIndex: Int,
         totalStops: Int,
         isRefreshing: Boolean,
         goModeActive: Boolean
     ): TileBuilders.Tile {
         val root = if (totalStops == 0) buildNoStopsLayout() else buildRoot(
-            context, deviceConfiguration, snapshot, currentIndex, prevIndex, totalStops, isRefreshing, goModeActive
+            context, deviceConfiguration, snapshot, isRefreshing, goModeActive
         )
         return TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
@@ -106,9 +104,6 @@ object TransitTileRenderer {
         context: Context,
         device: DeviceParametersBuilders.DeviceParameters,
         snapshot: TileSnapshot,
-        currentIndex: Int,
-        prevIndex: Int,
-        totalStops: Int,
         isRefreshing: Boolean,
         goModeActive: Boolean
     ): LayoutElementBuilders.LayoutElement =
@@ -136,7 +131,6 @@ object TransitTileRenderer {
                     .addContent(buildFooter(context, device, snapshot, isRefreshing, goModeActive))
                     .build()
             )
-            .addContent(buildStopIndicatorArc(currentIndex, prevIndex, totalStops))
             .build()
 
     // ── Header ───────────────────────────────────────────────────────────────
@@ -236,7 +230,10 @@ object TransitTileRenderer {
                 val dm = context.resources.displayMetrics
                 var fontSize = 12f
                 val paint = android.graphics.Paint().apply {
-                    typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD)
+                    typeface = android.graphics.Typeface.create(
+                        "sans-serif",
+                        android.graphics.Typeface.BOLD
+                    )
                 }
 
                 fun getWidths(fSize: Float): FloatArray {
@@ -272,12 +269,21 @@ object TransitTileRenderer {
                 } else 8f
 
                 visible.forEachIndexed { i, row ->
-                    rowsCol.addContent(buildDepartureRow(context, device, row, gapDp, colWidthsDp, fontSize))
+                    rowsCol.addContent(
+                        buildDepartureRow(
+                            context,
+                            device,
+                            row,
+                            gapDp,
+                            colWidthsDp,
+                            fontSize
+                        )
+                    )
                     if (i < visible.lastIndex) rowsCol.addContent(vSpacer(6f))
                 }
                 val overflow = snapshot.rows.size - 3
                 if (overflow > 0) {
-                    rowsCol.addContent(vSpacer(3f))
+                    rowsCol.addContent(vSpacer(6f))
                     rowsCol.addContent(
                         LayoutElementBuilders.Box.Builder()
                             .setWidth(DimensionBuilders.expand())
@@ -521,7 +527,7 @@ object TransitTileRenderer {
                             .setVisualFeedbackEnabled(true)
                             .build()
                     )
-                    .setPadding(edgePadding(device, top = 4f, bottom = 18f, isHeaderFooter = true))
+                    .setPadding(edgePadding(device, top = 14f, bottom = 10f, isHeaderFooter = true))
                     .build()
             )
             .addContent(
@@ -546,111 +552,6 @@ object TransitTileRenderer {
                     )
                     .build()
             )
-            .build()
-    }
-
-    // ── Stop indicator arc ───────────────────────────────────────────────────
-
-    @OptIn(ProtoLayoutExperimental::class)
-    private fun buildStopIndicatorArc(
-        currentIndex: Int,
-        prevIndex: Int,
-        totalStops: Int
-    ): LayoutElementBuilders.LayoutElement {
-        if (totalStops <= 1) return LayoutElementBuilders.Spacer.Builder()
-            .setWidth(DimensionBuilders.dp(0f))
-            .setHeight(DimensionBuilders.dp(0f))
-            .build()
-
-        val gapDeg = 5f
-        val segDeg = ((60f - (totalStops - 1) * gapDeg) / totalStops).coerceAtLeast(1f)
-        val pitch = segDeg + gapDeg
-        val arcStart = 150f
-
-        fun segCenterAngle(stopIdx: Int): Float {
-            val drawIdx = totalStops - 1 - stopIdx
-            return arcStart + drawIdx * pitch + segDeg / 2f
-        }
-
-        val trackArc = LayoutElementBuilders.Arc.Builder()
-            .setAnchorAngle(DimensionBuilders.DegreesProp.Builder().setValue(180f).build())
-            .setAnchorType(
-                LayoutElementBuilders.ArcAnchorTypeProp.Builder()
-                    .setValue(LayoutElementBuilders.ARC_ANCHOR_CENTER)
-                    .build()
-            )
-        for (i in 0 until totalStops) {
-            if (i > 0) {
-                trackArc.addContent(
-                    LayoutElementBuilders.ArcSpacer.Builder()
-                        .setLength(DimensionBuilders.DegreesProp.Builder().setValue(gapDeg).build())
-                        .setThickness(DimensionBuilders.dp(2.5f))
-                        .build()
-                )
-            }
-            trackArc.addContent(
-                LayoutElementBuilders.ArcLine.Builder()
-                    .setLength(DimensionBuilders.DegreesProp.Builder().setValue(segDeg).build())
-                    .setThickness(DimensionBuilders.dp(2.5f))
-                    .setColor(ColorBuilders.argb(0x40FFFFFF))
-                    .setStrokeCap(
-                        LayoutElementBuilders.StrokeCapProp.Builder()
-                            .setValue(LayoutElementBuilders.STROKE_CAP_ROUND)
-                            .build()
-                    )
-                    .build()
-            )
-        }
-
-        val toAngle = segCenterAngle(currentIndex)
-        val fromAngle = segCenterAngle(prevIndex)
-        val isWrap = prevIndex == totalStops - 1 && currentIndex == 0
-        val slideSpec = AnimationParameterBuilders.AnimationSpec.Builder()
-            .setAnimationParameters(
-                AnimationParameterBuilders.AnimationParameters.Builder()
-                    .setDurationMillis(200)
-                    .build()
-            )
-            .build()
-        val anchorProp = if (!isWrap && fromAngle != toAngle) {
-            DimensionBuilders.DegreesProp.Builder()
-                .setValue(toAngle)
-                .setDynamicValue(
-                    DynamicBuilders.DynamicFloat.animate(
-                        fromAngle,
-                        toAngle,
-                        slideSpec
-                    )
-                )
-                .build()
-        } else {
-            DimensionBuilders.DegreesProp.Builder().setValue(toAngle).build()
-        }
-        val sliderArc = LayoutElementBuilders.Arc.Builder()
-            .setAnchorAngle(anchorProp)
-            .setAnchorType(
-                LayoutElementBuilders.ArcAnchorTypeProp.Builder()
-                    .setValue(LayoutElementBuilders.ARC_ANCHOR_CENTER)
-                    .build()
-            )
-            .addContent(
-                LayoutElementBuilders.ArcLine.Builder()
-                    .setLength(DimensionBuilders.DegreesProp.Builder().setValue(segDeg).build())
-                    .setThickness(DimensionBuilders.dp(2.5f))
-                    .setColor(ColorBuilders.argb(COLOR_WHITE))
-                    .setStrokeCap(
-                        LayoutElementBuilders.StrokeCapProp.Builder()
-                            .setValue(LayoutElementBuilders.STROKE_CAP_ROUND)
-                            .build()
-                    )
-                    .build()
-            )
-
-        return LayoutElementBuilders.Box.Builder()
-            .setWidth(DimensionBuilders.expand())
-            .setHeight(DimensionBuilders.expand())
-            .addContent(trackArc.build())
-            .addContent(sliderArc.build())
             .build()
     }
 
@@ -730,7 +631,11 @@ object TransitTileRenderer {
             .build()
     }
 
-    private fun timeText(time: String, color: Int, sizeSp: Float): LayoutElementBuilders.LayoutElement =
+    private fun timeText(
+        time: String,
+        color: Int,
+        sizeSp: Float
+    ): LayoutElementBuilders.LayoutElement =
         LayoutElementBuilders.Text.Builder()
             .setText(strProp(time))
             .setFontStyle(
@@ -771,10 +676,11 @@ object TransitTileRenderer {
             .build()
 
     private fun getClickAction(context: Context, path: String): ActionBuilders.Action {
-        val hasPermission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
-                    android.content.pm.PackageManager.PERMISSION_GRANTED
-        } else true
+        val hasPermission =
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
+                        android.content.pm.PackageManager.PERMISSION_GRANTED
+            } else true
 
         return if (hasPermission) {
             ActionBuilders.LoadAction.Builder().build()

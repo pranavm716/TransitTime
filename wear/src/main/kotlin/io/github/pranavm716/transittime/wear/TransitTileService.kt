@@ -49,7 +49,6 @@ class TransitTileService : TileService() {
         // Resolve by stop ID so the watch stays on the same stop when the list changes.
         val savedStopId = cache.getCurrentStopId()
         val currentIndex = savedStopId?.let { stopIds.indexOf(it) }?.takeIf { it >= 0 } ?: savedIndex
-        val prevIndex = currentIndex
         cache.saveCurrentIndex(currentIndex)
         val stopId = stopIds.getOrNull(currentIndex)
         stopId?.let { cache.saveCurrentStopId(it) }
@@ -85,8 +84,6 @@ class TransitTileService : TileService() {
             context = this@TransitTileService,
             deviceConfiguration = requestParams.deviceConfiguration,
             snapshot = effectiveSnapshot,
-            currentIndex = currentIndex,
-            prevIndex = prevIndex,
             totalStops = stopIds.size,
             isRefreshing = isRefreshing,
             goModeActive = effectiveGoModeActive
