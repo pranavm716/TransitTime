@@ -283,7 +283,7 @@ object TransitTileRenderer {
                 }
                 val overflow = snapshot.rows.size - 3
                 if (overflow > 0) {
-                    rowsCol.addContent(vSpacer(6f))
+                    rowsCol.addContent(vSpacer(4f))
                     rowsCol.addContent(
                         LayoutElementBuilders.Box.Builder()
                             .setWidth(DimensionBuilders.expand())
@@ -527,7 +527,7 @@ object TransitTileRenderer {
                             .setVisualFeedbackEnabled(true)
                             .build()
                     )
-                    .setPadding(edgePadding(device, top = 14f, bottom = 10f, isHeaderFooter = true))
+                    .setPadding(edgePadding(device, top = 8f, bottom = 10f, isHeaderFooter = true))
                     .build()
             )
             .addContent(
