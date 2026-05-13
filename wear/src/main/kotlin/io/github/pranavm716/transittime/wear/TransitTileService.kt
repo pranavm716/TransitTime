@@ -41,19 +41,11 @@ class TransitTileService : TileService() {
         val cache = WearLocalCache(this@TransitTileService)
         val stopIds = WearDataLayerReader.readStopIds(this@TransitTileService, cache)
         val lastClickableId = requestParams.currentState.lastClickableId
-        val tappedIndex = lastClickableId.toIntOrNull()
         val savedIndex = cache.getCurrentIndex().coerceIn(0, (stopIds.size - 1).coerceAtLeast(0))
-        val currentIndex = if (tappedIndex != null) {
-            tappedIndex.coerceIn(0, (stopIds.size - 1).coerceAtLeast(0))
-        } else {
-            // Resolve by stop ID so the watch stays on the same stop when the list changes.
-            val savedStopId = cache.getCurrentStopId()
-            val resolvedByStopId = savedStopId?.let { stopIds.indexOf(it) }?.takeIf { it >= 0 }
-            resolvedByStopId ?: savedIndex
-        }
-        // prevIndex is the old saved index — used to animate the arc from its previous position.
-        // On data refresh (no tap), prevIndex == currentIndex so no animation plays.
-        val prevIndex = if (tappedIndex != null) savedIndex else currentIndex
+        // Resolve by stop ID so the watch stays on the same stop when the list changes.
+        val savedStopId = cache.getCurrentStopId()
+        val currentIndex = savedStopId?.let { stopIds.indexOf(it) }?.takeIf { it >= 0 } ?: savedIndex
+        val prevIndex = currentIndex
         cache.saveCurrentIndex(currentIndex)
         val stopId = stopIds.getOrNull(currentIndex)
         stopId?.let { cache.saveCurrentStopId(it) }
@@ -63,8 +55,6 @@ class TransitTileService : TileService() {
         } else if (lastClickableId == "go_mode" && stopId != null) {
             performGoModeToggle(stopId, cache)
         }
-
-        val nextIndex = if (stopIds.size > 1) (currentIndex + 1) % stopIds.size else 0
 
         val localIsRefreshing = stopId?.let { cache.getRefreshingStartTime(it) > 0 } ?: false
 
@@ -92,7 +82,6 @@ class TransitTileService : TileService() {
             snapshot = effectiveSnapshot,
             currentIndex = currentIndex,
             prevIndex = prevIndex,
-            nextIndex = nextIndex,
             totalStops = stopIds.size,
             isRefreshing = isRefreshing,
             goModeActive = effectiveGoModeActive

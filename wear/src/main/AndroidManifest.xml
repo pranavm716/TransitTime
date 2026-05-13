@@ -37,6 +37,11 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:exported="true" />
 
+        <activity
+            android:name=".StopPickerActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.DeviceDefault" />
+
         <service
             android:name=".WearDataListenerService"
             android:exported="true">

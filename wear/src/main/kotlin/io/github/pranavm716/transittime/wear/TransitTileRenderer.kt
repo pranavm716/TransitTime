@@ -41,13 +41,12 @@ object TransitTileRenderer {
         snapshot: TileSnapshot,
         currentIndex: Int,
         prevIndex: Int,
-        nextIndex: Int,
         totalStops: Int,
         isRefreshing: Boolean,
         goModeActive: Boolean
     ): TileBuilders.Tile {
         val root = if (totalStops == 0) buildNoStopsLayout() else buildRoot(
-            context, deviceConfiguration, snapshot, nextIndex, currentIndex, prevIndex, totalStops, isRefreshing, goModeActive
+            context, deviceConfiguration, snapshot, currentIndex, prevIndex, totalStops, isRefreshing, goModeActive
         )
         return TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
@@ -107,7 +106,6 @@ object TransitTileRenderer {
         context: Context,
         device: DeviceParametersBuilders.DeviceParameters,
         snapshot: TileSnapshot,
-        nextIndex: Int,
         currentIndex: Int,
         prevIndex: Int,
         totalStops: Int,
@@ -133,7 +131,7 @@ object TransitTileRenderer {
                     .setWidth(DimensionBuilders.expand())
                     .setHeight(DimensionBuilders.expand())
                     .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-                    .addContent(buildHeader(context, device, snapshot, nextIndex))
+                    .addContent(buildHeader(context, device, snapshot))
                     .addContent(buildContent(context, device, snapshot))
                     .addContent(buildFooter(context, device, snapshot, isRefreshing, goModeActive))
                     .build()
@@ -146,8 +144,7 @@ object TransitTileRenderer {
     private fun buildHeader(
         context: Context,
         device: DeviceParametersBuilders.DeviceParameters,
-        snapshot: TileSnapshot,
-        nextIndex: Int
+        snapshot: TileSnapshot
     ): LayoutElementBuilders.LayoutElement {
         val logoId = when (snapshot.agency) {
             Agency.BART -> "ic_bart"
@@ -168,8 +165,17 @@ object TransitTileRenderer {
                 ModifiersBuilders.Modifiers.Builder()
                     .setClickable(
                         ModifiersBuilders.Clickable.Builder()
-                            .setId(nextIndex.toString())
-                            .setOnClick(ActionBuilders.LoadAction.Builder().build())
+                            .setId("stop_picker")
+                            .setOnClick(
+                                ActionBuilders.LaunchAction.Builder()
+                                    .setAndroidActivity(
+                                        ActionBuilders.AndroidActivity.Builder()
+                                            .setPackageName(context.packageName)
+                                            .setClassName(StopPickerActivity::class.java.name)
+                                            .build()
+                                    )
+                                    .build()
+                            )
                             .setVisualFeedbackEnabled(true)
                             .build()
                     )
