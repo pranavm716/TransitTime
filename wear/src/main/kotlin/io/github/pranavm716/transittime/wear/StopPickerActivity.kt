@@ -1,5 +1,6 @@
 package io.github.pranavm716.transittime.wear
 
+import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import android.content.SharedPreferences
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -45,8 +45,8 @@ import androidx.wear.compose.material.Text
 import androidx.wear.tiles.TileService
 import io.github.pranavm716.transittime.data.model.Agency
 
-private val BgMain = Color(0xFF0D1117)
-private val BgContainer = Color(0xFF161B22)
+private val BgMain = Color(0xFF000000)
+private val BgContainer = Color(0xFF000000)
 private val Accent = Color(0xFF238636)
 private val TextPrimary = Color(0xFFF8FAFC)
 private val TextSecondary = Color(0xFF94A3B8)
@@ -78,7 +78,8 @@ class StopPickerActivity : ComponentActivity() {
 }
 
 private fun buildStops(cache: WearLocalCache): List<Triple<String, String, Agency>> =
-    cache.getStopIds().mapNotNull { id -> cache.getSnapshot(id)?.let { Triple(id, it.stopName, it.agency) } }
+    cache.getStopIds()
+        .mapNotNull { id -> cache.getSnapshot(id)?.let { Triple(id, it.stopName, it.agency) } }
 
 @Composable
 private fun rememberLiveStops(cache: WearLocalCache): List<Triple<String, String, Agency>> {
@@ -138,6 +139,7 @@ private fun StopPickerScreen(
     ) {
         ScalingLazyColumn(
             state = listState,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .fillMaxSize()
                 .background(BgMain)
@@ -168,7 +170,7 @@ private fun StopPickerScreen(
                             Image(
                                 painter = painterResource(logoRes),
                                 contentDescription = null,
-                                modifier = Modifier.size(width = 28.dp, height = 13.dp)
+                                modifier = Modifier.size(width = 36.dp, height = 17.dp)
                             )
                             AutoSizeText(
                                 text = stopName,
@@ -182,7 +184,7 @@ private fun StopPickerScreen(
                     border = ChipDefaults.chipBorder(borderStroke = BorderStroke(1.dp, Accent)),
                     contentPadding = PaddingValues(horizontal = LOGO_GAP, vertical = 0.dp),
                     modifier = Modifier
-                        .padding(horizontal = 10.dp)
+                        .padding(horizontal = 8.dp)
                         .fillMaxWidth()
                         .height(CHIP_HEIGHT)
                 )
