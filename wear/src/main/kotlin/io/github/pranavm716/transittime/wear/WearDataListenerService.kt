@@ -6,6 +6,8 @@ import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.WearableListenerService
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -73,6 +75,18 @@ class WearDataListenerService : WearableListenerService() {
                     }
 
                     path == "/tile_snapshot_index" -> {
+                        val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
+                        val json = dataMap.getString("stopIds")
+                        val pushedAt = dataMap.getLong("pushedAt")
+                        if (json != null) {
+                            try {
+                                val type = object : TypeToken<List<String>>() {}.type
+                                val stopIds: List<String> = Gson().fromJson(json, type) ?: emptyList()
+                                cache.saveStopIds(stopIds, pushedAt)
+                            } catch (e: Exception) {
+                                Log.e("WearDataListener", "Failed to parse stop index", e)
+                            }
+                        }
                         shouldRefresh = true
                     }
 

@@ -42,6 +42,12 @@ class WearLocalCache(context: Context) {
 
     fun getStopIdsPushedAt(): Long = prefs.getLong(KEY_STOP_IDS_PUSHED_AT, 0L)
 
+    fun registerListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener) =
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+
+    fun unregisterListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener) =
+        prefs.unregisterOnSharedPreferenceChangeListener(listener)
+
     fun saveCurrentIndex(index: Int) = prefs.edit { putInt(KEY_CURRENT_INDEX, index) }
     fun getCurrentIndex(): Int = prefs.getInt(KEY_CURRENT_INDEX, 0)
 
