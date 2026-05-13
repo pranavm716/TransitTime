@@ -73,7 +73,7 @@
 
             <meta-data
                 android:name="androidx.wear.tiles.PREVIEW"
-                android:resource="@drawable/watch_sample_1" />
+                android:resource="@drawable/watch_widget_preview" />
             <meta-data
                 android:name="androidx.wear.tiles.LABEL"
                 android:resource="@string/tile_description" />
@@ -83,7 +83,8 @@
             android:name=".GoModeNotificationService"
             android:foregroundServiceType="specialUse"
             android:exported="false">
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Transit countdown for upcoming departures" />
         </service>
 
