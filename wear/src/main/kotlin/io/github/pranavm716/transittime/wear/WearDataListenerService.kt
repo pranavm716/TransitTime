@@ -49,7 +49,10 @@ class WearDataListenerService : WearableListenerService() {
                                 cache.saveSnapshot(snapshot, pushedAt)
                                 val localOverride = cache.getLocalGoModeOverride()
                                 if (localOverride != null) {
-                                    cache.setLocalGoModeOverride(null)
+                                    val currentStopId = cache.getCurrentStopId()
+                                    if (stopId == currentStopId && localOverride == snapshot.goModeActive) {
+                                        cache.setLocalGoModeOverride(null)
+                                    }
                                 }
                             } catch (e: Exception) {
                                 Log.e("WearDataListener", "Failed to parse/save snapshot", e)
