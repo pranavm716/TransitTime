@@ -51,7 +51,7 @@ for filtering by specific headsigns, multiple display modes, and color-coded del
 
 - Tap anywhere in the middle (on the departure info) to manually refresh all tiles.
 - Tap the agency logo or station name to select the active stop.
-    - In the stop picker, you can reorder the stops by dragging and dropping.
+    - In the stop picker, you can reorder the stops by dragging and dropping them.
 - Tap the last refreshed timestamp area to toggle **Go Mode** for that tile.
 
 **Notes**
