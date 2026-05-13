@@ -31,11 +31,15 @@ else
 	-adb -s $(PHONE) shell cmd deviceidle whitelist -$(PHONE_PKG)
   endef
   define reset-watch
-	-adb -s $(WATCH) shell pm clear $(WEAR_PKG)
-	-adb -s $(WATCH) shell pm revoke $(WEAR_PKG) android.permission.POST_NOTIFICATIONS
-	-adb -s $(WATCH) shell cmd deviceidle whitelist -$(WEAR_PKG)
+	$(if $(WATCH),-adb -s $(WATCH) shell pm clear $(WEAR_PKG))
+	$(if $(WATCH),-adb -s $(WATCH) shell pm revoke $(WEAR_PKG) android.permission.POST_NOTIFICATIONS)
+	$(if $(WATCH),-adb -s $(WATCH) shell cmd deviceidle whitelist -$(WEAR_PKG))
   endef
 endif
+
+define install-watch
+	$(if $(WATCH),adb -s $(WATCH) install -r $(WEAR_APK),$(warning WATCH not connected — skipping wear install))
+endef
 
 .PHONY: reinstall reinstall-phone reinstall-watch --phone --watch
 
@@ -44,7 +48,7 @@ reinstall:
 	$(reset-watch)
 	gradlew.bat $(GRADLE_APP) $(GRADLE_WEAR)
 	adb -s $(PHONE) install -r $(PHONE_APK)
-	adb -s $(WATCH) install -r $(WEAR_APK)
+	$(install-watch)
 
 reinstall-phone --phone:
 	$(reset-phone)
@@ -54,4 +58,4 @@ reinstall-phone --phone:
 reinstall-watch --watch:
 	$(reset-watch)
 	gradlew.bat $(GRADLE_WEAR)
-	adb -s $(WATCH) install -r $(WEAR_APK)
+	$(install-watch)
