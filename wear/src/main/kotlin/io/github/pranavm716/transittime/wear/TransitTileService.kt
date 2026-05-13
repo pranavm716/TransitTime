@@ -39,21 +39,16 @@ class TransitTileService : TileService() {
         requestParams: RequestBuilders.TileRequest
     ): TileBuilders.Tile = withContext(Dispatchers.IO) {
         val cache = WearLocalCache(this@TransitTileService)
-        val stopIds = WearDataLayerReader.readStopIds(this@TransitTileService, cache)
-        val lastClickableId = requestParams.currentState.lastClickableId
-        val tappedIndex = lastClickableId.toIntOrNull()
-        val savedIndex = cache.getCurrentIndex().coerceIn(0, (stopIds.size - 1).coerceAtLeast(0))
-        val currentIndex = if (tappedIndex != null) {
-            tappedIndex.coerceIn(0, (stopIds.size - 1).coerceAtLeast(0))
-        } else {
-            // Resolve by stop ID so the watch stays on the same stop when the list changes.
-            val savedStopId = cache.getCurrentStopId()
-            val resolvedByStopId = savedStopId?.let { stopIds.indexOf(it) }?.takeIf { it >= 0 }
-            resolvedByStopId ?: savedIndex
+        // Use cache directly — WearDataListenerService keeps it fresh whenever the phone pushes
+        // new data. Only fall back to the Data Layer if the cache is empty (first launch).
+        val stopIds = cache.getStopIds().ifEmpty {
+            WearDataLayerReader.readStopIds(this@TransitTileService, cache)
         }
-        // prevIndex is the old saved index — used to animate the arc from its previous position.
-        // On data refresh (no tap), prevIndex == currentIndex so no animation plays.
-        val prevIndex = if (tappedIndex != null) savedIndex else currentIndex
+        val lastClickableId = requestParams.currentState.lastClickableId
+        val savedIndex = cache.getCurrentIndex().coerceIn(0, (stopIds.size - 1).coerceAtLeast(0))
+        // Resolve by stop ID so the watch stays on the same stop when the list changes.
+        val savedStopId = cache.getCurrentStopId()
+        val currentIndex = savedStopId?.let { stopIds.indexOf(it) }?.takeIf { it >= 0 } ?: savedIndex
         cache.saveCurrentIndex(currentIndex)
         val stopId = stopIds.getOrNull(currentIndex)
         stopId?.let { cache.saveCurrentStopId(it) }
@@ -64,12 +59,11 @@ class TransitTileService : TileService() {
             performGoModeToggle(stopId, cache)
         }
 
-        val nextIndex = if (stopIds.size > 1) (currentIndex + 1) % stopIds.size else 0
-
         val localIsRefreshing = stopId?.let { cache.getRefreshingStartTime(it) > 0 } ?: false
 
         val snapshot: TileSnapshot? = if (stopId != null) {
-            WearDataLayerReader.readSnapshot(this@TransitTileService, stopId, cache)
+            // Same cache-first logic: skip the Data Layer IPC if the snapshot is already cached.
+            cache.getSnapshot(stopId) ?: WearDataLayerReader.readSnapshot(this@TransitTileService, stopId, cache)
         } else null
 
         val effectiveSnapshot = snapshot ?: TileSnapshot(
@@ -90,9 +84,6 @@ class TransitTileService : TileService() {
             context = this@TransitTileService,
             deviceConfiguration = requestParams.deviceConfiguration,
             snapshot = effectiveSnapshot,
-            currentIndex = currentIndex,
-            prevIndex = prevIndex,
-            nextIndex = nextIndex,
             totalStops = stopIds.size,
             isRefreshing = isRefreshing,
             goModeActive = effectiveGoModeActive

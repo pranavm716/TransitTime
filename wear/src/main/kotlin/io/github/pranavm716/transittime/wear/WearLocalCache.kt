@@ -42,6 +42,12 @@ class WearLocalCache(context: Context) {
 
     fun getStopIdsPushedAt(): Long = prefs.getLong(KEY_STOP_IDS_PUSHED_AT, 0L)
 
+    fun registerListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener) =
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+
+    fun unregisterListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener) =
+        prefs.unregisterOnSharedPreferenceChangeListener(listener)
+
     fun saveCurrentIndex(index: Int) = prefs.edit { putInt(KEY_CURRENT_INDEX, index) }
     fun getCurrentIndex(): Int = prefs.getInt(KEY_CURRENT_INDEX, 0)
 
@@ -73,6 +79,16 @@ class WearLocalCache(context: Context) {
         return if (v == -1) null else v == 1
     }
 
+    fun saveWatchStopOrder(stopIds: List<String>) {
+        prefs.edit { putString(KEY_WATCH_STOP_ORDER, gson.toJson(stopIds)) }
+    }
+
+    fun getWatchStopOrder(): List<String>? {
+        val json = prefs.getString(KEY_WATCH_STOP_ORDER, null) ?: return null
+        val type = object : TypeToken<List<String>>() {}.type
+        return gson.fromJson(json, type)
+    }
+
     private fun snapshotKey(stopId: String) = "snapshot_$stopId"
     private fun pushedAtKey(stopId: String) = "pushed_at_$stopId"
     private fun refreshingKey(stopId: String) = "refreshing_$stopId"
@@ -84,5 +100,6 @@ class WearLocalCache(context: Context) {
         private const val KEY_CURRENT_INDEX = "current_index"
         private const val KEY_CURRENT_STOP_ID = "current_stop_id"
         private const val KEY_LOCAL_GO_MODE_OVERRIDE = "local_go_mode_override"
+        private const val KEY_WATCH_STOP_ORDER = "watch_stop_order"
     }
 }
