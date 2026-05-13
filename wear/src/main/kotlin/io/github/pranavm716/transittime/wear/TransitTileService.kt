@@ -39,7 +39,11 @@ class TransitTileService : TileService() {
         requestParams: RequestBuilders.TileRequest
     ): TileBuilders.Tile = withContext(Dispatchers.IO) {
         val cache = WearLocalCache(this@TransitTileService)
-        val stopIds = WearDataLayerReader.readStopIds(this@TransitTileService, cache)
+        // Use cache directly — WearDataListenerService keeps it fresh whenever the phone pushes
+        // new data. Only fall back to the Data Layer if the cache is empty (first launch).
+        val stopIds = cache.getStopIds().ifEmpty {
+            WearDataLayerReader.readStopIds(this@TransitTileService, cache)
+        }
         val lastClickableId = requestParams.currentState.lastClickableId
         val savedIndex = cache.getCurrentIndex().coerceIn(0, (stopIds.size - 1).coerceAtLeast(0))
         // Resolve by stop ID so the watch stays on the same stop when the list changes.
@@ -59,7 +63,8 @@ class TransitTileService : TileService() {
         val localIsRefreshing = stopId?.let { cache.getRefreshingStartTime(it) > 0 } ?: false
 
         val snapshot: TileSnapshot? = if (stopId != null) {
-            WearDataLayerReader.readSnapshot(this@TransitTileService, stopId, cache)
+            // Same cache-first logic: skip the Data Layer IPC if the snapshot is already cached.
+            cache.getSnapshot(stopId) ?: WearDataLayerReader.readSnapshot(this@TransitTileService, stopId, cache)
         } else null
 
         val effectiveSnapshot = snapshot ?: TileSnapshot(
